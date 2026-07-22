@@ -1,0 +1,469 @@
+/**
+ * Additional Gallery for HivePress - front-end styles.
+ */
+
+/* --- Sidebar link --- */
+
+.hp-agl-link__button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+}
+
+.hp-agl-link__button .hp-icon {
+	margin-right: 0.5rem;
+}
+
+/* --- Account: shareable links --- */
+
+.hp-agl-account__share {
+	margin-bottom: 1.5rem;
+}
+
+.hp-agl-account__share strong {
+	display: block;
+	margin-bottom: 0.5rem;
+}
+
+.hp-agl-account__share-row {
+	display: flex;
+	gap: 0.5rem;
+	align-items: stretch;
+}
+
+.hp-agl-account__share-row input {
+	flex: 1;
+	min-width: 0;
+	font-size: 0.875em;
+}
+
+/* --- Account: folder list --- */
+
+.hp-agl-account__hint {
+	font-size: 0.8125em;
+	opacity: 0.7;
+	margin-bottom: 0.5rem;
+}
+
+.hp-agl-folders {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	margin-bottom: 2rem;
+}
+
+.hp-agl-folder {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.875rem 1rem;
+	border: 1px solid rgba(0, 0, 0, 0.1);
+	border-radius: 4px;
+	background: #fff;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hp-agl-folder:hover {
+	border-color: rgba(0, 0, 0, 0.25);
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.hp-agl-folder.ui-sortable-helper {
+	box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+
+.hp-agl-folder__handle {
+	cursor: grab;
+	opacity: 0.4;
+	flex: 0 0 auto;
+}
+
+.hp-agl-folder__link {
+	display: flex;
+	align-items: center;
+	gap: 0.625rem;
+	flex: 1 1 auto;
+	min-width: 0;
+	text-decoration: none;
+	color: inherit;
+}
+
+.hp-agl-folder__title {
+	font-weight: 600;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.hp-agl-folder__count {
+	font-size: 0.875em;
+	opacity: 0.7;
+	white-space: nowrap;
+}
+
+.hp-agl-folder__copy {
+	flex: 0 0 auto;
+	background: none;
+	border: none;
+	padding: 0.25rem 0.375rem;
+	cursor: pointer;
+	opacity: 0.5;
+	line-height: 1;
+	color: inherit;
+}
+
+.hp-agl-folder__copy:hover {
+	opacity: 1;
+}
+
+/* --- Badges --- */
+
+.hp-agl-badge {
+	font-size: 0.75em;
+	font-weight: 600;
+	padding: 0.125rem 0.5rem;
+	border-radius: 99px;
+	white-space: nowrap;
+}
+
+.hp-agl-badge--public {
+	background: rgba(70, 180, 80, 0.12);
+	color: #2e7d32;
+}
+
+.hp-agl-badge--members {
+	background: rgba(240, 165, 0, 0.14);
+	color: #9a6700;
+}
+
+.hp-agl-badge--private {
+	background: rgba(0, 0, 0, 0.08);
+	color: #555;
+}
+
+/* --- Account: create form + states --- */
+
+.hp-agl-account__create {
+	padding-top: 1.5rem;
+	border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.hp-agl-account__empty,
+.hp-agl-account__limit {
+	margin-bottom: 1.5rem;
+	opacity: 0.8;
+}
+
+/* --- Folder edit page --- */
+
+.hp-agl-folder-edit__back {
+	margin-bottom: 1rem;
+}
+
+.hp-agl-folder-edit__hint {
+	display: flex;
+	align-items: baseline;
+	gap: 0.5rem;
+	font-size: 0.875em;
+	padding: 0.625rem 0.875rem;
+	border-radius: 4px;
+	margin-bottom: 1.25rem;
+}
+
+.hp-agl-folder-edit__hint--public {
+	background: rgba(70, 180, 80, 0.1);
+}
+
+.hp-agl-folder-edit__hint--members {
+	background: rgba(240, 165, 0, 0.12);
+}
+
+.hp-agl-folder-edit__hint--private {
+	background: rgba(0, 0, 0, 0.05);
+}
+
+.hp-agl-folder-edit__hint .hp-icon {
+	flex: 0 0 auto;
+}
+
+.hp-agl-folder-edit__delete {
+	margin-top: 2.5rem;
+	padding-top: 1.5rem;
+	border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* --- Image description inputs --- */
+
+.hp-agl-caption {
+	display: block;
+	width: 100%;
+	margin-top: 0.375rem;
+	padding: 0.3125rem 0.5rem;
+	font-size: 0.75rem;
+	line-height: 1.4;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+}
+
+.hp-agl-caption.is-saving {
+	border-color: #c8c8c8;
+	background-image: linear-gradient(90deg, #f7f7f7 25%, #efefef 50%, #f7f7f7 75%);
+	background-size: 200% 100%;
+	animation: hp-agl-saving 1s linear infinite;
+}
+
+.hp-agl-caption.is-saved {
+	border-color: #46b450;
+}
+
+.hp-agl-caption.is-error {
+	border-color: #dc3232;
+}
+
+@keyframes hp-agl-saving {
+	from {
+		background-position: 200% 0;
+	}
+
+	to {
+		background-position: 0 0;
+	}
+}
+
+/* --- Public gallery: shared --- */
+
+.hp-agl-gallery__profile {
+	margin-bottom: 0.5rem;
+}
+
+.hp-agl-gallery__updated {
+	font-size: 0.8125em;
+	opacity: 0.7;
+	margin: 0 0 1.5rem;
+}
+
+.hp-agl-gallery__updated .hp-icon {
+	margin-right: 0.25rem;
+}
+
+.hp-agl-gallery__empty {
+	opacity: 0.8;
+}
+
+.hp-agl-gallery__folder-title-badge {
+	margin-bottom: 0.75rem;
+}
+
+.hp-agl-gallery__folder-description {
+	opacity: 0.85;
+	margin-bottom: 1rem;
+	max-width: 46rem;
+}
+
+.hp-agl-gallery__folder-unlock {
+	margin-top: 1.25rem;
+}
+
+.hp-agl-gallery__folder-unlock .button .hp-icon {
+	margin-right: 0.5rem;
+}
+
+/* --- Public gallery: single-page layout --- */
+
+.hp-agl-gallery__folder {
+	margin-bottom: 3rem;
+}
+
+.hp-agl-gallery__folder-title {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+}
+
+.hp-agl-gallery__folder-title .hp-agl-badge {
+	font-size: 0.5em;
+}
+
+.hp-agl-gallery__folder-title .hp-agl-badge .hp-icon {
+	margin-right: 0.25rem;
+}
+
+.hp-agl-gallery__folder-link {
+	font-size: 0.5em;
+	opacity: 0.35;
+	transition: opacity 0.15s ease;
+}
+
+.hp-agl-gallery__folder-title:hover .hp-agl-gallery__folder-link {
+	opacity: 1;
+}
+
+.hp-agl-gallery__folder-locked-note {
+	opacity: 0.8;
+	margin-bottom: 1rem;
+}
+
+/* --- Public gallery: folder covers layout --- */
+
+.hp-agl-covers {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: 1.5rem;
+}
+
+.hp-agl-cover {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	text-decoration: none;
+	color: inherit;
+}
+
+.hp-agl-cover__image {
+	position: relative;
+	display: block;
+	overflow: hidden;
+	border-radius: 6px;
+	aspect-ratio: 4 / 3;
+	background: #f2f2f2;
+}
+
+.hp-agl-cover__image img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+	transition: transform 0.25s ease;
+}
+
+.hp-agl-cover:hover .hp-agl-cover__image img {
+	transform: scale(1.04);
+}
+
+.hp-agl-cover__image--placeholder {
+	background: linear-gradient(135deg, #ececec, #dcdcdc);
+}
+
+.hp-agl-cover__image > .hp-icon {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	font-size: 1.375rem;
+	color: #fff;
+	text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+}
+
+.hp-agl-cover__image--placeholder > .hp-icon {
+	color: #999;
+	text-shadow: none;
+}
+
+.hp-agl-cover--locked .hp-agl-cover__image img {
+	transform: none;
+}
+
+.hp-agl-cover__title {
+	font-weight: 600;
+	line-height: 1.3;
+}
+
+.hp-agl-cover__count {
+	font-size: 0.8125em;
+	opacity: 0.7;
+}
+
+.hp-agl-cover .hp-agl-badge {
+	align-self: flex-start;
+}
+
+/* --- Media grid --- */
+
+.hp-agl-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+	gap: 0.75rem;
+}
+
+.hp-agl-grid__item {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: 0.375rem;
+}
+
+.hp-agl-grid__item > a,
+.hp-agl-grid__item > video {
+	position: relative;
+	display: block;
+	overflow: hidden;
+	border-radius: 4px;
+	aspect-ratio: 1 / 1;
+	width: 100%;
+}
+
+.hp-agl-grid__item img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+	transition: transform 0.25s ease;
+}
+
+.hp-agl-grid__item > a:hover img {
+	transform: scale(1.04);
+}
+
+.hp-agl-grid__item--video > video {
+	object-fit: cover;
+	background: #000;
+}
+
+.hp-agl-grid__caption {
+	font-size: 0.8125em;
+	line-height: 1.4;
+	opacity: 0.75;
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+}
+
+/* --- Media grid: locked --- */
+
+.hp-agl-grid__item--locked {
+	display: block;
+	overflow: hidden;
+	border-radius: 4px;
+	aspect-ratio: 1 / 1;
+}
+
+.hp-agl-grid__item--locked img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+	filter: saturate(0.8);
+}
+
+.hp-agl-grid__item--locked > .hp-icon {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	font-size: 1.25rem;
+	color: #fff;
+	text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+
+.hp-agl-grid__item--placeholder {
+	background: linear-gradient(135deg, #ececec, #dcdcdc);
+}
+
+.hp-agl-grid__item--placeholder > .hp-icon {
+	color: #999;
+	text-shadow: none;
+}

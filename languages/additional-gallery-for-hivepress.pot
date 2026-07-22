@@ -1,0 +1,456 @@
+# Copyright (C) 2026 Chris B
+# This file is distributed under the same license as the Additional Gallery for HivePress plugin.
+msgid ""
+msgstr ""
+"Project-Id-Version: Additional Gallery for HivePress 1.2.0\n"
+"Report-Msgid-Bugs-To: https://community.hivepress.io/u/chrisb\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-07-18T16:38:27+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Domain: additional-gallery-for-hivepress\n"
+
+#. Plugin Name of the plugin
+#: additional-gallery-for-hivepress.php
+msgid "Additional Gallery for HivePress"
+msgstr ""
+
+#. Description of the plugin
+#: additional-gallery-for-hivepress.php
+msgid "Gives vendors a front-end photo gallery with public, members-only and private folders, accessible from the account menu and linked from vendor profiles and listings."
+msgstr ""
+
+#. Author of the plugin
+#: additional-gallery-for-hivepress.php
+msgid "Chris B @ HivePress Community"
+msgstr ""
+
+#. Author URI of the plugin
+#: additional-gallery-for-hivepress.php
+msgid "https://community.hivepress.io/u/chrisb"
+msgstr ""
+
+#: additional-gallery-for-hivepress.php:143
+msgid "Additional Gallery for HivePress requires the HivePress plugin to be installed and activated."
+msgstr ""
+
+#: includes/controllers/class-gallery.php:82
+#: includes/configs/settings.php:19
+msgid "Gallery"
+msgstr ""
+
+#: includes/controllers/class-gallery.php:139
+msgid "Only vendors can create gallery folders."
+msgstr ""
+
+#: includes/controllers/class-gallery.php:144
+#: includes/controllers/class-gallery.php:232
+#: includes/controllers/class-gallery.php:349
+msgid "Your current membership does not include the gallery feature."
+msgstr ""
+
+#. translators: %s: folders number.
+#: includes/controllers/class-gallery.php:160
+msgid "Only up to %s folders can be created."
+msgstr ""
+
+#: includes/controllers/class-gallery.php:250
+msgid "One or more of your photos appears to contain inappropriate content. Please replace or remove it and try again."
+msgstr ""
+
+#: includes/controllers/class-gallery.php:358
+msgid "Image descriptions can be up to 500 characters long."
+msgstr ""
+
+#. translators: %s: vendor name.
+#: includes/controllers/class-gallery.php:571
+msgid "Gallery: %s"
+msgstr ""
+
+#. translators: 1: photos number, 2: videos number.
+#: includes/components/class-gallery.php:529
+msgid "%1$s photos, %2$s videos"
+msgstr ""
+
+#. translators: %s: videos number.
+#: includes/components/class-gallery.php:534
+msgid "%s video"
+msgid_plural "%s videos"
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %s: photos number.
+#: includes/components/class-gallery.php:538
+msgid "%s photo"
+msgid_plural "%s photos"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/components/class-gallery.php:669
+msgid "API Key"
+msgstr ""
+
+#: includes/components/class-gallery.php:670
+msgid "Your OpenAI API key, shared by any installed extension that uses OpenAI's free Moderation endpoint. Moderation calls are free, but an OpenAI API account is required to obtain a key."
+msgstr ""
+
+#: includes/components/class-gallery.php:850
+msgid "Vendor"
+msgstr ""
+
+#: includes/components/class-gallery.php:851
+#: includes/models/class-gallery-folder.php:67
+#: includes/configs/meta-boxes.php:67
+msgid "Visibility"
+msgstr ""
+
+#: includes/components/class-gallery.php:852
+#: includes/models/class-gallery-folder.php:118
+msgid "Images"
+msgstr ""
+
+#: includes/components/class-gallery.php:885
+#: includes/models/class-gallery-folder.php:75
+#: includes/configs/meta-boxes.php:74
+#: includes/blocks/class-gallery-folders.php:94
+msgid "Public"
+msgstr ""
+
+#: includes/components/class-gallery.php:886
+#: includes/models/class-gallery-folder.php:76
+#: includes/configs/meta-boxes.php:75
+#: includes/blocks/class-gallery-folder-view.php:47
+#: includes/blocks/class-gallery-folders.php:95
+#: includes/blocks/class-gallery-view.php:111
+#: includes/blocks/class-gallery-view.php:196
+msgid "Members only"
+msgstr ""
+
+#: includes/components/class-gallery.php:887
+#: includes/models/class-gallery-folder.php:77
+#: includes/configs/meta-boxes.php:76
+#: includes/blocks/class-gallery-folders.php:96
+msgid "Private"
+msgstr ""
+
+#: includes/models/class-gallery-folder.php:51
+msgid "Folder Name"
+msgstr ""
+
+#: includes/models/class-gallery-folder.php:59
+msgid "Description"
+msgstr ""
+
+#: includes/models/class-gallery-folder.php:68
+msgid "Public folders are visible to everyone. Members-only folders are locked for visitors without member access. Private folders are visible only to you."
+msgstr ""
+
+#: includes/models/class-gallery-folder.php:119
+msgid "Select Images"
+msgstr ""
+
+#: includes/configs/post-types.php:23
+#: includes/configs/post-types.php:29
+msgid "Gallery Folders"
+msgstr ""
+
+#: includes/configs/post-types.php:24
+msgid "Gallery Folder"
+msgstr ""
+
+#: includes/configs/post-types.php:25
+msgctxt "gallery folder"
+msgid "Add New"
+msgstr ""
+
+#: includes/configs/post-types.php:26
+#: includes/configs/post-types.php:28
+msgid "Add Gallery Folder"
+msgstr ""
+
+#: includes/configs/post-types.php:27
+msgid "Edit Gallery Folder"
+msgstr ""
+
+#: includes/configs/post-types.php:30
+msgid "Search Gallery Folders"
+msgstr ""
+
+#: includes/configs/post-types.php:31
+#: includes/configs/post-types.php:32
+msgid "No gallery folders found."
+msgstr ""
+
+#: includes/configs/scripts.php:30
+msgid "Are you sure you want to delete this folder? All of its images will be permanently removed."
+msgstr ""
+
+#: includes/configs/scripts.php:31
+msgid "Link copied!"
+msgstr ""
+
+#: includes/configs/scripts.php:32
+msgid "Descriptions saved."
+msgstr ""
+
+#: includes/configs/scripts.php:33
+msgid "Something went wrong. Please try again."
+msgstr ""
+
+#: includes/configs/settings.php:24
+msgid "Vendor Pages"
+msgstr ""
+
+#: includes/configs/settings.php:25
+msgid "Hide the gallery link on vendor profiles"
+msgstr ""
+
+#: includes/configs/settings.php:31
+msgid "Listing Pages"
+msgstr ""
+
+#: includes/configs/settings.php:32
+msgid "Hide the gallery link on listing pages"
+msgstr ""
+
+#: includes/configs/settings.php:38
+msgid "Gallery Layout"
+msgstr ""
+
+#: includes/configs/settings.php:39
+msgid "Choose how the public gallery page displays folders."
+msgstr ""
+
+#: includes/configs/settings.php:45
+msgid "Folder covers"
+msgstr ""
+
+#: includes/configs/settings.php:46
+msgid "Single page"
+msgstr ""
+
+#: includes/configs/settings.php:51
+msgid "Maximum Folders"
+msgstr ""
+
+#: includes/configs/settings.php:52
+msgid "Set the maximum number of gallery folders per vendor. Leave empty for no limit."
+msgstr ""
+
+#: includes/configs/settings.php:59
+msgid "Maximum Images per Folder"
+msgstr ""
+
+#: includes/configs/settings.php:60
+msgid "Set the maximum number of images allowed in each folder. Leave empty for the default of 30."
+msgstr ""
+
+#: includes/configs/settings.php:67
+msgid "Videos"
+msgstr ""
+
+#: includes/configs/settings.php:68
+msgid "Allow uploading videos"
+msgstr ""
+
+#: includes/configs/settings.php:74
+msgid "AI Moderation"
+msgstr ""
+
+#: includes/configs/settings.php:75
+msgid "Review gallery photos with AI"
+msgstr ""
+
+#: includes/configs/settings.php:76
+msgid "Checks a folder's photos with OpenAI when it is saved, using the API key from the HivePress Integrations settings. All photos are checked together in one free request. Your site must be publicly reachable for OpenAI to fetch the photos; on local or private sites, and whenever the service is unavailable, saving simply proceeds unchecked."
+msgstr ""
+
+#: includes/configs/settings.php:82
+msgid "Vendor Access Plans"
+msgstr ""
+
+#: includes/configs/settings.php:83
+msgid "Select the membership plans that allow vendors to use the gallery feature. Leave empty to allow all vendors. Requires the HivePress Memberships extension."
+msgstr ""
+
+#: includes/configs/settings.php:92
+msgid "Viewer Access Plans"
+msgstr ""
+
+#: includes/configs/settings.php:93
+msgid "Select the membership plans that allow users to view members-only folders. If empty, members-only folders are visible to their owners only. Requires the HivePress Memberships extension."
+msgstr ""
+
+#: includes/configs/settings.php:102
+msgid "Locked Folder Display"
+msgstr ""
+
+#: includes/configs/settings.php:103
+msgid "Choose how members-only folders appear to visitors without access."
+msgstr ""
+
+#: includes/configs/settings.php:109
+msgid "Show blurred previews"
+msgstr ""
+
+#: includes/configs/settings.php:110
+msgid "Show locked placeholders"
+msgstr ""
+
+#: includes/configs/settings.php:111
+msgid "Hide completely"
+msgstr ""
+
+#: includes/configs/settings.php:116
+msgid "Upgrade Page"
+msgstr ""
+
+#: includes/configs/settings.php:117
+msgid "Choose the page locked visitors are sent to, e.g. your membership pricing page."
+msgstr ""
+
+#: includes/configs/settings.php:125
+msgid "Protect Files"
+msgstr ""
+
+#: includes/configs/settings.php:126
+msgid "Store new uploads with unguessable file names"
+msgstr ""
+
+#: includes/configs/settings.php:127
+msgid "Appends a random suffix to newly uploaded file names (the HivePress protection mechanism), which prevents URL guessing and enumeration. It does not restrict access for anyone who already has a direct file URL, and it does not rename existing files."
+msgstr ""
+
+#: includes/blocks/class-gallery-folder-edit.php:40
+msgid "Back to Gallery"
+msgstr ""
+
+#: includes/blocks/class-gallery-folder-edit.php:45
+msgid "View it live"
+msgstr ""
+
+#: includes/blocks/class-gallery-folder-edit.php:48
+msgid "This folder is public and appears in your gallery."
+msgstr ""
+
+#: includes/blocks/class-gallery-folder-edit.php:50
+msgid "This folder is members-only. It appears in your gallery, but the photos stay locked until a visitor unlocks access."
+msgstr ""
+
+#: includes/blocks/class-gallery-folder-edit.php:52
+msgid "This folder is private. Only you can see it."
+msgstr ""
+
+#: includes/blocks/class-gallery-folder-edit.php:60
+#: includes/blocks/class-gallery-view.php:114
+msgid "Folder link"
+msgstr ""
+
+#: includes/blocks/class-gallery-folder-edit.php:63
+#: includes/blocks/class-gallery-folders.php:64
+msgid "Copy"
+msgstr ""
+
+#: includes/blocks/class-gallery-folder-edit.php:84
+#: includes/forms/class-gallery-folder-delete.php:29
+#: includes/forms/class-gallery-folder-delete.php:50
+msgid "Delete Folder"
+msgstr ""
+
+#. translators: %s: vendor name.
+#: includes/blocks/class-gallery-folder-view.php:41
+msgid "Back to %s's gallery"
+msgstr ""
+
+#. translators: %s: human-readable time difference.
+#: includes/blocks/class-gallery-folder-view.php:61
+#: includes/blocks/class-gallery-view.php:77
+msgid "Updated %s ago"
+msgstr ""
+
+#: includes/blocks/class-gallery-folder-view.php:74
+#: includes/blocks/class-gallery-view.php:130
+msgid "Unlock Access"
+msgstr ""
+
+#: includes/blocks/class-gallery-folders.php:61
+msgid "Your public gallery link"
+msgstr ""
+
+#: includes/blocks/class-gallery-folders.php:65
+msgid "View"
+msgstr ""
+
+#: includes/blocks/class-gallery-folders.php:73
+msgid "Drag folders to reorder them in your gallery."
+msgstr ""
+
+#: includes/blocks/class-gallery-folders.php:100
+msgid "Drag to reorder"
+msgstr ""
+
+#: includes/blocks/class-gallery-folders.php:110
+msgid "Copy folder link"
+msgstr ""
+
+#: includes/blocks/class-gallery-folders.php:118
+msgid "You have no gallery folders yet. Create your first folder below to start showcasing your work."
+msgstr ""
+
+#. translators: %s: folders number.
+#: includes/blocks/class-gallery-folders.php:127
+msgid "You have reached the limit of %s folder."
+msgid_plural "You have reached the limit of %s folders."
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/blocks/class-gallery-folders.php:130
+msgid "New Folder"
+msgstr ""
+
+#. translators: %s: media counts, e.g. "12 photos".
+#: includes/blocks/class-gallery-link.php:76
+msgid "View Gallery (%s)"
+msgstr ""
+
+#. translators: %s: vendor name.
+#: includes/blocks/class-gallery-view.php:58
+msgid "View %s's profile"
+msgstr ""
+
+#. translators: %s: media counts.
+#: includes/blocks/class-gallery-view.php:123
+msgid "This folder contains %s."
+msgstr ""
+
+#: includes/blocks/class-gallery-view.php:208
+msgid "This gallery has no photos yet. Check back soon!"
+msgstr ""
+
+#: includes/forms/class-gallery-folder-create.php:32
+#: includes/forms/class-gallery-folder-create.php:70
+msgid "Create Folder"
+msgstr ""
+
+#: includes/forms/class-gallery-folder-create.php:51
+msgid "Folder created."
+msgstr ""
+
+#: includes/forms/class-gallery-folder-delete.php:46
+msgid "Deleting a folder permanently removes all of its images."
+msgstr ""
+
+#: includes/forms/class-gallery-folder-update.php:33
+msgid "Edit Folder"
+msgstr ""
+
+#: includes/forms/class-gallery-folder-update.php:51
+msgid "Changes saved."
+msgstr ""
+
+#: includes/forms/class-gallery-folder-update.php:72
+msgid "Save Changes"
+msgstr ""
