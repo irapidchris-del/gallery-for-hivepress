@@ -263,14 +263,44 @@ add_action(
 					delete_option( $option );
 				}
 
-				// Recompute the persisted gating flags from the migrated plans.
-				if ( function_exists( 'hivepress' ) && hivepress()->gallery ) {
-					hivepress()->gallery->refresh_gating_flags();
+				// Recompute the persisted gating flags directly (not via the
+				// component), so the fail-closed flags are correct even if
+				// HivePress is inactive during the upgrade.
+				$plan_post_type = hp_agl_get_plan_post_type() ? hp_agl_get_plan_post_type() : 'hp_membership_plan';
+
+				foreach (
+					[
+						'hp_gallery_access' => 'hp_gallery_access_gated',
+						'hp_gallery_view'   => 'hp_gallery_view_gated',
+					] as $meta_key => $flag
+				) {
+					$gated = get_posts(
+						[
+							'post_type'   => $plan_post_type,
+							'post_status' => 'publish',
+							'numberposts' => 1,
+							'fields'      => 'ids',
+
+							'meta_query'  => [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- one-off upgrade check across a small plan set.
+								[
+									'key'   => $meta_key,
+									'value' => '1',
+								],
+							],
+						]
+					);
+
+					update_option( $flag, $gated ? '1' : '' );
 				}
 
 				// Enable file protection by default, and flush the new file route.
 				add_option( 'hp_gallery_protect_files', '1' );
 				update_option( 'hp_agl_flush_rewrite_rules', '1' );
+
+				// Relocate existing private and members-only files behind the proxy.
+				if ( function_exists( 'hivepress' ) && hivepress()->gallery && get_option( 'hp_gallery_protect_files' ) ) {
+					hivepress()->gallery->sync_all_protection( '', '1' );
+				}
 			}
 
 			update_option( 'hp_agl_version', HP_AGL_VERSION );

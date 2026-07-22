@@ -49,9 +49,12 @@ final class Gallery extends Component {
 		add_filter( 'hivepress/v1/models/membership_plan', [ $this, 'add_plan_fields' ] );
 		add_filter( 'hivepress/v1/meta_boxes/membership_plan_settings', [ $this, 'add_plan_settings' ] );
 
-		// Keep the fail-closed gating flags in sync when a plan is saved or removed.
-		add_action( 'save_post_hp_membership_plan', [ $this, 'refresh_gating_flags' ] );
-		add_action( 'deleted_post', [ $this, 'refresh_gating_flags_for_post' ] );
+		// Keep the fail-closed gating flags in sync when a plan is saved or
+		// removed. The HivePress model action fires after the plan meta is
+		// persisted; the late save_post is a fallback (both are idempotent).
+		add_action( 'hivepress/v1/models/membership_plan/update', [ $this, 'refresh_gating_flags' ] );
+		add_action( 'save_post', [ $this, 'refresh_gating_flags_for_post' ], 999, 2 );
+		add_action( 'deleted_post', [ $this, 'refresh_gating_flags_for_post' ], 10, 2 );
 		add_action( 'trashed_post', [ $this, 'refresh_gating_flags_for_post' ] );
 		add_action( 'untrashed_post', [ $this, 'refresh_gating_flags_for_post' ] );
 
@@ -358,13 +361,24 @@ final class Gallery extends Component {
 	}
 
 	/**
-	 * Refreshes the gating flags when a membership plan is deleted or trashed.
+	 * Refreshes the gating flags when a membership plan is saved, deleted or
+	 * trashed. Runs on the generic save_post at a late priority so the plan
+	 * meta is already persisted, and reads the type from the passed post so it
+	 * still works from `deleted_post` (after the row is gone).
 	 *
-	 * @param int $post_id Post ID.
+	 * @param int          $post_id Post ID.
+	 * @param \WP_Post|null $post Post object, when provided by the hook.
 	 * @return void
 	 */
-	public function refresh_gating_flags_for_post( $post_id ) {
-		if ( 'hp_membership_plan' === get_post_type( $post_id ) ) {
+	public function refresh_gating_flags_for_post( $post_id, $post = null ) {
+		if ( wp_is_post_autosave( $post_id ) || wp_is_post_revision( $post_id ) ) {
+			return;
+		}
+
+		$type       = $post instanceof \WP_Post ? $post->post_type : get_post_type( $post_id );
+		$plan_types = array_filter( [ hp_agl_get_plan_post_type(), 'hp_membership_plan' ] );
+
+		if ( in_array( $type, $plan_types, true ) ) {
 			$this->refresh_gating_flags();
 		}
 	}
@@ -1141,6 +1155,10 @@ final class Gallery extends Component {
 			return false;
 		}
 
+		// Track whether anything will actually change, so an image that is
+		// already within bounds is not needlessly re-encoded.
+		$changed = $quality || $strip || $convert;
+
 		if ( $quality ) {
 			$editor->set_quality( min( 100, max( 10, $quality ) ) );
 		}
@@ -1150,7 +1168,13 @@ final class Gallery extends Component {
 
 			if ( is_array( $size ) && ( $size['width'] > $max_dim || $size['height'] > $max_dim ) ) {
 				$editor->resize( $max_dim, $max_dim, false );
+
+				$changed = true;
 			}
+		}
+
+		if ( ! $changed ) {
+			return false;
 		}
 
 		// Choose the output file (re-encoding always drops most metadata).
@@ -1158,11 +1182,16 @@ final class Gallery extends Component {
 		$target_file = $file;
 
 		if ( $convert ) {
-			$target_file = preg_replace( '/\.\w+$/', '.webp', $file );
+			$dir  = dirname( $file );
+			$base = preg_replace( '/\.\w+$/', '.webp', basename( $file ) );
 
-			if ( ! $target_file || $target_file === $file ) {
-				$target_file = $file . '.webp';
+			if ( ! $base ) {
+				$base = basename( $file ) . '.webp';
 			}
+
+			// Ensure a unique name so a converted file never overwrites another
+			// attachment's file in the same directory.
+			$target_file = trailingslashit( $dir ) . wp_unique_filename( $dir, $base );
 		}
 
 		$saved = $editor->save( $target_file, $target_mime );
@@ -1219,13 +1248,20 @@ final class Gallery extends Component {
 
 		$metadata = wp_get_attachment_metadata( $attachment_id );
 
-		if ( $file && is_array( $metadata ) && ! empty( $metadata['sizes'] ) ) {
+		if ( $file && is_array( $metadata ) ) {
 			$dir = dirname( $file );
 
-			foreach ( $metadata['sizes'] as $size ) {
-				if ( ! empty( $size['file'] ) && file_exists( $dir . '/' . $size['file'] ) ) {
-					$bytes += (int) filesize( $dir . '/' . $size['file'] );
+			if ( ! empty( $metadata['sizes'] ) ) {
+				foreach ( $metadata['sizes'] as $size ) {
+					if ( ! empty( $size['file'] ) && file_exists( $dir . '/' . $size['file'] ) ) {
+						$bytes += (int) filesize( $dir . '/' . $size['file'] );
+					}
 				}
+			}
+
+			// Include the scaled big-image original backup, if present.
+			if ( ! empty( $metadata['original_image'] ) && file_exists( $dir . '/' . $metadata['original_image'] ) ) {
+				$bytes += (int) filesize( $dir . '/' . $metadata['original_image'] );
 			}
 		}
 
@@ -1266,6 +1302,12 @@ final class Gallery extends Component {
 	public function handle_bulk_actions( $redirect, $action, $post_ids ) {
 		if ( ! in_array( $action, [ 'hp_agl_optimize', 'hp_agl_restore' ], true ) ) {
 			return $redirect;
+		}
+
+		// Image processing is heavy; give the batch as much runtime as the host
+		// allows (best effort - ignored when disabled).
+		if ( function_exists( 'set_time_limit' ) ) {
+			@set_time_limit( 0 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.PHP.IniSet
 		}
 
 		$count = 0;
@@ -1826,13 +1868,42 @@ final class Gallery extends Component {
 
 		$protect = $this->is_file_protection_enabled() && in_array( $folder->get_visibility(), [ 'members', 'private' ], true );
 
-		foreach ( (array) $folder->get_images__id() as $attachment_id ) {
+		// Query the folder's attachments directly rather than through the
+		// cached relation, so a just-uploaded file is never missed (and so a
+		// stale cache can never leave a private file unprotected).
+		foreach ( $this->get_folder_attachment_ids( $folder->get_id() ) as $attachment_id ) {
 			if ( $protect ) {
 				$this->protect_attachment( $attachment_id );
 			} else {
 				$this->unprotect_attachment( $attachment_id );
 			}
 		}
+	}
+
+	/**
+	 * Gets a folder's attachment IDs directly from the database (bypassing the
+	 * cached relation), for the protection sync.
+	 *
+	 * @param int $folder_id Folder ID.
+	 * @return array
+	 */
+	protected function get_folder_attachment_ids( $folder_id ) {
+		return get_posts(
+			[
+				'post_type'   => 'attachment',
+				'post_status' => 'inherit',
+				'post_parent' => absint( $folder_id ),
+				'numberposts' => -1,
+				'fields'      => 'ids',
+
+				'meta_query'  => [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- bounded per-folder lookup that must not depend on cache freshness for a security-relevant relocation.
+					[
+						'key'   => 'hp_parent_field',
+						'value' => 'images',
+					],
+				],
+			]
+		);
 	}
 
 	/**
@@ -1850,7 +1921,7 @@ final class Gallery extends Component {
 		$folder_ids = get_posts(
 			[
 				'post_type'   => 'hp_gallery_folder',
-				'post_status' => 'publish',
+				'post_status' => 'any',
 				'numberposts' => -1,
 				'fields'      => 'ids',
 			]
@@ -1955,28 +2026,67 @@ final class Gallery extends Component {
 			}
 		}
 
-		// Move each file, tolerating already-moved or missing variants.
-		foreach ( array_unique( $files ) as $file ) {
-			$from = $from_dir . '/' . $file;
-			$to   = $to_dir . '/' . $file;
+		$files = array_unique( $files );
+		$main  = basename( $relative );
 
-			if ( $from === $to || ! file_exists( $from ) ) {
-				continue;
-			}
+		// Move the main file first; abort if it cannot move (nothing has
+		// changed yet, so the attachment stays consistent).
+		if ( ! $this->move_file( $from_dir . '/' . $main, $to_dir . '/' . $main ) ) {
+			return false;
+		}
 
-			if ( ! @rename( $from, $to ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename -- direct move of a local upload; falls back to copy+unlink across volumes.
-				if ( @copy( $from, $to ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-					wp_delete_file( $from );
-				} else {
-					return false;
-				}
+		// Move the remaining variants best-effort. A failed variant must not
+		// leave the attachment pointing at a half-moved main file.
+		foreach ( $files as $file ) {
+			if ( $file !== $main ) {
+				$this->move_file( $from_dir . '/' . $file, $to_dir . '/' . $file );
 			}
 		}
 
-		// Point the attachment at the new location.
+		// Point the attachment at the new location, keeping both `_wp_attached_file`
+		// and the metadata `file` key in sync. WordPress deletes intermediate
+		// sizes and the scaled original relative to `dirname($meta['file'])`, so
+		// a stale value there would orphan those files on deletion.
 		update_post_meta( $attachment_id, '_wp_attached_file', $dest_relative );
 
+		if ( is_array( $metadata ) ) {
+			$metadata['file'] = $dest_relative;
+
+			wp_update_attachment_metadata( $attachment_id, $metadata );
+		}
+
 		return true;
+	}
+
+	/**
+	 * Moves a single file, tolerating an already-moved source and falling back
+	 * to copy+unlink across volumes.
+	 *
+	 * @param string $from Source path.
+	 * @param string $to Destination path.
+	 * @return bool
+	 */
+	protected function move_file( $from, $to ) {
+		if ( $from === $to ) {
+			return true;
+		}
+
+		if ( ! file_exists( $from ) ) {
+			// Treat an already-relocated file as success.
+			return file_exists( $to );
+		}
+
+		if ( @rename( $from, $to ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename -- direct move of a local upload; falls back to copy+unlink across volumes.
+			return true;
+		}
+
+		if ( @copy( $from, $to ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			wp_delete_file( $from );
+
+			return true;
+		}
+
+		return false;
 	}
 
 	/**
@@ -2007,8 +2117,11 @@ final class Gallery extends Component {
 			return false;
 		}
 
-		// Owners and editors always have access.
-		if ( get_current_user_id() === $folder->get_user__id() || current_user_can( 'edit_others_posts' ) ) {
+		// Owners and editors always have access. The user ID must be non-zero,
+		// so a logged-out visitor never matches an orphaned (author 0) folder.
+		$user_id = get_current_user_id();
+
+		if ( ( $user_id && $user_id === $folder->get_user__id() ) || current_user_can( 'edit_others_posts' ) ) {
 			return true;
 		}
 
@@ -2126,12 +2239,19 @@ final class Gallery extends Component {
 		$range = isset( $_SERVER['HTTP_RANGE'] ) ? wp_unslash( $_SERVER['HTTP_RANGE'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- parsed numerically below.
 
 		if ( $range && preg_match( '/bytes=(\d*)-(\d*)/', $range, $matches ) ) {
-			if ( '' !== $matches[1] ) {
-				$start = (int) $matches[1];
-			}
+			if ( '' === $matches[1] && '' !== $matches[2] ) {
 
-			if ( '' !== $matches[2] ) {
-				$end = (int) $matches[2];
+				// Suffix range: the final N bytes.
+				$start = max( 0, $size - (int) $matches[2] );
+				$end   = $size - 1;
+			} else {
+				if ( '' !== $matches[1] ) {
+					$start = (int) $matches[1];
+				}
+
+				if ( '' !== $matches[2] ) {
+					$end = (int) $matches[2];
+				}
 			}
 
 			if ( $start > $end || $start >= $size ) {
@@ -2245,7 +2365,8 @@ final class Gallery extends Component {
 		$visibility = $folder->get_visibility();
 		$allowed    = false;
 		$vendor     = null;
-		$owner      = get_current_user_id() === $folder->get_user__id() || current_user_can( 'edit_others_posts' );
+		$user_id    = get_current_user_id();
+		$owner      = ( $user_id && $user_id === $folder->get_user__id() ) || current_user_can( 'edit_others_posts' );
 
 		if ( in_array( $visibility, [ 'public', 'members' ], true ) && ! $owner ) {
 
