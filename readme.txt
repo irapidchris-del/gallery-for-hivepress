@@ -2,13 +2,13 @@
 Contributors: chrisb
 Tags: hivepress, gallery, vendors, portfolio, marketplace
 Requires at least: 5.0
-Tested up to: 7.0
+Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
-Gives HivePress vendors a front-end photo gallery with public, members-only and private folders, with optional HivePress Memberships monetisation.
+Gives HivePress vendors a front-end photo gallery with public, members-only and private folders, protected files, image optimization and optional Memberships gating.
 
 == Description ==
 
@@ -28,13 +28,14 @@ Site owners can control everything from HivePress > Settings > Vendors > Gallery
 
 * Hide the gallery link on vendor profiles and/or listing pages
 * Limit the number of folders per vendor, and images per folder (default 30)
-* Charge vendors for the gallery feature: pick the membership plans that include it (requires the HivePress Memberships extension)
-* Charge users to view members-only folders: pick the membership plans that unlock them
+* Gate the gallery to membership plans, set up natively on each plan in HivePress Memberships (an "Allow using the photo gallery" and an "Allow viewing members-only gallery folders" option per plan)
 * Choose how locked folders look: blurred previews, lock placeholders, or hidden entirely
 * Choose the Upgrade Page that "Unlock Access" links point to (e.g. your pricing page)
-* Protect image files with unguessable file names
+* Protect private and members-only image files so their URLs cannot be opened directly
+* Reduce bandwidth: cap upload file size, restrict image formats, resize on upload, re-compress at a chosen quality, strip metadata, and optionally convert uploads to WebP
+* See each gallery's total image "weight" in the folders list and on the vendor's account page
 
-In wp-admin, each Gallery Folder now has an Images meta box with the same drag-and-drop manager used for listings, plus a Settings meta box for visibility, and the folders list shows the vendor, visibility and image count.
+In wp-admin, each Gallery Folder has an Images meta box with the same drag-and-drop manager used for listings, plus a Settings meta box for visibility; the folders list shows the vendor, visibility, image count and size; and bulk "Optimize images" / "Restore original images" actions let you optimize existing galleries.
 
 = How it works =
 
@@ -47,17 +48,23 @@ the core HivePress attachment component.
 
 = Memberships integration =
 
+Gallery gating is configured natively on your membership plans, the same way
+HivePress Memberships gates its own features. Editing a Membership Plan shows
+two extra options: "Allow using the photo gallery" (vendor access) and "Allow
+viewing members-only gallery folders" (viewer access). Tick them on the plans
+that should include gallery access.
+
 Membership access is read directly from the Memberships data (active memberships
 are `hp_membership` records linked to a plan), matching the access check the
 Memberships extension itself uses (verified against its source, version 2.2.0),
 so it works with your existing plans and purchase flow. The "Unlock Access"
 links fall back to the Memberships plan selection page automatically when no
-Upgrade Page is chosen. If plans are selected for vendor access, vendors without
-an active plan lose the gallery menu, the gallery pages, folder editing and their public gallery
-until they upgrade; this also fails closed if the Memberships extension is
-deactivated, so paid access is never given away by accident. The plan list in
-the settings is detected at runtime, so it adapts to the Memberships version
-installed.
+Upgrade Page is chosen. Gating is entirely optional: if no plan enables gallery
+access, every vendor can use the gallery. Once at least one plan enables it,
+vendors without an active plan lose the gallery menu, the gallery pages, folder
+editing and their public gallery until they upgrade. This fails closed if the
+Memberships extension is deactivated (the gating state is remembered), so paid
+access is never given away by accident.
 
 = Blurred previews =
 
@@ -66,25 +73,51 @@ cached in `uploads/hp-agl-teasers/`), because a CSS-only blur would leave the
 original image URLs in the page source. If a preview cannot be generated, a
 lock placeholder is shown instead; originals are never exposed.
 
-= A note on file protection =
+= File protection =
 
 Private and members-only folders are hidden from all gallery pages, links,
 attachment pages and public media API queries.
+
+With the Protect Files setting on (the default), the files in private and
+members-only folders are moved to a protected uploads directory and served
+through an access-checked link, so their URLs cannot be opened directly - a
+guessed or shared link returns a 403 to visitors without access. Owners,
+site editors and members with the right plan still see them. Public folder
+images stay as ordinary, directly-served media so public galleries remain
+fast and SEO-friendly. When a folder's visibility changes, its files move
+between the protected and public locations automatically.
+
+The protected directory is guarded with an Apache deny rule. On Nginx, add a
+rule so the directory is not served directly, for example:
+
+`location ^~ /wp-content/uploads/hp-agl-protected/ { deny all; }`
+
+The access check runs regardless, so the proxy still protects the files; the
+server rule is defence in depth.
+
+= Image optimization =
+
+To keep gallery bandwidth under control, site owners can cap the upload file
+size, restrict which image formats vendors may upload, resize images on
+upload to a maximum width/height, re-compress JPG and WebP at a chosen
+quality, strip camera and location metadata, and optionally convert uploads
+to WebP (where the server supports it). New uploads are optimized before
+their thumbnails are generated, so every size is made from the optimized
+original. A "Keep Originals" option, together with the "Optimize images" and
+"Restore original images" bulk actions on the Gallery Folders list, lets you
+optimize existing galleries reversibly. Each gallery's total image weight is
+shown on the account page and in the admin folders list.
+
+= AI moderation =
 
 The optional AI Moderation setting reviews a folder's photos with OpenAI
 when the vendor saves it, using the shared API key from Settings >
 Integrations. All photos are checked together in one free request. The site
 must be publicly reachable for OpenAI to fetch the photos; on local or
 private sites, and whenever the service is unavailable, saving simply
-proceeds unchecked rather than blocking the vendor.
-
-The optional Protect Files
-setting additionally stores new uploads with random, unguessable file names
-(the HivePress protection mechanism). Be aware of the honest limits: existing
-files are not renamed, and anyone who already has a direct file URL can still
-open that file. True file-level access control would require web server rules;
-this setting prevents URL guessing and enumeration, which covers the realistic
-risk for a gallery.
+proceeds unchecked rather than blocking the vendor. Protected files (in
+private and members-only folders) cannot be fetched externally, so moderation
+applies to public folders.
 
 == Installation ==
 
@@ -108,6 +141,15 @@ Account menu > Gallery (only shown to users with a published vendor profile).
 Yes. HivePress's attachment component removes all attached images when the folder is deleted.
 
 == Changelog ==
+
+= 1.3.0 =
+* Added: Native HivePress Memberships integration - gallery access and members-only viewing are now configured per plan, directly in the Membership Plan editor (replacing the separate plan-picker settings, which are migrated automatically). Gating is optional and fails closed if Memberships is deactivated.
+* Added: Strong file protection - files in private and members-only folders are moved to a protected directory and served through an access-checked link, so their URLs cannot be opened directly. Public folder images stay directly served for speed and SEO. On visibility change, files move automatically.
+* Added: Image optimization settings - maximum file size, allowed formats, maximum dimensions (resize on upload), image quality, strip metadata, and convert to WebP. New uploads are optimized before thumbnails are generated.
+* Added: Bulk "Optimize images" and "Restore original images" actions on the Gallery Folders list, with an optional "Keep Originals" backup for reversible optimization of existing galleries.
+* Added: Gallery image "weight" (total size) shown on the account page and in the admin folders list.
+* Added: GPL-3.0 license header and bundled LICENSE file.
+* Changed: The Protect Files setting now enables the protected proxy (on by default) as well as unguessable file names and public media API exclusion.
 
 = 1.2.0 =
 * Added: Folder pages - the gallery now shows folder covers that open each folder on its own page with a shareable, deep-linkable URL (a Gallery Layout setting restores the previous expanded view).

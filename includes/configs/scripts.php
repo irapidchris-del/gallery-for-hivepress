@@ -26,11 +26,9 @@ return [
 		],
 
 		'data'    => [
-			'restNonce'     => wp_create_nonce( 'wp_rest' ),
-			'deleteConfirm' => esc_html__( 'Are you sure you want to delete this folder? All of its images will be permanently removed.', 'additional-gallery-for-hivepress' ),
-			'copied'        => esc_html__( 'Link copied!', 'additional-gallery-for-hivepress' ),
-			'saved'         => esc_html__( 'Descriptions saved.', 'additional-gallery-for-hivepress' ),
-			'saveError'     => esc_html__( 'Something went wrong. Please try again.', 'additional-gallery-for-hivepress' ),
+			'deleteConfirm'      => esc_html__( 'Are you sure you want to delete this folder? All of its images will be permanently removed.', 'additional-gallery-for-hivepress' ),
+			'copied'             => esc_html__( 'Link copied!', 'additional-gallery-for-hivepress' ),
+			'captionPlaceholder' => esc_html__( 'Add a description...', 'additional-gallery-for-hivepress' ),
 		],
 	],
 ];

@@ -95,6 +95,12 @@ final class Gallery extends Controller {
 						'action'   => [ $this, 'render_gallery_folder_edit_page' ],
 					],
 
+					// Public: stream a protected gallery file through an access check.
+					'gallery_file_view_page'       => [
+						'path'     => '/gallery-file/(?P<attachment_id>\d+)',
+						'redirect' => [ $this, 'redirect_gallery_file' ],
+					],
+
 					// Public page: a vendor's gallery.
 					'gallery_view_page'            => [
 						'path'     => '/gallery/(?P<vendor_id>\d+)',
@@ -420,6 +426,24 @@ final class Gallery extends Controller {
 		}
 
 		return hp\rest_response( 204 );
+	}
+
+	/**
+	 * Streams a protected gallery file to authorised visitors.
+	 *
+	 * @return mixed
+	 */
+	public function redirect_gallery_file() {
+
+		// The size is a query argument; read it directly so it does not depend
+		// on the router exposing unknown query parameters. This is a public,
+		// read-only file view, so no nonce is involved.
+		$size = isset( $_GET['size'] ) ? sanitize_key( wp_unslash( $_GET['size'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+		hivepress()->gallery->serve_protected_file( hivepress()->request->get_param( 'attachment_id' ), $size );
+
+		// serve_protected_file() always exits; redirect home as a safeguard.
+		return home_url( '/' );
 	}
 
 	/**

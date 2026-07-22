@@ -37,12 +37,8 @@ class Gallery_Folder extends Post {
 			$max_images = 30;
 		}
 
-		// Get the accepted formats, mirroring the core listing gallery.
-		$formats = [ 'jpg', 'jpeg', 'png', 'webp', 'gif' ];
-
-		if ( get_option( 'hp_gallery_allow_video' ) ) {
-			$formats = array_merge( $formats, [ 'mp4', 'webm', 'ogv' ] );
-		}
+		// Get the accepted formats (honouring the admin format restrictions).
+		$formats = hp_agl_get_upload_formats();
 
 		$args = hp\merge_arrays(
 			[

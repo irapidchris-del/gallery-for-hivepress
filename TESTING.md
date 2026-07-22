@@ -1,8 +1,8 @@
-# Additional Gallery for HivePress — Manual Test Walkthrough (v1.2.0)
+# Additional Gallery for HivePress — Manual Test Walkthrough (v1.3.0)
 
 Work through the phases in order; later phases assume earlier ones passed. For each check, fill in the **Result** line. If something fails, paste whatever you have: the on-screen error, the browser dev console (F12 → Console), the Network tab response for REST calls, or the PHP error log line.
 
-Static analysis (PHPStan level 9, WPCS, two taint analysers) and 51 isolated tests are already green; this walkthrough covers the one thing those cannot: behaviour on a real WordPress install.
+This walkthrough covers behaviour on a real WordPress install — the one thing static checks cannot. Pay particular attention to the 1.3.0 additions: native Memberships gating (Phase 6), strong file protection (Phase 8) and image optimization (Phase 12).
 
 **Test environment**
 
@@ -176,7 +176,13 @@ Open an image in folder A and use lightbox arrows.
 
 ## Phase 6 — Members-only locking
 
-Needs the Memberships extension. Configure Vendor Access Plans and Viewer Access Plans in Gallery settings, and make one folder Members only.
+Needs the Memberships extension. Edit a Membership Plan (HivePress → Memberships → Plans) and tick **Allow using the photo gallery** and **Allow viewing members-only gallery folders** in its Settings box. Make one folder Members only.
+
+### 6.0 Native plan fields
+Open a Membership Plan in wp-admin.
+
+- Expected: the Settings box shows the two gallery checkboxes; ticking and saving persists them. With no plan ticked for gallery access, every vendor keeps the gallery; tick a plan to start gating.
+- Result: `______`
 
 ### 6.1 Locked (blur)
 Locked Folder Display: **Blurred previews**. View the gallery logged out.
@@ -208,19 +214,25 @@ Log in as a user holding a Viewer Access plan.
 - Expected: the members folder appears sharp, no locks.
 - Result: `______`
 
-### 6.6 Vendor without a Manage plan
-Log in as a vendor whose membership lacks the gallery feature.
+### 6.6 Vendor without a gallery plan
+Log in as a vendor whose membership plan does not enable gallery access.
 
 - Expected: no Gallery item in their account menu; `/account/gallery/` redirects; their public gallery URL redirects home; no "View Gallery" button on their profile.
 - Result: `______`
 
 ### 6.7 Fail closed
-With plans configured, deactivate the Memberships extension entirely, then view a vendor gallery.
+With at least one plan enabling gallery access, deactivate the Memberships extension entirely, then view a vendor gallery.
 
-- Expected: galleries behave as locked-down (redirect home), never as suddenly free.
+- Expected: galleries behave as locked-down (redirect home), never as suddenly free (the gating flag is remembered).
 - Result: `______`
 
 Reactivate Memberships afterwards.
+
+### 6.8 Migration from 1.2.0 (upgrade installs only)
+If you upgraded from 1.2.0 where the old Vendor/Viewer Access Plans settings were set:
+
+- Expected: those plans now show the gallery checkboxes ticked automatically, and gating behaves as before; the old settings fields are gone.
+- Result: `______`
 
 ---
 
@@ -260,26 +272,56 @@ Turn the video setting off again.
 
 ---
 
-## Phase 8 — Protect Files
+## Phase 8 — Protect Files (strong protection)
 
-Turn on **Protect Files**, then upload a new image to any folder.
+**Protect Files** is on by default. Confirm it is ticked in Gallery settings.
 
-### 8.1 Obscured names
-Check the new file's URL (via the lightbox link).
+### 8.1 Private/members files are relocated
+Upload a new image to a **private** folder, then in wp-admin → Media open that image and copy its File URL (or read `_wp_attached_file`).
 
-- Expected: the filename ends with a random suffix (e.g. `photo-a1b2c3.jpg`).
+- Expected: the path is under `wp-content/uploads/hp-agl-protected/...`. On the server, the file physically lives there, and `uploads/hp-agl-protected/.htaccess` exists.
 - Result: `______`
 
-### 8.2 Attachment page guard
-Find the attachment page URL of an image in a members-only folder (wp-admin → Media → the file → View attachment page) and open it logged out.
+### 8.2 Direct URL is blocked
+Take a private/members image's real file path under `hp-agl-protected/` and request it directly in a logged-out browser (Apache), and also open the image's proxy link (`/gallery-file/{id}`) logged out.
 
-- Expected: redirected away rather than shown.
+- Expected: on Apache the direct `hp-agl-protected/...` URL is forbidden; the proxy link returns 401/403 for a logged-out visitor with no access. (On Nginx, add the deny rule from the readme; the proxy still 401/403s regardless.)
 - Result: `______`
 
-### 8.3 Media API
-Logged out, open `/wp-json/wp/v2/media?per_page=100`.
+### 8.3 Authorised access works
+As the folder owner (and as an admin), view the folder edit page and the gallery.
 
-- Expected: gallery-folder images are absent from the results.
+- Expected: thumbnails and full images load (served via the proxy). A member with the right plan can view a members-only folder's images; a logged-out visitor sees only blurred teasers/placeholders, never a working original URL (check page source).
+- Result: `______`
+
+### 8.4 Visibility change moves files
+Change a protected folder from Members only to **Public**, save.
+
+- Expected: its files move back out of `hp-agl-protected/` to the normal uploads path, and the images now load from direct URLs (no proxy). Switch back to Private and confirm they return to the protected location.
+- Result: `______`
+
+### 8.5 Video seeking
+In a members-only folder (as an authorised viewer), play a video and seek.
+
+- Expected: the video streams and seeks correctly (the proxy supports byte ranges).
+- Result: `______`
+
+### 8.6 Public images stay direct (SEO)
+View a **public** folder's image URL.
+
+- Expected: a normal `wp-content/uploads/...` URL, directly served (not the proxy).
+- Result: `______`
+
+### 8.7 Attachment page + Media API
+Open a members-only image's attachment page logged out, and `/wp-json/wp/v2/media?per_page=100` logged out.
+
+- Expected: the attachment page redirects away; gallery-folder images are absent from the media API results.
+- Result: `______`
+
+### 8.8 Toggle off
+Turn Protect Files off and save.
+
+- Expected: protected files move back to normal locations and load directly again (honest-limits mode). Turn it back on afterwards.
 - Result: `______`
 
 ---
@@ -367,6 +409,54 @@ With a valid key, add a test image that the endpoint flags (OpenAI's own docs us
 Disable AI Moderation, repeat 11.4.
 
 - Expected: no OpenAI request; the save succeeds.
+- Result: `______`
+
+---
+
+## Phase 12 — Image optimization and weight
+
+Settings live in HivePress → Settings → Vendors → Gallery.
+
+### 12.1 Maximum file size
+Set **Maximum File Size** to 1 MB, then try uploading a larger image to a folder.
+
+- Expected: the upload is rejected with "Each file must be smaller than 1 MB."; a smaller image uploads fine.
+- Result: `______`
+
+### 12.2 Allowed formats
+Set **Allowed Image Formats** to JPG only, then try uploading a PNG.
+
+- Expected: the PNG is rejected; JPG uploads work. Clear the setting to allow all again.
+- Result: `______`
+
+### 12.3 Resize on upload
+Set **Maximum Image Dimensions** to 1200, upload a larger (e.g. 4000px) image, then check it in wp-admin → Media.
+
+- Expected: the stored original is no larger than 1200px on its longest side.
+- Result: `______`
+
+### 12.4 Quality + strip metadata
+Set **Image Quality** to 60 and tick **Strip metadata**, upload a large JPG with EXIF (GPS/camera).
+
+- Expected: the uploaded file is noticeably smaller than the source; its EXIF/GPS is gone (check with an EXIF viewer). Nothing looks broken.
+- Result: `______`
+
+### 12.5 Convert to WebP
+Tick **Convert to WebP** (WebP must be an allowed format and supported by the server), upload a JPG.
+
+- Expected: the stored attachment is a `.webp` file; it displays correctly in the gallery and lightbox. If the server lacks WebP support, the JPG is kept unchanged (no error).
+- Result: `______`
+
+### 12.6 Gallery weight
+View the account Gallery page and the wp-admin Gallery Folders list.
+
+- Expected: the account page shows a "Gallery size: …" line and each folder row shows its size; the admin Images column shows the folder size in brackets.
+- Result: `______`
+
+### 12.7 Bulk optimize + restore
+Tick **Keep Originals**. In wp-admin → Gallery Folders, select a folder with images and run the **Optimize images** bulk action, then run **Restore original images**.
+
+- Expected: "N images optimized." notice; folder size drops; images still display. After restore: "N images restored." notice; images return to their pre-optimization files.
 - Result: `______`
 
 ---
