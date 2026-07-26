@@ -104,6 +104,32 @@ The API key lives in `hp_openai_api_key` under HivePress > Settings > Integratio
 
 Three honest limits. OpenAI fetches each image by URL, so the site must be publicly reachable; on localhost or password-protected staging the check cannot run and fails open. Protected files (in private and members-only folders) have no externally fetchable URL, so moderation applies to public folders. And moderation runs when a folder is saved: images are visible in the gallery from the moment they finish uploading, so a vendor who uploads and never presses Save is not checked until their next save. Admin edits in wp-admin are not moderated.
 
+## Updates and releases
+
+The plugin updates itself from this repository's GitHub **releases**, so sites see update notifications on their Plugins screen and can install updates with one click — exactly like a wordpress.org plugin. This is handled by a small, self-contained updater (`includes/class-github-updater.php`); no external service or library is involved. The GitHub repository is public, so no token is needed (sites can add one via the `hp_agl/github_token` filter to raise the API rate limit or for a private fork).
+
+### Cutting a release
+
+1. Bump the version in **both** places so they match the release tag: the `Version:` header and the `HP_AGL_VERSION` constant in `additional-gallery-for-hivepress.php`. Update `readme.txt` (Stable tag + changelog).
+2. Build the distributable zip:
+   ```
+   bin/build-zip.sh
+   ```
+   This writes `dist/additional-gallery-for-hivepress.zip` containing a single clean top-level folder, `additional-gallery-for-hivepress/`. That folder name is what makes manual installs land correctly and lets the updater match the plugin — keep it stable. (`bin/build-zip.sh --versioned` writes `…-<version>.zip` for your own tracking; the folder inside is still clean.)
+3. Create a GitHub release whose **tag equals the version** (e.g. `1.3.0` or `v1.3.0`), and attach the built zip as a release asset. **Keep the asset filename exactly `additional-gallery-for-hivepress.zip`** on every release — the updater matches that name, and the "latest" link below depends on it.
+
+Once a release's version is higher than a site's installed version, that site is offered the update automatically (WordPress checks roughly twice a day; the plugin row also has a **Check for updates** link to force a check).
+
+### Always-latest download link
+
+For the HivePress community forum, link to:
+
+```
+https://github.com/irapidchris-del/gallery-for-hivepress/releases/latest/download/additional-gallery-for-hivepress.zip
+```
+
+GitHub resolves `releases/latest/download/<asset>` to the newest release's matching asset, so this URL always downloads the current version and triggers an immediate `.zip` download — no need to edit the forum post when you release an update.
+
 ## Development
 
 A fillable manual test plan lives in [`TESTING.md`](TESTING.md), covering behaviour on a real WordPress install (the one thing static checks can't verify). The code follows the WordPress Coding Standards and the HivePress house style (short array syntax, slash-delimited hook names); `phpcs.xml` captures the ruleset.

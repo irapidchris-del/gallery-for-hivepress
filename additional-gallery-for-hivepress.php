@@ -11,6 +11,7 @@
  * Requires PHP: 7.4
  * License: GPL-3.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-3.0.html
+ * Update URI: https://github.com/irapidchris-del/gallery-for-hivepress
  *
  * @package AdditionalGalleryForHivePress
  */
@@ -33,6 +34,26 @@ if ( ! defined( 'HP_AGL_DIR' ) ) {
 
 if ( ! defined( 'HP_AGL_URL' ) ) {
 	define( 'HP_AGL_URL', rtrim( plugin_dir_url( __FILE__ ), '/' ) );
+}
+
+/**
+ * Enables automatic updates from GitHub releases.
+ *
+ * Only loaded where WordPress checks for updates (admin, cron, WP-CLI), so it
+ * adds nothing to front-end requests. The GitHub repository is public, so no
+ * token is needed; sites can filter `hp_agl/github_token` to add one.
+ */
+if ( is_admin() || ( defined( 'DOING_CRON' ) && DOING_CRON ) || ( defined( 'WP_CLI' ) && WP_CLI ) ) {
+	require_once HP_AGL_DIR . '/includes/class-github-updater.php';
+
+	new HP_AGL_GitHub_Updater(
+		[
+			'file'        => HP_AGL_FILE,
+			'owner'       => 'irapidchris-del',
+			'repo'        => 'gallery-for-hivepress',
+			'asset_regex' => '/^additional-gallery-for-hivepress\.zip$/i',
+		]
+	);
 }
 
 /**

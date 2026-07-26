@@ -143,6 +143,7 @@ Yes. HivePress's attachment component removes all attached images when the folde
 == Changelog ==
 
 = 1.3.0 =
+* Added: Automatic updates from GitHub releases - sites are notified of new versions and can update from the Plugins screen, with a "Check for updates" link. Self-contained, no external service required.
 * Added: Native HivePress Memberships integration - gallery access and members-only viewing are now configured per plan, directly in the Membership Plan editor (replacing the separate plan-picker settings, which are migrated automatically). Gating is optional and fails closed if Memberships is deactivated.
 * Added: Strong file protection - files in private and members-only folders are moved to a protected directory and served through an access-checked link, so their URLs cannot be opened directly. Public folder images stay directly served for speed and SEO. On visibility change, files move automatically.
 * Added: Image optimization settings - maximum file size, allowed formats, maximum dimensions (resize on upload), image quality, strip metadata, and convert to WebP. New uploads are optimized before thumbnails are generated.

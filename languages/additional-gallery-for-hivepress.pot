@@ -28,7 +28,7 @@ msgstr ""
 msgid "Chris B @ HivePress Community"
 msgstr ""
 
-#: additional-gallery-for-hivepress.php:188
+#: additional-gallery-for-hivepress.php:209
 msgid "Additional Gallery for HivePress requires the HivePress plugin to be installed and activated."
 msgstr ""
 
@@ -69,7 +69,7 @@ msgstr ""
 msgid "Back to %s's gallery"
 msgstr ""
 
-#: includes/blocks/class-gallery-folder-view.php:47 includes/blocks/class-gallery-folders.php:110 includes/blocks/class-gallery-view.php:111 includes/blocks/class-gallery-view.php:196 includes/components/class-gallery.php:1037 includes/configs/meta-boxes.php:71 includes/models/class-gallery-folder.php:72
+#: includes/blocks/class-gallery-folder-view.php:47 includes/blocks/class-gallery-folders.php:110 includes/blocks/class-gallery-view.php:111 includes/blocks/class-gallery-view.php:196 includes/components/class-gallery.php:1051 includes/configs/meta-boxes.php:71 includes/models/class-gallery-folder.php:72
 msgid "Members only"
 msgstr ""
 
@@ -82,11 +82,11 @@ msgstr ""
 msgid "Unlock Access"
 msgstr ""
 
-#: includes/blocks/class-gallery-folders.php:109 includes/components/class-gallery.php:1036 includes/configs/meta-boxes.php:70 includes/models/class-gallery-folder.php:71
+#: includes/blocks/class-gallery-folders.php:109 includes/components/class-gallery.php:1050 includes/configs/meta-boxes.php:70 includes/models/class-gallery-folder.php:71
 msgid "Public"
 msgstr ""
 
-#: includes/blocks/class-gallery-folders.php:111 includes/components/class-gallery.php:1038 includes/configs/meta-boxes.php:72 includes/models/class-gallery-folder.php:73
+#: includes/blocks/class-gallery-folders.php:111 includes/components/class-gallery.php:1052 includes/configs/meta-boxes.php:72 includes/models/class-gallery-folder.php:73
 msgid "Private"
 msgstr ""
 
@@ -149,85 +149,93 @@ msgstr ""
 msgid "View %s's profile"
 msgstr ""
 
-#: includes/components/class-gallery.php:1001
+#: includes/class-github-updater.php:359
+msgid "Check for updates"
+msgstr ""
+
+#: includes/class-github-updater.php:435
+msgid "View release on GitHub"
+msgstr ""
+
+#: includes/components/class-gallery.php:1015
 msgid "Vendor"
 msgstr ""
 
-#: includes/components/class-gallery.php:1002 includes/configs/meta-boxes.php:63 includes/models/class-gallery-folder.php:63
+#: includes/components/class-gallery.php:1016 includes/configs/meta-boxes.php:63 includes/models/class-gallery-folder.php:63
 msgid "Visibility"
 msgstr ""
 
-#: includes/components/class-gallery.php:1003 includes/models/class-gallery-folder.php:114
+#: includes/components/class-gallery.php:1017 includes/models/class-gallery-folder.php:114
 msgid "Images"
 msgstr ""
 
 #. translators: translators: %s: size in megabytes.
-#: includes/components/class-gallery.php:1068
+#: includes/components/class-gallery.php:1082
 msgid "Each file must be smaller than %s MB."
 msgstr ""
 
-#: includes/components/class-gallery.php:1252
+#: includes/components/class-gallery.php:1288
 msgid "Optimize images"
 msgstr ""
 
-#: includes/components/class-gallery.php:1253
+#: includes/components/class-gallery.php:1289
 msgid "Restore original images"
 msgstr ""
 
 #. translators: translators: %s: number of images.
-#: includes/components/class-gallery.php:1321
+#: includes/components/class-gallery.php:1363
 msgid "%s image restored."
 msgid_plural "%s images restored."
 msgstr[0] ""
 msgstr[1] ""
 
 #. translators: translators: %s: number of images.
-#: includes/components/class-gallery.php:1324
+#: includes/components/class-gallery.php:1366
 msgid "%s image optimized."
 msgid_plural "%s images optimized."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/components/class-gallery.php:271 includes/configs/settings.php:19 includes/controllers/class-gallery.php:82
+#: includes/components/class-gallery.php:274 includes/configs/settings.php:19 includes/controllers/class-gallery.php:82
 msgid "Gallery"
 msgstr ""
 
-#: includes/components/class-gallery.php:272
+#: includes/components/class-gallery.php:275
 msgid "Allow using the photo gallery"
 msgstr ""
 
-#: includes/components/class-gallery.php:278
+#: includes/components/class-gallery.php:281
 msgid "Gallery Viewing"
 msgstr ""
 
-#: includes/components/class-gallery.php:279
+#: includes/components/class-gallery.php:282
 msgid "Allow viewing members-only gallery folders"
 msgstr ""
 
 #. translators: translators: 1: photos number, 2: videos number.
-#: includes/components/class-gallery.php:671
+#: includes/components/class-gallery.php:685
 msgid "%1$s photos, %2$s videos"
 msgstr ""
 
 #. translators: translators: %s: videos number.
-#: includes/components/class-gallery.php:676
+#: includes/components/class-gallery.php:690
 msgid "%s video"
 msgid_plural "%s videos"
 msgstr[0] ""
 msgstr[1] ""
 
 #. translators: translators: %s: photos number.
-#: includes/components/class-gallery.php:680
+#: includes/components/class-gallery.php:694
 msgid "%s photo"
 msgid_plural "%s photos"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/components/class-gallery.php:814
+#: includes/components/class-gallery.php:828
 msgid "API Key"
 msgstr ""
 
-#: includes/components/class-gallery.php:815
+#: includes/components/class-gallery.php:829
 msgid "Your OpenAI API key, shared by any installed extension that uses OpenAI's free Moderation endpoint. Moderation calls are free, but an OpenAI API account is required to obtain a key."
 msgstr ""
 
@@ -466,7 +474,7 @@ msgid "Image descriptions can be up to 500 characters long."
 msgstr ""
 
 #. translators: translators: %s: vendor name.
-#: includes/controllers/class-gallery.php:592
+#: includes/controllers/class-gallery.php:595
 msgid "Gallery: %s"
 msgstr ""
 
