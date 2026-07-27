@@ -28,7 +28,7 @@ msgstr ""
 msgid "Chris B @ HivePress Community"
 msgstr ""
 
-#: additional-gallery-for-hivepress.php:209
+#: additional-gallery-for-hivepress.php:197
 msgid "Additional Gallery for HivePress requires the HivePress plugin to be installed and activated."
 msgstr ""
 
@@ -147,14 +147,6 @@ msgstr ""
 #. translators: translators: %s: vendor name.
 #: includes/blocks/class-gallery-view.php:58
 msgid "View %s's profile"
-msgstr ""
-
-#: includes/class-github-updater.php:359
-msgid "Check for updates"
-msgstr ""
-
-#: includes/class-github-updater.php:435
-msgid "View release on GitHub"
 msgstr ""
 
 #: includes/components/class-gallery.php:1015
@@ -516,5 +508,29 @@ msgstr ""
 
 #: includes/models/class-gallery-folder.php:64
 msgid "Public folders are visible to everyone. Members-only folders are locked for visitors without member access. Private folders are visible only to you."
+msgstr ""
+
+#: includes/updater.php:172
+msgid "See the GitHub releases page for the changelog."
+msgstr ""
+
+#: includes/updater.php:187
+msgid "Check for updates"
+msgstr ""
+
+#: includes/updater.php:245
+msgid "A new version of Additional Gallery for HivePress is available. Refresh this page to update."
+msgstr ""
+
+#: includes/updater.php:248
+msgid "Additional Gallery for HivePress could not check for updates. Please try again later."
+msgstr ""
+
+#: includes/updater.php:251
+msgid "Additional Gallery for HivePress is up to date."
+msgstr ""
+
+#: includes/updater.php:291
+msgid "Could not rename the update directory."
 msgstr ""
 

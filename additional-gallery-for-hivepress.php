@@ -7,8 +7,9 @@
  * Author URI: https://community.hivepress.io/u/chrisb
  * Text Domain: additional-gallery-for-hivepress
  * Domain Path: /languages/
- * Requires at least: 5.0
+ * Requires at least: 5.8
  * Requires PHP: 7.4
+ * Requires Plugins: hivepress
  * License: GPL-3.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-3.0.html
  * Update URI: https://github.com/irapidchris-del/gallery-for-hivepress
@@ -37,24 +38,11 @@ if ( ! defined( 'HP_AGL_URL' ) ) {
 }
 
 /**
- * Enables automatic updates from GitHub releases.
- *
- * Only loaded where WordPress checks for updates (admin, cron, WP-CLI), so it
- * adds nothing to front-end requests. The GitHub repository is public, so no
- * token is needed; sites can filter `hp_agl/github_token` to add one.
+ * Enables automatic updates from GitHub releases via the native WordPress
+ * 5.8+ update API (the `Update URI` header above routes update checks to the
+ * `update_plugins_github.com` filter). Self-registers its hooks on load.
  */
-if ( is_admin() || ( defined( 'DOING_CRON' ) && DOING_CRON ) || ( defined( 'WP_CLI' ) && WP_CLI ) ) {
-	require_once HP_AGL_DIR . '/includes/class-github-updater.php';
-
-	new HP_AGL_GitHub_Updater(
-		[
-			'file'        => HP_AGL_FILE,
-			'owner'       => 'irapidchris-del',
-			'repo'        => 'gallery-for-hivepress',
-			'asset_regex' => '/^additional-gallery-for-hivepress\.zip$/i',
-		]
-	);
-}
+require_once HP_AGL_DIR . '/includes/updater.php';
 
 /**
  * Casts an unknown value to a non-negative integer.

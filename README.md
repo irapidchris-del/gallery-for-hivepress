@@ -3,7 +3,7 @@
 Gives HivePress vendors a front-end photo gallery with public, members-only and private folders, protected files and image optimization.
 
 **Author:** [Chris B @ HivePress Community](https://community.hivepress.io/u/chrisb)
-**Version:** 1.3.0 · **Requires:** WordPress 5.0+, PHP 7.4+, HivePress 1.x
+**Version:** 1.3.0 · **Requires:** WordPress 5.8+, PHP 7.4+, HivePress 1.x
 
 > **Installation folder:** install this as `additional-gallery-for-hivepress` in `wp-content/plugins/`. HivePress registers an extension only when its main file matches the plugin directory name, so a folder named differently (for example the `-main` suffix a GitHub "Download ZIP" adds) will load nothing. Distribute the release as a correctly named zip.
 
@@ -106,19 +106,24 @@ Three honest limits. OpenAI fetches each image by URL, so the site must be publi
 
 ## Updates and releases
 
-The plugin updates itself from this repository's GitHub **releases**, so sites see update notifications on their Plugins screen and can install updates with one click — exactly like a wordpress.org plugin. This is handled by a small, self-contained updater (`includes/class-github-updater.php`); no external service or library is involved. The GitHub repository is public, so no token is needed (sites can add one via the `hp_agl/github_token` filter to raise the API rate limit or for a private fork).
+The plugin updates itself from this repository's GitHub **releases**, so sites see update notifications on their Plugins screen and can install updates with one click — exactly like a wordpress.org plugin. This uses the native WordPress 5.8+ update API: the `Update URI: https://github.com/…` header routes update checks to the `update_plugins_github.com` filter, which a small self-contained updater (`includes/updater.php`) answers from the GitHub releases API. No external library or service is involved, and the public repo needs no token. (This is why the plugin requires WordPress 5.8+.) The plugin row also carries a **Check for updates** link to force an immediate check.
+
+### Packaging
+
+Every release asset is a zip named exactly **`additional-gallery-for-hivepress.zip`** (no version in the filename) containing a single top-level `additional-gallery-for-hivepress/` folder (slug = folder = text domain). That fixed name keeps the updater and the always-latest link working, and the clean folder makes manual installs land correctly with no "folder mismatch" warnings.
+
+The zip is built and published by the GitHub Actions workflow (`.github/workflows/release.yml`); you don't build it by hand. For local testing you can still produce the exact same zip with `bin/build-zip.sh` (writes `dist/additional-gallery-for-hivepress.zip`; `--versioned` names the *file* with the version while keeping the folder inside clean).
 
 ### Cutting a release
 
-1. Bump the version in **both** places so they match the release tag: the `Version:` header and the `HP_AGL_VERSION` constant in `additional-gallery-for-hivepress.php`. Update `readme.txt` (Stable tag + changelog).
-2. Build the distributable zip:
-   ```
-   bin/build-zip.sh
-   ```
-   This writes `dist/additional-gallery-for-hivepress.zip` containing a single clean top-level folder, `additional-gallery-for-hivepress/`. That folder name is what makes manual installs land correctly and lets the updater match the plugin — keep it stable. (`bin/build-zip.sh --versioned` writes `…-<version>.zip` for your own tracking; the folder inside is still clean.)
-3. Create a GitHub release whose **tag equals the version** (e.g. `1.3.0` or `v1.3.0`), and attach the built zip as a release asset. **Keep the asset filename exactly `additional-gallery-for-hivepress.zip`** on every release — the updater matches that name, and the "latest" link below depends on it.
+The release workflow triggers on either a published GitHub release or a manual **workflow_dispatch** (inputs: `tag`, and optional `notes`). To publish a new version:
 
-Once a release's version is higher than a site's installed version, that site is offered the update automatically (WordPress checks roughly twice a day; the plugin row also has a **Check for updates** link to force a check).
+1. Bump the `Version:` header **and** the `HP_AGL_VERSION` constant in `additional-gallery-for-hivepress.php` to the new version (they must match the release tag), and update `readme.txt` (Stable tag + changelog). Commit and merge to `main`.
+2. Run the **Release** workflow (Actions → Release → Run workflow) with `tag` = `vX.Y.Z` and optional `notes`. It builds the zip, creates the release at the current `main` commit (or refreshes it if the tag already exists), and attaches `additional-gallery-for-hivepress.zip`.
+
+Once a release's version is higher than a site's installed version, that site is offered the update automatically (WordPress checks roughly twice a day).
+
+> **Match the tag to the header.** If a release is tagged `v1.4.0` but the plugin header still says `1.3.0`, WordPress will re-offer the update in a loop. Bump the header before releasing.
 
 ### Always-latest download link
 
