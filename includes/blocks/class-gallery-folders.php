@@ -69,6 +69,21 @@ class Gallery_Folders extends Block {
 
 		// Folder list.
 		if ( $folders && $folders->count() ) {
+
+			// Total gallery weight, so vendors can see their storage footprint.
+			$total_bytes = 0;
+
+			foreach ( $folders as $folder ) {
+				if ( $folder instanceof \HivePress\Models\Gallery_Folder ) {
+					$total_bytes += hivepress()->gallery->get_folder_size( $folder );
+				}
+			}
+
+			if ( $total_bytes ) {
+				/* translators: %s: total size, e.g. "45 MB". */
+				$output .= '<p class="hp-agl-account__weight"><i class="hp-icon fas fa-database"></i> ' . esc_html( sprintf( __( 'Gallery size: %s', 'additional-gallery-for-hivepress' ), hivepress()->gallery->format_size( $total_bytes ) ) ) . '</p>';
+			}
+
 			if ( $folders->count() > 1 ) {
 				$output .= '<p class="hp-agl-account__hint">' . esc_html__( 'Drag folders to reorder them in your gallery.', 'additional-gallery-for-hivepress' ) . '</p>';
 			}
@@ -103,7 +118,14 @@ class Gallery_Folders extends Block {
 				$output .= '<span class="hp-agl-folder__title">' . esc_html( $folder->get_title() ) . '</span>';
 				$output .= '</a>';
 				$output .= '<span class="hp-agl-badge hp-agl-badge--' . esc_attr( $visibility ) . '">' . $badges[ $visibility ][1] . '</span>';
-				$output .= '<span class="hp-agl-folder__count">' . esc_html( hivepress()->gallery->get_media_count_label( hivepress()->gallery->get_media_counts( $folder ) ) ) . '</span>';
+				$count_label = hivepress()->gallery->get_media_count_label( hivepress()->gallery->get_media_counts( $folder ) );
+				$folder_size = hivepress()->gallery->get_folder_size( $folder );
+
+				if ( $folder_size ) {
+					$count_label .= ' · ' . hivepress()->gallery->format_size( $folder_size );
+				}
+
+				$output .= '<span class="hp-agl-folder__count">' . esc_html( $count_label ) . '</span>';
 
 				// Copy the folder link for shareable folders.
 				if ( 'private' !== $visibility ) {

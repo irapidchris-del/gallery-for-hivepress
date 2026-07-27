@@ -2,13 +2,17 @@
 /**
  * Plugin Name: Additional Gallery for HivePress
  * Description: Gives vendors a front-end photo gallery with public, members-only and private folders, accessible from the account menu and linked from vendor profiles and listings.
- * Version: 1.2.0
+ * Version: 1.3.0
  * Author: Chris B @ HivePress Community
  * Author URI: https://community.hivepress.io/u/chrisb
  * Text Domain: additional-gallery-for-hivepress
  * Domain Path: /languages/
- * Requires at least: 5.0
+ * Requires at least: 5.8
  * Requires PHP: 7.4
+ * Requires Plugins: hivepress
+ * License: GPL-3.0-or-later
+ * License URI: https://www.gnu.org/licenses/gpl-3.0.html
+ * Update URI: https://github.com/irapidchris-del/gallery-for-hivepress
  *
  * @package AdditionalGalleryForHivePress
  */
@@ -18,7 +22,7 @@ defined( 'ABSPATH' ) || exit;
 
 // Plugin constants.
 if ( ! defined( 'HP_AGL_VERSION' ) ) {
-	define( 'HP_AGL_VERSION', '1.2.0' );
+	define( 'HP_AGL_VERSION', '1.3.0' );
 }
 
 if ( ! defined( 'HP_AGL_FILE' ) ) {
@@ -32,6 +36,13 @@ if ( ! defined( 'HP_AGL_DIR' ) ) {
 if ( ! defined( 'HP_AGL_URL' ) ) {
 	define( 'HP_AGL_URL', rtrim( plugin_dir_url( __FILE__ ), '/' ) );
 }
+
+/**
+ * Enables automatic updates from GitHub releases via the native WordPress
+ * 5.8+ update API (the `Update URI` header above routes update checks to the
+ * `update_plugins_github.com` filter). Self-registers its hooks on load.
+ */
+require_once HP_AGL_DIR . '/includes/updater.php';
 
 /**
  * Casts an unknown value to a non-negative integer.
@@ -62,6 +73,49 @@ function hp_agl_string( $value ): string {
 	}
 
 	return is_scalar( $value ) ? (string) $value : '';
+}
+
+/**
+ * Gets the upload formats accepted by the gallery, honouring the allowed
+ * image formats setting and the video setting.
+ *
+ * Shared by the gallery folder model and the admin images meta box so both
+ * enforce the same rules.
+ *
+ * @return array Lower-case file extensions.
+ */
+function hp_agl_get_upload_formats() {
+	$allowed = array_filter( (array) get_option( 'hp_gallery_image_formats' ) );
+
+	if ( ! $allowed ) {
+		$allowed = [ 'jpg', 'png', 'webp', 'gif' ];
+	}
+
+	$map = [
+		'jpg'  => [ 'jpg', 'jpeg' ],
+		'png'  => [ 'png' ],
+		'webp' => [ 'webp' ],
+		'gif'  => [ 'gif' ],
+	];
+
+	$formats = [];
+
+	foreach ( $allowed as $format ) {
+		if ( isset( $map[ $format ] ) ) {
+			$formats = array_merge( $formats, $map[ $format ] );
+		}
+	}
+
+	// Fall back to the full image set if the option held only unknown values.
+	if ( ! $formats ) {
+		$formats = [ 'jpg', 'jpeg', 'png', 'webp', 'gif' ];
+	}
+
+	if ( get_option( 'hp_gallery_allow_video' ) ) {
+		$formats = array_merge( $formats, [ 'mp4', 'webm', 'ogv' ] );
+	}
+
+	return array_values( array_unique( $formats ) );
 }
 
 /**
@@ -156,6 +210,9 @@ register_activation_hook(
 	__FILE__,
 	function () {
 		update_option( 'hp_agl_flush_rewrite_rules', '1' );
+
+		// Enable file protection by default, without overriding an explicit choice.
+		add_option( 'hp_gallery_protect_files', '1' );
 	}
 );
 
@@ -195,6 +252,63 @@ add_action(
 					}
 
 					delete_post_meta( $folder_id, 'hp_public' );
+				}
+			}
+
+			// 1.2.x to 1.3.0: migrate the plan-picker settings to per-plan meta.
+			if ( ! $version || version_compare( $version, '1.3.0', '<' ) ) {
+				$plan_flags = [
+					'hp_gallery_manage_plans' => 'hp_gallery_access',
+					'hp_gallery_view_plans'   => 'hp_gallery_view',
+				];
+
+				foreach ( $plan_flags as $option => $meta_key ) {
+					$plan_ids = array_filter( array_map( 'absint', (array) get_option( $option ) ) );
+
+					foreach ( $plan_ids as $plan_id ) {
+						update_post_meta( $plan_id, $meta_key, '1' );
+					}
+
+					delete_option( $option );
+				}
+
+				// Recompute the persisted gating flags directly (not via the
+				// component), so the fail-closed flags are correct even if
+				// HivePress is inactive during the upgrade.
+				$plan_post_type = hp_agl_get_plan_post_type() ? hp_agl_get_plan_post_type() : 'hp_membership_plan';
+
+				foreach (
+					[
+						'hp_gallery_access' => 'hp_gallery_access_gated',
+						'hp_gallery_view'   => 'hp_gallery_view_gated',
+					] as $meta_key => $flag
+				) {
+					$gated = get_posts(
+						[
+							'post_type'   => $plan_post_type,
+							'post_status' => 'publish',
+							'numberposts' => 1,
+							'fields'      => 'ids',
+
+							'meta_query'  => [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- one-off upgrade check across a small plan set.
+								[
+									'key'   => $meta_key,
+									'value' => '1',
+								],
+							],
+						]
+					);
+
+					update_option( $flag, $gated ? '1' : '' );
+				}
+
+				// Enable file protection by default, and flush the new file route.
+				add_option( 'hp_gallery_protect_files', '1' );
+				update_option( 'hp_agl_flush_rewrite_rules', '1' );
+
+				// Relocate existing private and members-only files behind the proxy.
+				if ( function_exists( 'hivepress' ) && hivepress()->gallery && get_option( 'hp_gallery_protect_files' ) ) {
+					hivepress()->gallery->sync_all_protection( '', '1' );
 				}
 			}
 

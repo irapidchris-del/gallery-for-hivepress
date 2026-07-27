@@ -42,18 +42,37 @@ final class Gallery extends Component {
 		add_filter( 'hivepress/v1/templates/vendor_view_page', [ $this, 'alter_vendor_view_page' ] );
 		add_filter( 'hivepress/v1/templates/listing_view_page', [ $this, 'alter_listing_view_page' ] );
 
-		// Allow video uploads when enabled.
-		add_filter( 'hivepress/v1/models/gallery_folder', [ $this, 'alter_model_fields' ] );
-
 		// Register the shared OpenAI settings.
 		add_filter( 'hivepress/v1/settings', [ $this, 'add_shared_settings' ] );
+
+		// Integrate gallery access with HivePress Memberships plans.
+		add_filter( 'hivepress/v1/models/membership_plan', [ $this, 'add_plan_fields' ] );
+		add_filter( 'hivepress/v1/meta_boxes/membership_plan_settings', [ $this, 'add_plan_settings' ] );
+
+		// Keep the fail-closed gating flags in sync when a plan is saved or
+		// removed. The HivePress model action fires after the plan meta is
+		// persisted; the late save_post is a fallback (both are idempotent).
+		add_action( 'hivepress/v1/models/membership_plan/update', [ $this, 'refresh_gating_flags' ] );
+		add_action( 'save_post', [ $this, 'refresh_gating_flags_for_post' ], 999, 2 );
+		add_action( 'deleted_post', [ $this, 'refresh_gating_flags_for_post' ], 10, 2 );
+		add_action( 'trashed_post', [ $this, 'refresh_gating_flags_for_post' ] );
+		add_action( 'untrashed_post', [ $this, 'refresh_gating_flags_for_post' ] );
 
 		// Populate the admin images meta box.
 		add_filter( 'hivepress/v1/meta_boxes/gallery_folder_images', [ $this, 'alter_folder_images_meta_box' ] );
 
+		// Optimize gallery uploads (size limit + resize/compress/convert).
+		add_filter( 'wp_handle_upload_prefilter', [ $this, 'limit_upload_size' ] );
+		add_filter( 'wp_handle_upload', [ $this, 'optimize_upload' ], 10, 2 );
+
 		// Add admin list table columns.
 		add_filter( 'manage_hp_gallery_folder_posts_columns', [ $this, 'add_admin_columns' ] );
 		add_action( 'manage_hp_gallery_folder_posts_custom_column', [ $this, 'render_admin_column' ], 10, 2 );
+
+		// Add bulk optimize/restore actions to the folders list.
+		add_filter( 'bulk_actions-edit-hp_gallery_folder', [ $this, 'add_bulk_actions' ] );
+		add_filter( 'handle_bulk_actions-edit-hp_gallery_folder', [ $this, 'handle_bulk_actions' ], 10, 3 );
+		add_action( 'admin_notices', [ $this, 'render_bulk_action_notice' ] );
 
 		// Delete cached previews when attachments are edited or deleted.
 		add_action( 'edit_attachment', [ $this, 'delete_teaser_image' ] );
@@ -62,6 +81,18 @@ final class Gallery extends Component {
 		// Shield gallery images from media APIs and attachment pages.
 		add_filter( 'rest_attachment_query', [ $this, 'alter_rest_attachment_query' ], 10, 2 );
 		add_action( 'template_redirect', [ $this, 'redirect_attachment_page' ] );
+
+		// Relocate private and members-only files behind the protected proxy.
+		add_action( 'hivepress/v1/models/gallery_folder/update_images', [ $this, 'sync_folder_protection' ] );
+		add_action( 'hivepress/v1/models/gallery_folder/update', [ $this, 'sync_folder_protection' ], 20 );
+
+		// Rewrite protected file URLs to the access-checked proxy.
+		add_filter( 'wp_get_attachment_url', [ $this, 'filter_attachment_url' ], 10, 2 );
+		add_filter( 'wp_get_attachment_image_src', [ $this, 'filter_attachment_image_src' ], 10, 3 );
+		add_filter( 'wp_calculate_image_srcset', [ $this, 'filter_attachment_image_srcset' ], 10, 5 );
+
+		// Secure existing files when protection is switched on.
+		add_action( 'update_option_hp_gallery_protect_files', [ $this, 'sync_all_protection' ], 10, 2 );
 
 		parent::__construct( $args );
 	}
@@ -146,10 +177,13 @@ final class Gallery extends Component {
 	/**
 	 * Checks if a vendor is allowed to use the gallery feature.
 	 *
-	 * If no plans are selected in the settings, all vendors can use it.
-	 * If plans are selected, the vendor's user needs an active membership
-	 * in one of them (this also fails closed if Memberships is inactive,
-	 * so paid access is never given away by deactivating the extension).
+	 * Gating is opt-in and configured natively on HivePress Memberships
+	 * plans: if no plan enables gallery access, every vendor can use the
+	 * feature. Once at least one plan enables it, the vendor's user needs an
+	 * active membership in one of those plans. This fails closed if the
+	 * Memberships extension is deactivated (the gating flag is persisted, so
+	 * `user_has_active_membership()` returns false and access is denied),
+	 * meaning paid access is never given away by accident.
 	 *
 	 * @param \HivePress\Models\Vendor|null $vendor Vendor object.
 	 * @return bool
@@ -157,10 +191,8 @@ final class Gallery extends Component {
 	public function vendor_can_use_gallery( $vendor ) {
 		$can = true;
 
-		$plan_ids = array_filter( (array) get_option( 'hp_gallery_manage_plans' ) );
-
-		if ( $plan_ids ) {
-			$can = $vendor && $this->user_has_active_membership( $vendor->get_user__id(), $plan_ids );
+		if ( get_option( 'hp_gallery_access_gated' ) ) {
+			$can = $vendor && $this->user_has_active_membership( $vendor->get_user__id(), $this->get_access_plan_ids() );
 		}
 
 		/**
@@ -176,8 +208,9 @@ final class Gallery extends Component {
 	 * Checks if the current user can view a vendor's members-only folders.
 	 *
 	 * Folder owners and users with `edit_others_posts` always can. Other
-	 * users need an active membership in one of the plans selected in the
-	 * settings; if no plans are selected, members-only folders stay locked.
+	 * users need an active membership in one of the plans that enable
+	 * members-only viewing; if no plan enables it, members-only folders stay
+	 * locked for everyone but their owner.
 	 *
 	 * @param \HivePress\Models\Vendor|null $vendor Vendor object.
 	 * @return bool
@@ -189,10 +222,8 @@ final class Gallery extends Component {
 		if ( $user_id ) {
 			if ( current_user_can( 'edit_others_posts' ) || ( $vendor && $user_id === $vendor->get_user__id() ) ) {
 				$can = true;
-			} else {
-				$plan_ids = array_filter( (array) get_option( 'hp_gallery_view_plans' ) );
-
-				$can = $plan_ids && $this->user_has_active_membership( $user_id, $plan_ids );
+			} elseif ( get_option( 'hp_gallery_view_gated' ) ) {
+				$can = $this->user_has_active_membership( $user_id, $this->get_view_plan_ids() );
 			}
 		}
 
@@ -206,6 +237,150 @@ final class Gallery extends Component {
 		 * @param mixed $vendor Vendor object.
 		 */
 		return (bool) apply_filters( 'hp_agl/user_can_view_member_folders', $can, $user_id, $vendor );
+	}
+
+	/**
+	 * Adds gallery access options to the Membership Plan model.
+	 *
+	 * The two checkboxes are stored as plan meta (`hp_gallery_access` and
+	 * `hp_gallery_view`), so gallery gating is configured natively on each
+	 * plan rather than in a separate plan picker.
+	 *
+	 * @param array $model Model arguments.
+	 * @return array
+	 */
+	public function add_plan_fields( $model ) {
+		$model['fields']['gallery_access'] = [
+			'type'      => 'checkbox',
+			'_external' => true,
+		];
+
+		$model['fields']['gallery_view'] = [
+			'type'      => 'checkbox',
+			'_external' => true,
+		];
+
+		return $model;
+	}
+
+	/**
+	 * Adds the gallery access fields to the Membership Plan settings meta box.
+	 *
+	 * @param array $meta_box Meta box arguments.
+	 * @return array
+	 */
+	public function add_plan_settings( $meta_box ) {
+		$meta_box['fields']['gallery_access'] = [
+			'label'   => esc_html__( 'Gallery', 'additional-gallery-for-hivepress' ),
+			'caption' => esc_html__( 'Allow using the photo gallery', 'additional-gallery-for-hivepress' ),
+			'type'    => 'checkbox',
+			'_order'  => 210,
+		];
+
+		$meta_box['fields']['gallery_view'] = [
+			'label'   => esc_html__( 'Gallery Viewing', 'additional-gallery-for-hivepress' ),
+			'caption' => esc_html__( 'Allow viewing members-only gallery folders', 'additional-gallery-for-hivepress' ),
+			'type'    => 'checkbox',
+			'_order'  => 220,
+		];
+
+		return $meta_box;
+	}
+
+	/**
+	 * Gets the IDs of membership plans that enable the gallery feature.
+	 *
+	 * @return array
+	 */
+	public function get_access_plan_ids() {
+		static $plan_ids;
+
+		if ( ! isset( $plan_ids ) ) {
+			$plan_ids = $this->query_plan_ids( 'hp_gallery_access' );
+		}
+
+		return $plan_ids;
+	}
+
+	/**
+	 * Gets the IDs of membership plans that unlock members-only folders.
+	 *
+	 * @return array
+	 */
+	public function get_view_plan_ids() {
+		static $plan_ids;
+
+		if ( ! isset( $plan_ids ) ) {
+			$plan_ids = $this->query_plan_ids( 'hp_gallery_view' );
+		}
+
+		return $plan_ids;
+	}
+
+	/**
+	 * Queries published membership plans carrying the given gallery meta flag.
+	 *
+	 * @param string $meta_key Plan meta key.
+	 * @return array Plan IDs.
+	 */
+	protected function query_plan_ids( $meta_key ) {
+		$post_type = hp_agl_get_plan_post_type();
+
+		return array_map(
+			'absint',
+			get_posts(
+				[
+					'post_type'   => $post_type ? $post_type : 'hp_membership_plan',
+					'post_status' => 'publish',
+					'numberposts' => -1,
+					'fields'      => 'ids',
+
+					'meta_query'  => [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- small, admin-defined plan set read behind a persisted gating flag.
+						[
+							'key'     => $meta_key,
+							'value'   => '1',
+							'compare' => '=',
+						],
+					],
+				]
+			)
+		);
+	}
+
+	/**
+	 * Recomputes and stores whether any plan gates gallery access or viewing.
+	 *
+	 * Persisting these flags lets the access checks fail closed even when the
+	 * Memberships extension (and its plan post type) is later deactivated.
+	 *
+	 * @return void
+	 */
+	public function refresh_gating_flags() {
+		update_option( 'hp_gallery_access_gated', $this->query_plan_ids( 'hp_gallery_access' ) ? '1' : '' );
+		update_option( 'hp_gallery_view_gated', $this->query_plan_ids( 'hp_gallery_view' ) ? '1' : '' );
+	}
+
+	/**
+	 * Refreshes the gating flags when a membership plan is saved, deleted or
+	 * trashed. Runs on the generic save_post at a late priority so the plan
+	 * meta is already persisted, and reads the type from the passed post so it
+	 * still works from `deleted_post` (after the row is gone).
+	 *
+	 * @param int          $post_id Post ID.
+	 * @param \WP_Post|null $post Post object, when provided by the hook.
+	 * @return void
+	 */
+	public function refresh_gating_flags_for_post( $post_id, $post = null ) {
+		if ( wp_is_post_autosave( $post_id ) || wp_is_post_revision( $post_id ) ) {
+			return;
+		}
+
+		$type       = $post instanceof \WP_Post ? $post->post_type : get_post_type( $post_id );
+		$plan_types = array_filter( [ hp_agl_get_plan_post_type(), 'hp_membership_plan' ] );
+
+		if ( in_array( $type, $plan_types, true ) ) {
+			$this->refresh_gating_flags();
+		}
 	}
 
 	/**
@@ -453,29 +628,6 @@ final class Gallery extends Component {
 	}
 
 	/**
-	 * Adds video formats to the images field when video uploads are enabled.
-	 *
-	 * Mirrors the core listing pattern: the extra extensions are merged into
-	 * the model field, so the upload endpoint and both the front-end and
-	 * admin upload managers accept them.
-	 *
-	 * @param array $model Model arguments.
-	 * @return array
-	 */
-	public function alter_model_fields( $model ) {
-		if ( get_option( 'hp_gallery_allow_video' ) ) {
-			$model['fields']['images'] = hp\merge_arrays(
-				$model['fields']['images'],
-				[
-					'formats' => [ 'mp4', 'webm', 'ogv' ],
-				]
-			);
-		}
-
-		return $model;
-	}
-
-	/**
 	 * Gets the public URL of a folder.
 	 *
 	 * @param \HivePress\Models\Gallery_Folder $folder Folder object.
@@ -703,6 +855,12 @@ final class Gallery extends Component {
 				continue;
 			}
 
+			// Protected files have no externally fetchable URL, so OpenAI
+			// cannot reach them; skip rather than send a dud URL.
+			if ( get_post_meta( $attachment_id, 'hp_agl_protected', true ) ) {
+				continue;
+			}
+
 			// Get the image URL.
 			$url = wp_get_attachment_image_url( $attachment_id, 'large' );
 
@@ -900,8 +1058,532 @@ final class Gallery extends Component {
 			echo esc_html( hp_agl_string( hp\get_array_value( $labels, $visibility, $labels['private'] ) ) );
 		} elseif ( 'hp_agl_images' === $column ) {
 			$folder = Models\Gallery_Folder::query()->get_by_id( $post_id );
+			$count  = $folder ? count( (array) $folder->get_images__id() ) : 0;
 
-			echo esc_html( number_format_i18n( $folder ? count( (array) $folder->get_images__id() ) : 0 ) );
+			echo esc_html( number_format_i18n( $count ) );
+
+			if ( $folder && $count ) {
+				echo ' <span style="opacity:0.6;">(' . esc_html( $this->format_size( $this->get_folder_size( $folder ) ) ) . ')</span>';
+			}
+		}
+	}
+
+	/**
+	 * Rejects gallery uploads over the configured file-size limit.
+	 *
+	 * @param array $file Uploaded file data.
+	 * @return array
+	 */
+	public function limit_upload_size( $file ) {
+		$max_mb = hp_agl_int( get_option( 'hp_gallery_max_filesize' ) );
+
+		if ( $max_mb && $this->is_gallery_upload() && ! empty( $file['size'] ) && $file['size'] > $max_mb * MB_IN_BYTES ) {
+			/* translators: %s: size in megabytes. */
+			$file['error'] = sprintf( esc_html__( 'Each file must be smaller than %s MB.', 'additional-gallery-for-hivepress' ), number_format_i18n( $max_mb ) );
+		}
+
+		return $file;
+	}
+
+	/**
+	 * Optimizes a gallery image right after upload, before WordPress generates
+	 * its thumbnails, so every derived size comes from the optimized original.
+	 *
+	 * @param array  $upload Upload data (file, url, type).
+	 * @param string $context Upload context.
+	 * @return array
+	 */
+	public function optimize_upload( $upload, $context ) {
+		if ( 'upload' !== $context || ! $this->is_gallery_upload() || empty( $upload['file'] ) ) {
+			return $upload;
+		}
+
+		$result = $this->optimize_image_file( $upload['file'], hp_agl_string( hp\get_array_value( $upload, 'type' ) ) );
+
+		if ( $result ) {
+			$upload['file'] = $result['file'];
+			$upload['url']  = $result['url'];
+			$upload['type'] = $result['type'];
+		}
+
+		return $upload;
+	}
+
+	/**
+	 * Checks whether the current request is a gallery folder upload.
+	 *
+	 * The HivePress attachments endpoint (which authorises the upload) posts
+	 * the parent model in the request body, so gallery uploads can be
+	 * recognised at the WordPress upload hooks.
+	 *
+	 * @return bool
+	 */
+	protected function is_gallery_upload() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- the upload is authorised by the HivePress attachments endpoint; this only detects context.
+		return isset( $_POST['parent_model'] ) && 'gallery_folder' === sanitize_key( wp_unslash( $_POST['parent_model'] ) );
+	}
+
+	/**
+	 * Resizes, recompresses, strips metadata from and optionally converts an
+	 * image file in place, according to the optimization settings.
+	 *
+	 * @param string $file File path.
+	 * @param string $mime MIME type.
+	 * @return array|false New file data (file, url, type), or false if unchanged.
+	 */
+	public function optimize_image_file( $file, $mime ) {
+		if ( ! in_array( $mime, [ 'image/jpeg', 'image/png', 'image/webp' ], true ) || ! file_exists( $file ) ) {
+			return false;
+		}
+
+		$max_dim = hp_agl_int( get_option( 'hp_gallery_max_dimensions' ) );
+		$quality = hp_agl_int( get_option( 'hp_gallery_image_quality' ) );
+		$strip   = (bool) get_option( 'hp_gallery_strip_metadata' );
+
+		$convert = (bool) get_option( 'hp_gallery_convert_webp' )
+			&& in_array( $mime, [ 'image/jpeg', 'image/png' ], true )
+			&& in_array( 'webp', hp_agl_get_upload_formats(), true )
+			&& wp_image_editor_supports( [ 'mime_type' => 'image/webp' ] );
+
+		if ( ! $max_dim && ! $quality && ! $strip && ! $convert ) {
+			return false;
+		}
+
+		$editor = wp_get_image_editor( $file );
+
+		if ( is_wp_error( $editor ) ) {
+			return false;
+		}
+
+		// Track whether anything will actually change, so an image that is
+		// already within bounds is not needlessly re-encoded.
+		$changed = $quality || $strip || $convert;
+
+		if ( $quality ) {
+			$editor->set_quality( min( 100, max( 10, $quality ) ) );
+		}
+
+		if ( $max_dim ) {
+			$size = $editor->get_size();
+
+			if ( is_array( $size ) && ( $size['width'] > $max_dim || $size['height'] > $max_dim ) ) {
+				$editor->resize( $max_dim, $max_dim, false );
+
+				$changed = true;
+			}
+		}
+
+		if ( ! $changed ) {
+			return false;
+		}
+
+		// Choose the output file (re-encoding always drops most metadata).
+		$target_mime = $convert ? 'image/webp' : $mime;
+		$target_file = $file;
+
+		if ( $convert ) {
+			$dir  = dirname( $file );
+			$base = preg_replace( '/\.\w+$/', '.webp', basename( $file ) );
+
+			if ( ! $base ) {
+				$base = basename( $file ) . '.webp';
+			}
+
+			// Ensure a unique name so a converted file never overwrites another
+			// attachment's file in the same directory.
+			$target_file = trailingslashit( $dir ) . wp_unique_filename( $dir, $base );
+		}
+
+		$saved = $editor->save( $target_file, $target_mime );
+
+		if ( is_wp_error( $saved ) || empty( $saved['path'] ) ) {
+			return false;
+		}
+
+		// Remove the original source file when the format changed.
+		if ( $saved['path'] !== $file && file_exists( $file ) ) {
+			wp_delete_file( $file );
+		}
+
+		$upload_dir = wp_get_upload_dir();
+
+		return [
+			'file' => $saved['path'],
+			'url'  => str_replace( $upload_dir['basedir'], $upload_dir['baseurl'], $saved['path'] ),
+			'type' => $saved['mime-type'],
+		];
+	}
+
+	/**
+	 * Gets the total file weight (bytes on disk) of a folder's media.
+	 *
+	 * @param int|\HivePress\Models\Gallery_Folder $folder Folder ID or object.
+	 * @return int
+	 */
+	public function get_folder_size( $folder ) {
+		if ( ! $folder instanceof \HivePress\Models\Gallery_Folder ) {
+			$folder = Models\Gallery_Folder::query()->get_by_id( $folder );
+		}
+
+		$bytes = 0;
+
+		if ( $folder ) {
+			foreach ( (array) $folder->get_images__id() as $attachment_id ) {
+				$bytes += $this->get_attachment_size( $attachment_id );
+			}
+		}
+
+		return $bytes;
+	}
+
+	/**
+	 * Gets the total file weight of an attachment, including its resized files.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return int
+	 */
+	protected function get_attachment_size( $attachment_id ) {
+		$file  = get_attached_file( $attachment_id );
+		$bytes = ( $file && file_exists( $file ) ) ? (int) filesize( $file ) : 0;
+
+		$metadata = wp_get_attachment_metadata( $attachment_id );
+
+		if ( $file && is_array( $metadata ) ) {
+			$dir = dirname( $file );
+
+			if ( ! empty( $metadata['sizes'] ) ) {
+				foreach ( $metadata['sizes'] as $size ) {
+					if ( ! empty( $size['file'] ) && file_exists( $dir . '/' . $size['file'] ) ) {
+						$bytes += (int) filesize( $dir . '/' . $size['file'] );
+					}
+				}
+			}
+
+			// Include the scaled big-image original backup, if present.
+			if ( ! empty( $metadata['original_image'] ) && file_exists( $dir . '/' . $metadata['original_image'] ) ) {
+				$bytes += (int) filesize( $dir . '/' . $metadata['original_image'] );
+			}
+		}
+
+		return $bytes;
+	}
+
+	/**
+	 * Formats a byte count for display.
+	 *
+	 * @param int $bytes Byte count.
+	 * @return string
+	 */
+	public function format_size( $bytes ) {
+		return $bytes ? hp_agl_string( size_format( $bytes, $bytes >= MB_IN_BYTES ? 1 : 0 ) ) : '0 B';
+	}
+
+	/**
+	 * Adds the optimize/restore bulk actions to the folders list table.
+	 *
+	 * @param array $actions Bulk actions.
+	 * @return array
+	 */
+	public function add_bulk_actions( $actions ) {
+		$actions['hp_agl_optimize'] = esc_html__( 'Optimize images', 'additional-gallery-for-hivepress' );
+		$actions['hp_agl_restore']  = esc_html__( 'Restore original images', 'additional-gallery-for-hivepress' );
+
+		return $actions;
+	}
+
+	/**
+	 * Runs the optimize/restore bulk actions on the selected folders.
+	 *
+	 * @param string $redirect Redirect URL.
+	 * @param string $action Bulk action.
+	 * @param array  $post_ids Selected post IDs.
+	 * @return string
+	 */
+	public function handle_bulk_actions( $redirect, $action, $post_ids ) {
+		if ( ! in_array( $action, [ 'hp_agl_optimize', 'hp_agl_restore' ], true ) ) {
+			return $redirect;
+		}
+
+		// Image processing is heavy; give the batch as much runtime as the host
+		// allows (best effort - ignored when disabled).
+		if ( function_exists( 'set_time_limit' ) ) {
+			@set_time_limit( 0 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.PHP.IniSet
+		}
+
+		$count = 0;
+
+		foreach ( (array) $post_ids as $post_id ) {
+			if ( 'hp_gallery_folder' !== get_post_type( $post_id ) ) {
+				continue;
+			}
+
+			$folder = Models\Gallery_Folder::query()->get_by_id( $post_id );
+
+			if ( ! $folder ) {
+				continue;
+			}
+
+			foreach ( (array) $folder->get_images__id() as $attachment_id ) {
+				if ( 'hp_agl_optimize' === $action ) {
+					if ( $this->optimize_attachment( $attachment_id ) ) {
+						++$count;
+					}
+				} elseif ( $this->restore_attachment( $attachment_id ) ) {
+					++$count;
+				}
+			}
+		}
+
+		return add_query_arg(
+			[
+				'hp_agl_bulk'  => $action,
+				'hp_agl_count' => $count,
+			],
+			$redirect
+		);
+	}
+
+	/**
+	 * Shows a success notice after a bulk optimize/restore action.
+	 *
+	 * @return void
+	 */
+	public function render_bulk_action_notice() {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only notice after WordPress' own bulk-action redirect.
+		if ( empty( $_GET['hp_agl_bulk'] ) ) {
+			return;
+		}
+
+		$action = sanitize_key( wp_unslash( $_GET['hp_agl_bulk'] ) );
+		$count  = isset( $_GET['hp_agl_count'] ) ? absint( $_GET['hp_agl_count'] ) : 0;
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		if ( 'hp_agl_restore' === $action ) {
+			/* translators: %s: number of images. */
+			$message = sprintf( _n( '%s image restored.', '%s images restored.', $count, 'additional-gallery-for-hivepress' ), number_format_i18n( $count ) );
+		} elseif ( 'hp_agl_optimize' === $action ) {
+			/* translators: %s: number of images. */
+			$message = sprintf( _n( '%s image optimized.', '%s images optimized.', $count, 'additional-gallery-for-hivepress' ), number_format_i18n( $count ) );
+		} else {
+			return;
+		}
+
+		echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $message ) . '</p></div>';
+	}
+
+	/**
+	 * Optimizes an existing attachment, backing up its original first when
+	 * requested, then regenerating its thumbnails.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return bool
+	 */
+	public function optimize_attachment( $attachment_id ) {
+		$attachment_id = absint( $attachment_id );
+		$file          = get_attached_file( $attachment_id );
+		$mime          = hp_agl_string( get_post_mime_type( $attachment_id ) );
+
+		if ( ! $file || ! file_exists( $file ) || ! in_array( $mime, [ 'image/jpeg', 'image/png', 'image/webp' ], true ) ) {
+			return false;
+		}
+
+		if ( get_option( 'hp_gallery_keep_originals' ) ) {
+			$this->backup_original( $attachment_id, $file, $mime );
+		}
+
+		$result = $this->optimize_image_file( $file, $mime );
+
+		if ( ! $result ) {
+			return false;
+		}
+
+		// Point the attachment at the optimized file when the format changed.
+		if ( $result['file'] !== $file ) {
+			update_attached_file( $attachment_id, $result['file'] );
+
+			wp_update_post(
+				[
+					'ID'             => $attachment_id,
+					'post_mime_type' => $result['type'],
+				]
+			);
+		}
+
+		$this->regenerate_attachment( $attachment_id, $result['file'] );
+
+		return true;
+	}
+
+	/**
+	 * Restores an attachment's backed-up original and regenerates it.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return bool
+	 */
+	public function restore_attachment( $attachment_id ) {
+		$attachment_id = absint( $attachment_id );
+		$backup        = get_post_meta( $attachment_id, 'hp_agl_original', true );
+
+		if ( ! is_array( $backup ) || empty( $backup['file'] ) || empty( $backup['name'] ) ) {
+			return false;
+		}
+
+		$upload_dir  = wp_get_upload_dir();
+		$backup_path = $upload_dir['basedir'] . '/' . $backup['file'];
+
+		if ( ! file_exists( $backup_path ) ) {
+			return false;
+		}
+
+		// Restore next to the current file, keeping the (possibly protected) location.
+		$current  = get_attached_file( $attachment_id );
+		$rel      = hp_agl_string( get_post_meta( $attachment_id, '_wp_attached_file', true ) );
+		$dest_rel = trailingslashit( dirname( $rel ) ) . $backup['name'];
+		$dest_rel = ltrim( str_replace( './', '', $dest_rel ), '/' );
+		$dest     = $upload_dir['basedir'] . '/' . $dest_rel;
+
+		if ( ! @copy( $backup_path, $dest ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			return false;
+		}
+
+		// Remove the optimized file and its resized variants.
+		if ( $current && $current !== $dest ) {
+			$this->delete_attachment_files( $attachment_id );
+		}
+
+		update_attached_file( $attachment_id, $dest );
+
+		$mime = hp_agl_string( hp\get_array_value( $backup, 'mime' ) );
+
+		wp_update_post(
+			[
+				'ID'             => $attachment_id,
+				'post_mime_type' => $mime ? $mime : hp_agl_string( get_post_mime_type( $attachment_id ) ),
+			]
+		);
+
+		$this->regenerate_attachment( $attachment_id, $dest );
+
+		// Clear the backup.
+		wp_delete_file( $backup_path );
+		delete_post_meta( $attachment_id, 'hp_agl_original' );
+
+		return true;
+	}
+
+	/**
+	 * Backs up an attachment's original file once, before optimization.
+	 *
+	 * @param int    $attachment_id Attachment ID.
+	 * @param string $file File path.
+	 * @param string $mime MIME type.
+	 * @return void
+	 */
+	protected function backup_original( $attachment_id, $file, $mime ) {
+		if ( get_post_meta( $attachment_id, 'hp_agl_original', true ) ) {
+			return;
+		}
+
+		$upload_dir = wp_get_upload_dir();
+		$dir        = $upload_dir['basedir'] . '/hp-agl-originals';
+
+		if ( ! wp_mkdir_p( $dir ) ) {
+			return;
+		}
+
+		$this->protect_directory( $dir );
+
+		$name = basename( $file );
+		$dest = $dir . '/' . $attachment_id . '-' . $name;
+
+		if ( ! @copy( $file, $dest ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			return;
+		}
+
+		update_post_meta(
+			$attachment_id,
+			'hp_agl_original',
+			[
+				'file' => 'hp-agl-originals/' . $attachment_id . '-' . $name,
+				'name' => $name,
+				'mime' => $mime,
+			]
+		);
+	}
+
+	/**
+	 * Regenerates an attachment's thumbnails and metadata, clearing old files.
+	 *
+	 * @param int    $attachment_id Attachment ID.
+	 * @param string $file File path.
+	 * @return void
+	 */
+	protected function regenerate_attachment( $attachment_id, $file ) {
+		if ( ! function_exists( 'wp_generate_attachment_metadata' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/image.php';
+		}
+
+		$this->delete_attachment_files( $attachment_id, true );
+
+		$metadata = wp_generate_attachment_metadata( $attachment_id, $file );
+
+		if ( is_array( $metadata ) ) {
+			wp_update_attachment_metadata( $attachment_id, $metadata );
+		}
+
+		// Refresh the blurred teaser so locked previews reflect the new file.
+		$this->delete_teaser_image( $attachment_id );
+	}
+
+	/**
+	 * Deletes an attachment's resized files (and optionally leaves the main
+	 * file in place, when only clearing stale intermediates).
+	 *
+	 * @param int  $attachment_id Attachment ID.
+	 * @param bool $keep_main Whether to keep the main file.
+	 * @return void
+	 */
+	protected function delete_attachment_files( $attachment_id, $keep_main = false ) {
+		$file     = get_attached_file( $attachment_id );
+		$metadata = wp_get_attachment_metadata( $attachment_id );
+
+		if ( ! $file ) {
+			return;
+		}
+
+		$dir = dirname( $file );
+
+		if ( is_array( $metadata ) && ! empty( $metadata['sizes'] ) ) {
+			foreach ( $metadata['sizes'] as $size ) {
+				if ( ! empty( $size['file'] ) && basename( $file ) !== $size['file'] && file_exists( $dir . '/' . $size['file'] ) ) {
+					wp_delete_file( $dir . '/' . $size['file'] );
+				}
+			}
+		}
+
+		if ( ! $keep_main && file_exists( $file ) ) {
+			wp_delete_file( $file );
+		}
+	}
+
+	/**
+	 * Writes deny-direct-access guards into a directory.
+	 *
+	 * @param string $dir Directory path.
+	 * @return void
+	 */
+	protected function protect_directory( $dir ) {
+		if ( ! file_exists( $dir . '/.htaccess' ) ) {
+			$rules = "# Additional Gallery for HivePress - deny direct access.\n"
+				. "<IfModule mod_authz_core.c>\n\tRequire all denied\n</IfModule>\n"
+				. "<IfModule !mod_authz_core.c>\n\tOrder deny,allow\n\tDeny from all\n</IfModule>\n"
+				. "Options -Indexes\n";
+
+			file_put_contents( $dir . '/.htaccess', $rules ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- one-off deny-rule guard beside direct file handling.
+		}
+
+		if ( ! file_exists( $dir . '/index.php' ) ) {
+			file_put_contents( $dir . '/index.php', '<?php // Silence is golden.' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- one-off index guard.
 		}
 	}
 
@@ -1066,6 +1748,563 @@ final class Gallery extends Component {
 	}
 
 	/**
+	 * Checks whether file protection is enabled.
+	 *
+	 * When on, files in private and members-only folders are relocated to a
+	 * protected directory (denied direct web access) and served through an
+	 * access-checked proxy, so their URLs cannot be opened directly.
+	 *
+	 * @return bool
+	 */
+	public function is_file_protection_enabled() {
+		return (bool) get_option( 'hp_gallery_protect_files' );
+	}
+
+	/**
+	 * Gets the protected uploads directory, creating it (with a deny rule) on
+	 * first use.
+	 *
+	 * @return string|null Absolute path, or null if it cannot be created.
+	 */
+	public function get_protected_dir() {
+		$upload_dir = wp_get_upload_dir();
+		$dir        = $upload_dir['basedir'] . '/hp-agl-protected';
+
+		if ( ! wp_mkdir_p( $dir ) ) {
+			return null;
+		}
+
+		// Deny direct web access (Apache). Nginx needs a server rule; the
+		// proxy re-checks access regardless, so this is defence in depth.
+		$this->protect_directory( $dir );
+
+		return $dir;
+	}
+
+	/**
+	 * Rewrites a protected attachment URL to the access-checked proxy.
+	 *
+	 * @param string $url Attachment URL.
+	 * @param int    $attachment_id Attachment ID.
+	 * @return string
+	 */
+	public function filter_attachment_url( $url, $attachment_id ) {
+		if ( $this->is_file_protection_enabled() && get_post_meta( $attachment_id, 'hp_agl_protected', true ) ) {
+			return $this->get_protected_file_url( $attachment_id, 'full' );
+		}
+
+		return $url;
+	}
+
+	/**
+	 * Rewrites a protected attachment image source to the proxy.
+	 *
+	 * @param array|false  $image Image data (url, width, height, is_intermediate).
+	 * @param int          $attachment_id Attachment ID.
+	 * @param string|array $size Requested size.
+	 * @return array|false
+	 */
+	public function filter_attachment_image_src( $image, $attachment_id, $size ) {
+		if ( is_array( $image ) && $this->is_file_protection_enabled() && get_post_meta( $attachment_id, 'hp_agl_protected', true ) ) {
+			$size_key = is_string( $size ) ? $size : 'full';
+
+			$image[0] = $this->get_protected_file_url( $attachment_id, $size_key );
+		}
+
+		return $image;
+	}
+
+	/**
+	 * Drops the srcset for protected attachments, so no direct file URLs are
+	 * generated by the responsive-image markup.
+	 *
+	 * @param array $sources Srcset sources.
+	 * @param array $size_array Size array.
+	 * @param string $image_src Image source.
+	 * @param array $image_meta Image metadata.
+	 * @param int   $attachment_id Attachment ID.
+	 * @return array
+	 */
+	public function filter_attachment_image_srcset( $sources, $size_array, $image_src, $image_meta, $attachment_id ) {
+		if ( $this->is_file_protection_enabled() && get_post_meta( $attachment_id, 'hp_agl_protected', true ) ) {
+			return [];
+		}
+
+		return $sources;
+	}
+
+	/**
+	 * Builds the proxy URL for a protected file.
+	 *
+	 * @param int    $attachment_id Attachment ID.
+	 * @param string $size Image size name.
+	 * @return string
+	 */
+	public function get_protected_file_url( $attachment_id, $size = 'full' ) {
+		$url = hivepress()->router->get_url( 'gallery_file_view_page', [ 'attachment_id' => $attachment_id ] );
+
+		if ( $size && 'full' !== $size ) {
+			$url = add_query_arg( 'size', $size, $url );
+		}
+
+		return $url;
+	}
+
+	/**
+	 * Synchronises the protection state of a folder's files with its
+	 * visibility (private/members are protected; public are public).
+	 *
+	 * @param int|\HivePress\Models\Gallery_Folder $folder Folder ID or object.
+	 * @return void
+	 */
+	public function sync_folder_protection( $folder ) {
+		if ( ! $folder instanceof \HivePress\Models\Gallery_Folder ) {
+			$folder = Models\Gallery_Folder::query()->get_by_id( $folder );
+		}
+
+		if ( ! $folder ) {
+			return;
+		}
+
+		$protect = $this->is_file_protection_enabled() && in_array( $folder->get_visibility(), [ 'members', 'private' ], true );
+
+		// Query the folder's attachments directly rather than through the
+		// cached relation, so a just-uploaded file is never missed (and so a
+		// stale cache can never leave a private file unprotected).
+		foreach ( $this->get_folder_attachment_ids( $folder->get_id() ) as $attachment_id ) {
+			if ( $protect ) {
+				$this->protect_attachment( $attachment_id );
+			} else {
+				$this->unprotect_attachment( $attachment_id );
+			}
+		}
+	}
+
+	/**
+	 * Gets a folder's attachment IDs directly from the database (bypassing the
+	 * cached relation), for the protection sync.
+	 *
+	 * @param int $folder_id Folder ID.
+	 * @return array
+	 */
+	protected function get_folder_attachment_ids( $folder_id ) {
+		return get_posts(
+			[
+				'post_type'   => 'attachment',
+				'post_status' => 'inherit',
+				'post_parent' => absint( $folder_id ),
+				'numberposts' => -1,
+				'fields'      => 'ids',
+
+				'meta_query'  => [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- bounded per-folder lookup that must not depend on cache freshness for a security-relevant relocation.
+					[
+						'key'   => 'hp_parent_field',
+						'value' => 'images',
+					],
+				],
+			]
+		);
+	}
+
+	/**
+	 * Relocates all folders' files when the protection setting is toggled.
+	 *
+	 * @param mixed $old_value Old option value.
+	 * @param mixed $new_value New option value.
+	 * @return void
+	 */
+	public function sync_all_protection( $old_value, $new_value ) {
+		if ( (bool) $old_value === (bool) $new_value ) {
+			return;
+		}
+
+		$folder_ids = get_posts(
+			[
+				'post_type'   => 'hp_gallery_folder',
+				'post_status' => 'any',
+				'numberposts' => -1,
+				'fields'      => 'ids',
+			]
+		);
+
+		foreach ( $folder_ids as $folder_id ) {
+			$this->sync_folder_protection( $folder_id );
+		}
+	}
+
+	/**
+	 * Moves an attachment's files into the protected directory.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return void
+	 */
+	public function protect_attachment( $attachment_id ) {
+		$attachment_id = absint( $attachment_id );
+
+		if ( ! $attachment_id || get_post_meta( $attachment_id, 'hp_agl_protected', true ) ) {
+			return;
+		}
+
+		if ( ! $this->get_protected_dir() ) {
+			return;
+		}
+
+		if ( $this->move_attachment_files( $attachment_id, true ) ) {
+			update_post_meta( $attachment_id, 'hp_agl_protected', '1' );
+		}
+	}
+
+	/**
+	 * Moves an attachment's files back out of the protected directory.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return void
+	 */
+	public function unprotect_attachment( $attachment_id ) {
+		$attachment_id = absint( $attachment_id );
+
+		if ( ! $attachment_id || ! get_post_meta( $attachment_id, 'hp_agl_protected', true ) ) {
+			return;
+		}
+
+		if ( $this->move_attachment_files( $attachment_id, false ) ) {
+			delete_post_meta( $attachment_id, 'hp_agl_protected' );
+		}
+	}
+
+	/**
+	 * Moves an attachment's original, resized and scaled files into or out of
+	 * the protected directory, keeping the attachment metadata in sync.
+	 *
+	 * @param int  $attachment_id Attachment ID.
+	 * @param bool $to_protected Whether to move into the protected directory.
+	 * @return bool
+	 */
+	protected function move_attachment_files( $attachment_id, $to_protected ) {
+		$prefix = 'hp-agl-protected/';
+
+		$upload_dir = wp_get_upload_dir();
+		$basedir    = $upload_dir['basedir'];
+
+		// Get the current relative path.
+		$relative = hp_agl_string( get_post_meta( $attachment_id, '_wp_attached_file', true ) );
+
+		if ( ! $relative ) {
+			return false;
+		}
+
+		// Compute the base (unprefixed) and destination relative paths.
+		$base_relative = preg_replace( '#^' . preg_quote( $prefix, '#' ) . '#', '', $relative );
+		$dest_relative = $to_protected ? $prefix . $base_relative : $base_relative;
+
+		if ( $dest_relative === $relative ) {
+			return true;
+		}
+
+		$from_dir = dirname( $basedir . '/' . $relative );
+		$to_dir   = dirname( $basedir . '/' . $dest_relative );
+
+		if ( ! wp_mkdir_p( $to_dir ) ) {
+			return false;
+		}
+
+		// Collect every file that belongs to this attachment.
+		$files    = [ basename( $relative ) ];
+		$metadata = wp_get_attachment_metadata( $attachment_id );
+
+		if ( is_array( $metadata ) ) {
+			if ( ! empty( $metadata['sizes'] ) ) {
+				foreach ( $metadata['sizes'] as $size ) {
+					if ( ! empty( $size['file'] ) ) {
+						$files[] = $size['file'];
+					}
+				}
+			}
+
+			if ( ! empty( $metadata['original_image'] ) ) {
+				$files[] = $metadata['original_image'];
+			}
+		}
+
+		$files = array_unique( $files );
+		$main  = basename( $relative );
+
+		// Move the main file first; abort if it cannot move (nothing has
+		// changed yet, so the attachment stays consistent).
+		if ( ! $this->move_file( $from_dir . '/' . $main, $to_dir . '/' . $main ) ) {
+			return false;
+		}
+
+		// Move the remaining variants best-effort. A failed variant must not
+		// leave the attachment pointing at a half-moved main file.
+		foreach ( $files as $file ) {
+			if ( $file !== $main ) {
+				$this->move_file( $from_dir . '/' . $file, $to_dir . '/' . $file );
+			}
+		}
+
+		// Point the attachment at the new location, keeping both `_wp_attached_file`
+		// and the metadata `file` key in sync. WordPress deletes intermediate
+		// sizes and the scaled original relative to `dirname($meta['file'])`, so
+		// a stale value there would orphan those files on deletion.
+		update_post_meta( $attachment_id, '_wp_attached_file', $dest_relative );
+
+		if ( is_array( $metadata ) ) {
+			$metadata['file'] = $dest_relative;
+
+			wp_update_attachment_metadata( $attachment_id, $metadata );
+		}
+
+		return true;
+	}
+
+	/**
+	 * Moves a single file, tolerating an already-moved source and falling back
+	 * to copy+unlink across volumes.
+	 *
+	 * @param string $from Source path.
+	 * @param string $to Destination path.
+	 * @return bool
+	 */
+	protected function move_file( $from, $to ) {
+		if ( $from === $to ) {
+			return true;
+		}
+
+		if ( ! file_exists( $from ) ) {
+			// Treat an already-relocated file as success.
+			return file_exists( $to );
+		}
+
+		if ( @rename( $from, $to ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename -- direct move of a local upload; falls back to copy+unlink across volumes.
+			return true;
+		}
+
+		if ( @copy( $from, $to ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			wp_delete_file( $from );
+
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Checks whether the current user may access a protected attachment.
+	 *
+	 * Mirrors the gallery-page and attachment-page access rules.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return bool
+	 */
+	public function can_access_attachment( $attachment_id ) {
+		$attachment_id = absint( $attachment_id );
+
+		if ( ! $attachment_id || 'attachment' !== get_post_type( $attachment_id ) ) {
+			return false;
+		}
+
+		// Get the parent folder.
+		$parent_id = wp_get_post_parent_id( $attachment_id );
+
+		if ( ! $parent_id || 'hp_gallery_folder' !== get_post_type( $parent_id ) ) {
+			return false;
+		}
+
+		$folder = Models\Gallery_Folder::query()->get_by_id( $parent_id );
+
+		if ( ! $folder ) {
+			return false;
+		}
+
+		// Owners and editors always have access. The user ID must be non-zero,
+		// so a logged-out visitor never matches an orphaned (author 0) folder.
+		$user_id = get_current_user_id();
+
+		if ( ( $user_id && $user_id === $folder->get_user__id() ) || current_user_can( 'edit_others_posts' ) ) {
+			return true;
+		}
+
+		$visibility = $folder->get_visibility();
+
+		// Listed folders require an unlocked gallery, matching the gallery pages.
+		if ( in_array( $visibility, [ 'public', 'members' ], true ) ) {
+			$vendor = Models\Vendor::query()->get_by_id( $folder->get_vendor__id() );
+
+			if ( ! $vendor || 'publish' !== $folder->get_status() || ! $this->vendor_can_use_gallery( $vendor ) ) {
+				return false;
+			}
+
+			if ( 'public' === $visibility ) {
+				return true;
+			}
+
+			return $this->user_can_view_member_folders( $vendor );
+		}
+
+		return false;
+	}
+
+	/**
+	 * Streams a protected file to an authorised visitor, or exits with the
+	 * appropriate error status.
+	 *
+	 * @param int    $attachment_id Attachment ID.
+	 * @param string $size Image size name.
+	 * @return void
+	 */
+	public function serve_protected_file( $attachment_id, $size = 'full' ) {
+		$attachment_id = absint( $attachment_id );
+
+		// Check access.
+		if ( ! $this->can_access_attachment( $attachment_id ) ) {
+			nocache_headers();
+			status_header( is_user_logged_in() ? 403 : 401 );
+
+			exit;
+		}
+
+		// Resolve the requested file, defaulting to the original.
+		$path = get_attached_file( $attachment_id );
+		$size = sanitize_key( (string) $size );
+
+		if ( $size && 'full' !== $size ) {
+			$metadata = wp_get_attachment_metadata( $attachment_id );
+
+			if ( ! empty( $metadata['sizes'][ $size ]['file'] ) ) {
+				$path = path_join( dirname( $path ), $metadata['sizes'][ $size ]['file'] );
+			}
+		}
+
+		// Guard against path traversal: the file must live under uploads.
+		$upload_dir = wp_get_upload_dir();
+		$real_path  = $path ? realpath( $path ) : false;
+		$real_base  = realpath( $upload_dir['basedir'] );
+
+		if ( ! $real_path || ! $real_base || 0 !== strpos( $real_path, $real_base . DIRECTORY_SEPARATOR ) || ! is_file( $real_path ) ) {
+			nocache_headers();
+			status_header( 404 );
+
+			exit;
+		}
+
+		$this->stream_file( $real_path, hp_agl_string( get_post_mime_type( $attachment_id ) ) );
+	}
+
+	/**
+	 * Streams a local file with caching, conditional-GET and byte-range
+	 * support (the latter needed for video seeking).
+	 *
+	 * @param string $path File path.
+	 * @param string $mime MIME type.
+	 * @return void
+	 */
+	protected function stream_file( $path, $mime ) {
+		$size          = (int) filesize( $path );
+		$last_modified = (int) filemtime( $path );
+		$etag          = '"' . md5( $last_modified . '-' . $size ) . '"';
+
+		if ( ! $mime ) {
+			$mime = 'application/octet-stream';
+		}
+
+		// Discard any buffered output so the binary stream is clean.
+		while ( ob_get_level() ) {
+			ob_end_clean();
+		}
+
+		// Conditional GET.
+		$if_none_match     = isset( $_SERVER['HTTP_IF_NONE_MATCH'] ) ? trim( wp_unslash( $_SERVER['HTTP_IF_NONE_MATCH'] ) ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- compared as an opaque validator token.
+		$if_modified_since = isset( $_SERVER['HTTP_IF_MODIFIED_SINCE'] ) ? strtotime( wp_unslash( $_SERVER['HTTP_IF_MODIFIED_SINCE'] ) ) : false; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+
+		if ( ( $if_none_match && $if_none_match === $etag ) || ( $if_modified_since && $if_modified_since >= $last_modified ) ) {
+			status_header( 304 );
+
+			exit;
+		}
+
+		// Base headers.
+		header( 'Content-Type: ' . $mime );
+		header( 'Content-Disposition: inline; filename="' . basename( $path ) . '"' );
+		header( 'Cache-Control: private, max-age=' . ( 6 * HOUR_IN_SECONDS ) );
+		header( 'Last-Modified: ' . gmdate( 'D, d M Y H:i:s', $last_modified ) . ' GMT' );
+		header( 'ETag: ' . $etag );
+		header( 'Accept-Ranges: bytes' );
+		header_remove( 'Expires' );
+		header_remove( 'Pragma' );
+
+		// Range handling for seeking.
+		$start = 0;
+		$end   = $size - 1;
+		$range = isset( $_SERVER['HTTP_RANGE'] ) ? wp_unslash( $_SERVER['HTTP_RANGE'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- parsed numerically below.
+
+		if ( $range && preg_match( '/bytes=(\d*)-(\d*)/', $range, $matches ) ) {
+			if ( '' === $matches[1] && '' !== $matches[2] ) {
+
+				// Suffix range: the final N bytes.
+				$start = max( 0, $size - (int) $matches[2] );
+				$end   = $size - 1;
+			} else {
+				if ( '' !== $matches[1] ) {
+					$start = (int) $matches[1];
+				}
+
+				if ( '' !== $matches[2] ) {
+					$end = (int) $matches[2];
+				}
+			}
+
+			if ( $start > $end || $start >= $size ) {
+				status_header( 416 );
+				header( 'Content-Range: bytes */' . $size );
+
+				exit;
+			}
+
+			$end = min( $end, $size - 1 );
+
+			status_header( 206 );
+			header( 'Content-Range: bytes ' . $start . '-' . $end . '/' . $size );
+		}
+
+		$length = $end - $start + 1;
+
+		header( 'Content-Length: ' . $length );
+
+		// Stream the requested byte range.
+		$handle = fopen( $path, 'rb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- streaming a local upload to the browser.
+
+		if ( false === $handle ) {
+			status_header( 500 );
+
+			exit;
+		}
+
+		if ( $start > 0 ) {
+			fseek( $handle, $start );
+		}
+
+		$remaining = $length;
+
+		while ( $remaining > 0 && ! feof( $handle ) ) {
+			$buffer = fread( $handle, (int) min( 8192, $remaining ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fread
+
+			if ( false === $buffer ) {
+				break;
+			}
+
+			echo $buffer; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- raw binary file stream.
+			flush();
+
+			$remaining -= strlen( $buffer );
+		}
+
+		fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+
+		exit;
+	}
+
+	/**
 	 * Hides gallery images from public REST API media queries when file
 	 * protection is enabled.
 	 *
@@ -1126,7 +2365,8 @@ final class Gallery extends Component {
 		$visibility = $folder->get_visibility();
 		$allowed    = false;
 		$vendor     = null;
-		$owner      = get_current_user_id() === $folder->get_user__id() || current_user_can( 'edit_others_posts' );
+		$user_id    = get_current_user_id();
+		$owner      = ( $user_id && $user_id === $folder->get_user__id() ) || current_user_can( 'edit_others_posts' );
 
 		if ( in_array( $visibility, [ 'public', 'members' ], true ) && ! $owner ) {
 

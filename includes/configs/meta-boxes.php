@@ -22,12 +22,8 @@ if ( ! $hp_agl_max_images ) {
 	$hp_agl_max_images = 30;
 }
 
-// Get the accepted formats, mirroring the gallery folder model.
-$hp_agl_formats = [ 'jpg', 'jpeg', 'png', 'webp', 'gif' ];
-
-if ( get_option( 'hp_gallery_allow_video' ) ) {
-	$hp_agl_formats = array_merge( $hp_agl_formats, [ 'mp4', 'webm', 'ogv' ] );
-}
+// Get the accepted formats (shared with the gallery folder model).
+$hp_agl_formats = hp_agl_get_upload_formats();
 
 return [
 	'gallery_folder_images'   => [
