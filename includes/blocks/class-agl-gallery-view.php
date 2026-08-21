@@ -18,7 +18,7 @@ defined( 'ABSPATH' ) || exit;
  * Members-only folders are rendered locked for visitors without access,
  * without ever exposing the original file URLs.
  */
-class Gallery_View extends Block {
+class Agl_Gallery_View extends Block {
 
 	/**
 	 * Renders block HTML.
@@ -43,9 +43,8 @@ class Gallery_View extends Block {
 		}
 
 		// Get access details.
-		$member_view    = hivepress()->gallery->user_can_view_member_folders( $vendor );
-		$locked_display = hivepress()->gallery->get_locked_display();
-		$upgrade_url    = hivepress()->gallery->get_upgrade_url();
+		$member_view    = hivepress()->agl_gallery->user_can_view_member_folders( $vendor );
+		$locked_display = hivepress()->agl_gallery->get_locked_display();
 
 		$output .= '<div class="hp-agl-gallery">';
 
@@ -70,18 +69,18 @@ class Gallery_View extends Block {
 			}
 		}
 
-		$updated_time = hivepress()->gallery->get_updated_time( $folder_ids );
+		$updated_time = hivepress()->agl_gallery->get_updated_time( $folder_ids );
 
 		if ( $updated_time ) {
 			/* translators: %s: human-readable time difference. */
-			$output .= '<p class="hp-agl-gallery__updated"><i class="hp-icon fas fa-clock"></i> ' . esc_html( sprintf( __( 'Updated %s ago', 'additional-gallery-for-hivepress' ), human_time_diff( $updated_time ) ) ) . '</p>';
+			$output .= '<p class="hp-agl-gallery__updated hp-meta"><i class="hp-icon fas fa-clock"></i> ' . esc_html( sprintf( __( 'Updated %s ago', 'additional-gallery-for-hivepress' ), human_time_diff( $updated_time ) ) ) . '</p>';
 		}
 
 		// Render folders.
 		$rendered = 0;
 
 		if ( $folders ) {
-			if ( 'single' === hivepress()->gallery->get_layout() ) {
+			if ( 'single' === hivepress()->agl_gallery->get_layout() ) {
 
 				// Single page: every folder expanded.
 				foreach ( $folders as $folder ) {
@@ -94,7 +93,7 @@ class Gallery_View extends Block {
 					}
 
 					// Check folder access.
-					$locked = 'members' === $folder->get_visibility() && ! $member_view;
+					$locked = 'members' === hivepress()->agl_gallery->get_effective_visibility( $folder ) && ! $member_view;
 
 					if ( $locked && 'hide' === $locked_display ) {
 						continue;
@@ -108,10 +107,10 @@ class Gallery_View extends Block {
 					$output .= '<h2 class="hp-agl-gallery__folder-title">' . esc_html( $folder->get_title() );
 
 					if ( $locked ) {
-						$output .= ' <span class="hp-agl-badge hp-agl-badge--members"><i class="hp-icon fas fa-lock"></i> ' . esc_html__( 'Members only', 'additional-gallery-for-hivepress' ) . '</span>';
+						$output .= ' <span class="hp-status hp-status--pending"><span><i class="hp-icon fas fa-lock"></i> ' . esc_html__( 'Members only', 'additional-gallery-for-hivepress' ) . '</span>';
 					}
 
-					$output .= ' <a href="' . esc_url( hivepress()->gallery->get_folder_url( $folder ) ) . '" class="hp-agl-gallery__folder-link" title="' . esc_attr__( 'Folder link', 'additional-gallery-for-hivepress' ) . '"><i class="hp-icon fas fa-link"></i></a>';
+					$output .= ' <a href="' . esc_url( hivepress()->agl_gallery->get_folder_url( $folder ) ) . '" class="hp-agl-gallery__folder-link" title="' . esc_attr__( 'Folder link', 'additional-gallery-for-hivepress' ) . '"><i class="hp-icon fas fa-link"></i></a>';
 					$output .= '</h2>';
 
 					if ( $folder->get_description() ) {
@@ -120,14 +119,14 @@ class Gallery_View extends Block {
 
 					if ( $locked ) {
 						/* translators: %s: media counts. */
-						$output .= '<p class="hp-agl-gallery__folder-locked-note">' . esc_html( sprintf( __( 'This folder contains %s.', 'additional-gallery-for-hivepress' ), hivepress()->gallery->get_media_count_label( hivepress()->gallery->get_media_counts( $folder ) ) ) ) . '</p>';
+						$output .= '<p class="hp-agl-gallery__folder-locked-note">' . esc_html( sprintf( __( 'This folder contains %s.', 'additional-gallery-for-hivepress' ), hivepress()->agl_gallery->get_media_count_label( hivepress()->agl_gallery->get_media_counts( $folder ) ) ) ) . '</p>';
 					}
 
-					$output .= hivepress()->gallery->render_folder_media( $folder, $locked );
+					$output .= hivepress()->agl_gallery->render_folder_media( $folder, $locked );
 
-					// Unlock link.
-					if ( $locked && $upgrade_url ) {
-						$output .= '<p class="hp-agl-gallery__folder-unlock"><a href="' . esc_url( $upgrade_url ) . '" class="button alt"><i class="hp-icon fas fa-unlock"></i><span>' . esc_html__( 'Unlock Access', 'additional-gallery-for-hivepress' ) . '</span></a></p>';
+					// Unlock actions: buy access and/or upgrade a membership.
+					if ( $locked ) {
+						$output .= hivepress()->agl_gallery->render_unlock_actions( $vendor );
 					}
 
 					$output .= '</section>';
@@ -147,7 +146,7 @@ class Gallery_View extends Block {
 					}
 
 					// Check folder access.
-					$locked = 'members' === $folder->get_visibility() && ! $member_view;
+					$locked = 'members' === hivepress()->agl_gallery->get_effective_visibility( $folder ) && ! $member_view;
 
 					if ( $locked && 'hide' === $locked_display ) {
 						continue;
@@ -157,13 +156,13 @@ class Gallery_View extends Block {
 
 					// Get the cover image.
 					$cover    = '';
-					$cover_id = hivepress()->gallery->get_folder_cover_id( $folder );
+					$cover_id = hivepress()->agl_gallery->get_folder_cover_id( $folder );
 
 					if ( $locked ) {
 						$teaser_url = null;
 
 						if ( 'blur' === $locked_display && $cover_id ) {
-							$teaser_url = hivepress()->gallery->get_teaser_url( $cover_id );
+							$teaser_url = hivepress()->agl_gallery->get_teaser_url( $cover_id );
 						}
 
 						if ( $teaser_url ) {
@@ -181,7 +180,7 @@ class Gallery_View extends Block {
 						);
 					}
 
-					$output .= '<a href="' . esc_url( hivepress()->gallery->get_folder_url( $folder ) ) . '" class="hp-agl-cover' . ( $locked ? ' hp-agl-cover--locked' : '' ) . '">';
+					$output .= '<a href="' . esc_url( hivepress()->agl_gallery->get_folder_url( $folder ) ) . '" class="hp-agl-cover' . ( $locked ? ' hp-agl-cover--locked' : '' ) . '">';
 					$output .= '<span class="hp-agl-cover__image' . ( $cover ? '' : ' hp-agl-cover__image--placeholder' ) . '">' . $cover;
 
 					if ( $locked ) {
@@ -190,10 +189,10 @@ class Gallery_View extends Block {
 
 					$output .= '</span>';
 					$output .= '<span class="hp-agl-cover__title">' . esc_html( $folder->get_title() ) . '</span>';
-					$output .= '<span class="hp-agl-cover__count">' . esc_html( hivepress()->gallery->get_media_count_label( hivepress()->gallery->get_media_counts( $folder ) ) ) . '</span>';
+					$output .= '<span class="hp-agl-cover__count hp-meta">' . esc_html( hivepress()->agl_gallery->get_media_count_label( hivepress()->agl_gallery->get_media_counts( $folder ) ) ) . '</span>';
 
 					if ( $locked ) {
-						$output .= '<span class="hp-agl-badge hp-agl-badge--members">' . esc_html__( 'Members only', 'additional-gallery-for-hivepress' ) . '</span>';
+						$output .= '<span class="hp-status hp-status--pending"><span>' . esc_html__( 'Members only', 'additional-gallery-for-hivepress' ) . '</span>';
 					}
 
 					$output .= '</a>';

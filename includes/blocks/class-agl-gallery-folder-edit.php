@@ -17,7 +17,7 @@ defined( 'ABSPATH' ) || exit;
  * Renders the folder edit screen: image uploads, details form and the
  * delete section.
  */
-class Gallery_Folder_Edit extends Block {
+class Agl_Gallery_Folder_Edit extends Block {
 
 	/**
 	 * Renders block HTML.
@@ -54,7 +54,7 @@ class Gallery_Folder_Edit extends Block {
 
 		// Folder link for shareable folders.
 		if ( in_array( $folder->get_visibility(), [ 'public', 'members' ], true ) ) {
-			$folder_url = hivepress()->gallery->get_folder_url( $folder );
+			$folder_url = hivepress()->agl_gallery->get_folder_url( $folder );
 
 			$output .= '<div class="hp-agl-account__share">';
 			$output .= '<strong>' . esc_html__( 'Folder link', 'additional-gallery-for-hivepress' ) . '</strong>';
@@ -66,23 +66,13 @@ class Gallery_Folder_Edit extends Block {
 		}
 
 		// Update form.
-		$output .= ( new Forms\Gallery_Folder_Update( [ 'model' => $folder ] ) )->render();
-
-		// Existing image descriptions for the caption inputs.
-		$captions = [];
-
-		foreach ( (array) $folder->get_images__id() as $image_id ) {
-			$caption = get_post_field( 'post_excerpt', $image_id );
-
-			$captions[ $image_id ] = is_string( $caption ) ? $caption : '';
-		}
-
-		$output .= '<script type="application/json" data-agl-captions>' . wp_json_encode( $captions ) . '</script>';
+		$output .= ( new Forms\Agl_Gallery_Folder_Update( [ 'model' => $folder ] ) )->render();
+		$output .= '<p class="hp-meta hp-agl-folder-edit__hint-edit">' . esc_html__( 'To edit a photo\'s title and description, move it to another folder, or delete it, open the photo\'s own page from your gallery and use the Manage Photo options.', 'additional-gallery-for-hivepress' ) . '</p>';
 
 		// Delete section.
 		$output .= '<div class="hp-agl-folder-edit__delete">';
 		$output .= '<h3>' . esc_html__( 'Delete Folder', 'additional-gallery-for-hivepress' ) . '</h3>';
-		$output .= ( new Forms\Gallery_Folder_Delete( [ 'model' => $folder ] ) )->render();
+		$output .= ( new Forms\Agl_Gallery_Folder_Delete( [ 'model' => $folder ] ) )->render();
 		$output .= '</div>';
 
 		$output .= '</div>';

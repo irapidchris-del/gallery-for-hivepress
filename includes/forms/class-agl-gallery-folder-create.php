@@ -18,7 +18,7 @@ defined( 'ABSPATH' ) || exit;
  * Images are added on the folder edit page after creation, because the
  * HivePress upload field requires an existing parent object to attach to.
  */
-class Gallery_Folder_Create extends Model_Form {
+class Agl_Gallery_Folder_Create extends Model_Form {
 
 	/**
 	 * Class initializer.

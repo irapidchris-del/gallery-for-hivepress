@@ -16,7 +16,7 @@ defined( 'ABSPATH' ) || exit;
  * Renders a "View Gallery" button in vendor and listing sidebars when the
  * vendor has at least one public photo.
  */
-class Gallery_Link extends Block {
+class Agl_Gallery_Link extends Block {
 
 	/**
 	 * Renders block HTML.
@@ -63,20 +63,27 @@ class Gallery_Link extends Block {
 		// Count the media items a visitor would see (includes locked
 		// previews). Both counts are zero when the vendor has no gallery
 		// access.
-		$counts = hivepress()->gallery->get_visible_media_counts( $vendor );
+		$counts = hivepress()->agl_gallery->get_visible_media_counts( $vendor );
 
 		if ( ! $counts['images'] && ! $counts['videos'] ) {
 			return $output;
 		}
 
-		// Render the link.
+		// Render the link, with the count unless the site switched it off.
 		$gallery_url = hivepress()->router->get_url( 'gallery_view_page', [ 'vendor_id' => $vendor->get_id() ] );
 
-		/* translators: %s: media counts, e.g. "12 photos". */
-		$label = sprintf( __( 'View Gallery (%s)', 'additional-gallery-for-hivepress' ), hivepress()->gallery->get_media_count_label( $counts ) );
+		if ( get_option( 'hp_gallery_show_button_count' ) ) {
+			/* translators: %s: media counts, e.g. "12 photos". */
+			$label = sprintf( __( 'View Gallery (%s)', 'additional-gallery-for-hivepress' ), hivepress()->agl_gallery->get_media_count_label( $counts ) );
+		} else {
+			$label = __( 'View Gallery', 'additional-gallery-for-hivepress' );
+		}
 
+		// `hp-button hp-button--wide` is core's structural full-width button and
+		// `button--primary` is the appearance every official theme styles, so
+		// this inherits the theme's own button rather than defining one.
 		$output .= '<div class="hp-agl-link widget hp-widget">';
-		$output .= '<a href="' . esc_url( $gallery_url ) . '" class="hp-agl-link__button button alt"><i class="hp-icon fas fa-images"></i><span>' . esc_html( $label ) . '</span></a>';
+		$output .= '<a href="' . esc_url( $gallery_url ) . '" class="hp-agl-link__button hp-button hp-button--wide button button--primary"><i class="hp-icon fas fa-images"></i><span>' . esc_html( $label ) . '</span></a>';
 		$output .= '</div>';
 
 		return $output;

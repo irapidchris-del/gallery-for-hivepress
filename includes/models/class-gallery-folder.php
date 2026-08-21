@@ -20,6 +20,42 @@ defined( 'ABSPATH' ) || exit;
  * author, the vendor is the post parent, visibility is the `hp_visibility`
  * meta, and images are WordPress attachments managed by the HivePress
  * attachment system.
+ *
+ * Every field getter below is magic, dispatched by `Model::__call()`, so each
+ * one is declared here for static analysis. Note that `method_exists()` is
+ * therefore always false for them, and `is_callable()` always true: use
+ * `instanceof` to check for this model.
+ *
+ * **This class deliberately keeps its unprefixed name, and must not be
+ * renamed** (checked again and rejected in 1.8.0, when every other class in the
+ * plugin took the `Agl_` prefix). Four separate mechanisms pin it, and each one
+ * fails silently rather than fatally:
+ *
+ * 1. The post type is `hp_` + the class name (`models/class-post.php`), and it
+ *    holds the site's real folder data.
+ * 2. Every gallery image stores `hp_parent_model = 'gallery_folder'` as post
+ *    meta, which core resolves back into `\HivePress\Models\Gallery_Folder`
+ *    (`models/class-attachment.php`, `components/class-model.php`). A rename
+ *    orphans every photo already uploaded.
+ * 3. Core's own attachment endpoints return a 400 the moment that lookup
+ *    returns null, so sorting and deleting images would break.
+ * 4. The wp-admin uploader posts `parent_model` derived from the post type
+ *    (`components/class-admin.php`), so admin uploads would break with no
+ *    plugin-side hook available to correct them.
+ *
+ * The collision risk this leaves is accepted and understood: it needs a data
+ * migration of every `hp_parent_model` row, not a rename.
+ *
+ * @method string|null get_title()
+ * @method string|null get_description()
+ * @method string|null get_visibility()
+ * @method string|null get_status()
+ * @method int|null get_sort_order()
+ * @method void set_sort_order( int $order )
+ * @method int|null get_user__id()
+ * @method int|null get_vendor__id()
+ * @method array get_images()
+ * @method void set_images( array $ids )
  */
 class Gallery_Folder extends Post {
 
@@ -30,19 +66,34 @@ class Gallery_Folder extends Post {
 	 */
 	public function __construct( $args = [] ) {
 
-		// Get the per-folder image limit.
-		$max_images = hp_agl_int( get_option( 'hp_gallery_max_images' ) );
+		// Get the per-folder image limit. A membership plan can raise it for
+		// the folder's owner, so the limit is resolved for the current user
+		// (the only person whose uploads this field ever governs on the front
+		// end; the admin meta box uses the site-wide value).
+		$max_images = 30;
 
-		if ( ! $max_images ) {
-			$max_images = 30;
+		// The visibility choices honour the site's members-only setting, so a
+		// site with monetisation switched off offers vendors a simple
+		// public-or-private choice.
+		$visibility_options = [
+			'public'  => esc_html__( 'Public', 'additional-gallery-for-hivepress' ),
+			'members' => esc_html__( 'Members only', 'additional-gallery-for-hivepress' ),
+			'private' => esc_html__( 'Private', 'additional-gallery-for-hivepress' ),
+		];
+
+		if ( function_exists( 'hivepress' ) && hivepress()->agl_gallery ) {
+			$max_images         = hivepress()->agl_gallery->get_image_limit( get_current_user_id() );
+			$visibility_options = hivepress()->agl_gallery->get_visibility_options();
+		} else {
+			$stored = hp_agl_int( get_option( 'hp_gallery_max_images' ) );
+
+			if ( $stored ) {
+				$max_images = $stored;
+			}
 		}
 
-		// Get the accepted formats, mirroring the core listing gallery.
-		$formats = [ 'jpg', 'jpeg', 'png', 'webp', 'gif' ];
-
-		if ( get_option( 'hp_gallery_allow_video' ) ) {
-			$formats = array_merge( $formats, [ 'mp4', 'webm', 'ogv' ] );
-		}
+		// Get the accepted formats (honouring the admin format restrictions).
+		$formats = hp_agl_get_upload_formats();
 
 		$args = hp\merge_arrays(
 			[
@@ -70,12 +121,7 @@ class Gallery_Folder extends Post {
 						'required'    => true,
 						'default'     => 'public',
 						'_external'   => true,
-
-						'options'     => [
-							'public'  => esc_html__( 'Public', 'additional-gallery-for-hivepress' ),
-							'members' => esc_html__( 'Members only', 'additional-gallery-for-hivepress' ),
-							'private' => esc_html__( 'Private', 'additional-gallery-for-hivepress' ),
-						],
+						'options'     => $visibility_options,
 					],
 
 					'status'       => [

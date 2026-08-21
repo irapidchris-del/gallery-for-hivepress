@@ -4,15 +4,14 @@
 
 /* --- Sidebar link --- */
 
-.hp-agl-link__button {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 100%;
-}
-
-.hp-agl-link__button .hp-icon {
-	margin-right: 0.5rem;
+/* Structure and appearance both come from core/theme classes
+   (hp-button hp-button--wide button button--primary); the only rule needed here
+   defends the text colour. HiveTheme ships a bare a:hover{color:#1db1fc} at
+   specificity (0,1,1), which outranks .button--primary{color:#fff} at (0,1,0),
+   so a link styled as a button turns blue on hover without this. */
+a.hp-agl-link__button.button--primary:hover,
+a.hp-agl-link__button.button--primary:focus {
+	color: #fff;
 }
 
 /* --- Account: shareable links --- */
@@ -41,9 +40,15 @@
 /* --- Account: folder list --- */
 
 .hp-agl-account__hint {
-	font-size: 0.8125em;
-	opacity: 0.7;
 	margin-bottom: 0.5rem;
+}
+
+.hp-agl-account__weight {
+	margin-bottom: 1rem;
+}
+
+.hp-agl-account__weight .hp-icon {
+	margin-right: 0.25rem;
 }
 
 .hp-agl-folders {
@@ -53,10 +58,16 @@
 	margin-bottom: 2rem;
 }
 
+/* Folder rows are mobile-first: the name keeps a usable share of the first line
+   and the badge, counts and copy button wrap beneath it. Without the wrap, a
+   phone-width row squeezed the name down to a single character, because the
+   badge and count do not shrink. The single-line layout returns at the first
+   HivePress grid breakpoint (48em), the only breakpoints grid.min.css defines. */
 .hp-agl-folder {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
-	gap: 0.75rem;
+	gap: 0.5rem 0.75rem;
 	padding: 0.875rem 1rem;
 	border: 1px solid rgba(0, 0, 0, 0.1);
 	border-radius: 4px;
@@ -83,10 +94,16 @@
 	display: flex;
 	align-items: center;
 	gap: 0.625rem;
-	flex: 1 1 auto;
+	flex: 1 1 60%;
 	min-width: 0;
 	text-decoration: none;
 	color: inherit;
+}
+
+@media (min-width: 48em) {
+	.hp-agl-folder__link {
+		flex: 1 1 auto;
+	}
 }
 
 .hp-agl-folder__title {
@@ -98,8 +115,6 @@
 }
 
 .hp-agl-folder__count {
-	font-size: 0.875em;
-	opacity: 0.7;
 	white-space: nowrap;
 }
 
@@ -118,30 +133,7 @@
 	opacity: 1;
 }
 
-/* --- Badges --- */
 
-.hp-agl-badge {
-	font-size: 0.75em;
-	font-weight: 600;
-	padding: 0.125rem 0.5rem;
-	border-radius: 99px;
-	white-space: nowrap;
-}
-
-.hp-agl-badge--public {
-	background: rgba(70, 180, 80, 0.12);
-	color: #2e7d32;
-}
-
-.hp-agl-badge--members {
-	background: rgba(240, 165, 0, 0.14);
-	color: #9a6700;
-}
-
-.hp-agl-badge--private {
-	background: rgba(0, 0, 0, 0.08);
-	color: #555;
-}
 
 /* --- Account: create form + states --- */
 
@@ -194,43 +186,6 @@
 	border-top: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-/* --- Image description inputs --- */
-
-.hp-agl-caption {
-	display: block;
-	width: 100%;
-	margin-top: 0.375rem;
-	padding: 0.3125rem 0.5rem;
-	font-size: 0.75rem;
-	line-height: 1.4;
-	border: 1px solid #ddd;
-	border-radius: 4px;
-}
-
-.hp-agl-caption.is-saving {
-	border-color: #c8c8c8;
-	background-image: linear-gradient(90deg, #f7f7f7 25%, #efefef 50%, #f7f7f7 75%);
-	background-size: 200% 100%;
-	animation: hp-agl-saving 1s linear infinite;
-}
-
-.hp-agl-caption.is-saved {
-	border-color: #46b450;
-}
-
-.hp-agl-caption.is-error {
-	border-color: #dc3232;
-}
-
-@keyframes hp-agl-saving {
-	from {
-		background-position: 200% 0;
-	}
-
-	to {
-		background-position: 0 0;
-	}
-}
 
 /* --- Public gallery: shared --- */
 
@@ -239,8 +194,6 @@
 }
 
 .hp-agl-gallery__updated {
-	font-size: 0.8125em;
-	opacity: 0.7;
 	margin: 0 0 1.5rem;
 }
 
@@ -262,10 +215,6 @@
 	max-width: 46rem;
 }
 
-.hp-agl-gallery__folder-unlock {
-	margin-top: 1.25rem;
-}
-
 .hp-agl-gallery__folder-unlock .button .hp-icon {
 	margin-right: 0.5rem;
 }
@@ -283,11 +232,11 @@
 	flex-wrap: wrap;
 }
 
-.hp-agl-gallery__folder-title .hp-agl-badge {
-	font-size: 0.5em;
+.hp-agl-gallery__folder-title .hp-status {
+	font-size: 50%;
 }
 
-.hp-agl-gallery__folder-title .hp-agl-badge .hp-icon {
+.hp-agl-gallery__folder-title .hp-status .hp-icon {
 	margin-right: 0.25rem;
 }
 
@@ -352,7 +301,7 @@
 	top: 50%;
 	left: 50%;
 	transform: translate(-50%, -50%);
-	font-size: 1.375rem;
+	font-size: 1.375em;
 	color: #fff;
 	text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
 }
@@ -371,12 +320,9 @@
 	line-height: 1.3;
 }
 
-.hp-agl-cover__count {
-	font-size: 0.8125em;
-	opacity: 0.7;
-}
 
-.hp-agl-cover .hp-agl-badge {
+
+.hp-agl-cover .hp-status {
 	align-self: flex-start;
 }
 
@@ -395,7 +341,11 @@
 	gap: 0.375rem;
 }
 
-.hp-agl-grid__item > a,
+/* The square box targets the media link's own class, never a bare `> a`: the
+   caption below the image is also a direct <a> child of the tile, and a bare
+   selector once gave captions the square box too, pushing every action bar a
+   full tile-height down. */
+.hp-agl-grid__media,
 .hp-agl-grid__item > video {
 	position: relative;
 	display: block;
@@ -413,7 +363,7 @@
 	transition: transform 0.25s ease;
 }
 
-.hp-agl-grid__item > a:hover img {
+.hp-agl-grid__media:hover img {
 	transform: scale(1.04);
 }
 
@@ -423,9 +373,7 @@
 }
 
 .hp-agl-grid__caption {
-	font-size: 0.8125em;
 	line-height: 1.4;
-	opacity: 0.75;
 	overflow: hidden;
 	display: -webkit-box;
 	-webkit-line-clamp: 2;
@@ -454,7 +402,7 @@
 	top: 50%;
 	left: 50%;
 	transform: translate(-50%, -50%);
-	font-size: 1.25rem;
+	font-size: 1.25em;
 	color: #fff;
 	text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
 }
@@ -466,4 +414,377 @@
 .hp-agl-grid__item--placeholder > .hp-icon {
 	color: #999;
 	text-shadow: none;
+}
+
+/* --- Photo likes and comments --- */
+
+/* The action bar sits under each tile. Icon-and-count links reuse hp-link,
+   which core already styles as an undecorated inline-flex link that inherits
+   colour until hover, so only spacing and the liked state are defined here. */
+.hp-agl-actions {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+}
+
+.hp-agl-action {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+	font: inherit;
+	color: inherit;
+}
+
+.hp-agl-action[disabled] {
+	cursor: default;
+	opacity: 0.6;
+}
+
+.hp-agl-action .hp-icon {
+	opacity: 0.55;
+	transition: opacity 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.hp-agl-action:hover .hp-icon {
+	opacity: 1;
+}
+
+.hp-agl-action--like.is-liked .hp-icon {
+	opacity: 1;
+	color: #ff5a5f;
+}
+
+.hp-agl-action__count {
+	font-size: 80%;
+	opacity: 0.7;
+}
+
+/* --- Photo page --- */
+
+.hp-agl-photo__media {
+	margin: 0 0 1rem;
+}
+
+.hp-agl-photo__media img,
+.hp-agl-photo__media video {
+	display: block;
+	max-width: 100%;
+	height: auto;
+	border-radius: 6px;
+}
+
+.hp-agl-photo__zoom {
+	display: block;
+	cursor: zoom-in;
+}
+
+.hp-agl-photo__description {
+	opacity: 0.85;
+	max-width: 46rem;
+}
+
+.hp-agl-photo__actions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 1rem 1.5rem;
+	margin: 1rem 0 2rem;
+}
+
+.hp-agl-photo__nav {
+	display: flex;
+	justify-content: space-between;
+	gap: 1rem;
+	margin-bottom: 3rem;
+}
+
+.hp-agl-photo__nav .hp-icon:first-child {
+	margin-right: 0.5rem;
+}
+
+.hp-agl-photo__nav .hp-icon:last-child {
+	margin-left: 0.5rem;
+}
+
+/* Same defence as the unlock buttons: HiveTheme's bare a:hover{color:#1db1fc}
+   at (0,1,1) outranks its own .button--secondary{color:#fff} at (0,1,0), so
+   these link-buttons turn blue on hover without this. */
+a.hp-agl-photo__nav-link.button--secondary:hover,
+a.hp-agl-photo__nav-link.button--secondary:focus {
+	color: #fff;
+}
+
+/* --- Comment thread --- */
+
+.hp-agl-comments__title {
+	margin-top: 2rem;
+}
+
+.hp-agl-comments__list {
+	margin-bottom: 2rem;
+}
+
+.hp-agl-comment {
+	display: flex;
+	gap: 0.75rem;
+	align-items: flex-start;
+}
+
+.hp-agl-comment:not(:last-child) {
+	margin-bottom: 1.5rem;
+}
+
+.hp-agl-comment__image img {
+	border-radius: 9999px;
+	display: block;
+	width: 3rem;
+	height: 3rem;
+}
+
+.hp-agl-comment--reply .hp-agl-comment__image img {
+	width: 2.25rem;
+	height: 2.25rem;
+}
+
+.hp-agl-comment__body {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.hp-agl-comment__header {
+	display: flex;
+	align-items: baseline;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-bottom: 0.25rem;
+}
+
+.hp-agl-comment__author {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.hp-agl-comment__text {
+	line-height: 1.5;
+	overflow-wrap: anywhere;
+}
+
+.hp-agl-comment__actions {
+	display: flex;
+	align-items: center;
+	gap: 1.25rem;
+	margin-top: 0.375rem;
+	font-size: 80%;
+}
+
+.hp-agl-comment__replies {
+	margin: 0 0 1.5rem 3.75rem;
+	padding-left: 0.75rem;
+	border-left: 2px solid rgba(0, 0, 0, 0.08);
+}
+
+.hp-agl-comment__replies .hp-agl-comment:not(:last-child) {
+	margin-bottom: 1rem;
+}
+
+/* --- Composer --- */
+
+.hp-agl-comments__composer {
+	display: flex;
+	gap: 0.75rem;
+	align-items: flex-start;
+	margin-bottom: 0.75rem;
+}
+
+.hp-agl-comments__composer .hp-form__field {
+	flex: 1 1 auto;
+}
+
+.hp-agl-comments__composer textarea,
+.hp-agl-comments__reply-form textarea {
+	width: 100%;
+}
+
+/* Keep the button next to its textarea: themes give hp-form__footer a large
+   top margin sized for full page forms. */
+.hp-agl-comments__form .hp-form__footer {
+	margin-top: 0.5rem;
+}
+
+.hp-agl-comments__reply-form {
+	margin-top: 0.75rem;
+}
+
+.hp-agl-comments__signin {
+	margin: 0;
+}
+
+/* --- Unlock actions --- */
+
+.hp-agl-gallery__folder-unlock {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	margin-top: 1.25rem;
+}
+
+/* Link-buttons: restate the text colour above HiveTheme's bare a:hover rule. */
+a.hp-agl-unlock__buy.button--primary:hover,
+a.hp-agl-unlock__buy.button--primary:focus,
+a.hp-agl-unlock__upgrade.button--primary:hover,
+a.hp-agl-unlock__upgrade.button--primary:focus {
+	color: #fff;
+}
+
+/* --- Photo page sidebar --- */
+
+/* Space between the sidebar's own cards, for themes that only space their own
+   sidebar widgets. Scoped to this plugin's card and the vendor card rather
+   than every direct child: a bare `> div` both missed the vendor card (an
+   <article>) and reached into widgets other plugins put in this area. */
+.hp-agl-photo__sidebar > .hp-agl-photo-manage,
+.hp-agl-photo__sidebar > .hp-vendor {
+	margin-bottom: 1.875rem;
+}
+
+/* --- Manage Photo card --- */
+
+/* Full-width controls: the card's form is hand-built rather than a core
+   form, so themes that size inputs per form class leave these at the browser
+   default width, which looks cramped in a column. */
+.hp-agl-photo-manage input[type="text"],
+.hp-agl-photo-manage textarea,
+.hp-agl-photo-manage select {
+	width: 100%;
+}
+
+.hp-agl-photo-manage .hp-field__label small {
+	opacity: 0.6;
+	font-weight: normal;
+}
+
+/* Field hints sit on their own line under the control, not beside it. */
+.hp-agl-photo-manage .hp-field > small {
+	display: block;
+	margin-top: 0.375rem;
+}
+
+.hp-agl-photo-manage .hp-form__footer {
+	margin-top: 1rem;
+}
+
+.hp-agl-photo-manage__delete {
+	margin-top: 1.5rem;
+	padding-top: 1rem;
+	border-top: 1px solid rgba(0, 0, 0, 0.1);
+	font-size: 87.5%;
+}
+
+.hp-agl-photo-manage__delete .hp-meta {
+	margin: 0.375rem 0 0;
+}
+
+/* --- Paid access price form --- */
+
+.hp-agl-account__paid {
+	margin-top: 2.5rem;
+	padding-top: 1.5rem;
+	border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.hp-agl-account__price-row {
+	display: flex;
+	align-items: flex-end;
+	gap: 0.75rem;
+	flex-wrap: wrap;
+}
+
+.hp-agl-account__price-row .hp-field input {
+	max-width: 10rem;
+}
+
+/* --- 1.8.4 layout corrections --- */
+
+/* The Save Price button sat below its field rather than beside it. The row is already a flex row
+   aligned to the bottom, but themes give a form field a bottom margin sized for stacked forms, and
+   flex-end aligns to the outside of that margin, so the button was pushed down by it. */
+.hp-agl-account__price-row .hp-form__field {
+	margin-bottom: 0;
+}
+
+/* Post Comment belongs at the right-hand end of the composer, under the field it submits, which is
+   where people expect it from every comment box they already use. */
+.hp-agl-comments__form .hp-form__footer,
+.hp-agl-comments__reply-form .hp-form__footer {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: 0.75rem;
+}
+
+/* Sidebar buttons run the full width of the column. A button sized to its text looks stranded in a
+   narrow column, and the two cards disagreed with each other about it. */
+.hp-agl-photo__sidebar .hp-agl-photo-manage .hp-form__button,
+.hp-agl-photo__sidebar .hp-agl-photo-manage__delete .button {
+	width: 100%;
+}
+
+/* The gallery link is a link styled as a button, so it inherits an anchor's line box rather than a
+   button's padding and came out visibly shorter than the Message button beside it. Matching the
+   vertical padding is enough; the horizontal padding and colours still come from the theme. */
+.hp-agl-link__button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	padding-top: 0.75rem;
+	padding-bottom: 0.75rem;
+}
+
+/* The photo page sidebar follows the photo down, the way HivePress's own sidebars do. Only from the
+   width at which the sidebar is actually a column: below that it is stacked above or below the
+   content, where sticky would pin it over the thing somebody is trying to read. */
+@media (min-width: 992px) {
+	.hp-agl-photo__sidebar {
+		position: sticky;
+
+		/* Clear of the admin bar and of any theme header that pins itself. */
+		top: 2rem;
+
+		/* Sticky needs a scroll container it can escape; a column taller than the viewport would
+		   otherwise never move. Anything longer scrolls within itself. */
+		max-height: calc(100vh - 4rem);
+		overflow-y: auto;
+	}
+}
+
+/* --- Per-length pricing (1.8.4) --- */
+
+/* One row per length of access the site offers, so the rows need separating from each other and
+   from the button that saves them all. */
+.hp-agl-account__price-form .hp-agl-account__price-row + .hp-agl-account__price-row {
+	margin-top: 0.75rem;
+}
+
+.hp-agl-account__price-row--submit {
+	margin-top: 1rem;
+}
+
+/* Every price field lines up at the same width whatever the length labels above them say. */
+.hp-agl-account__price-row .hp-form__field--number {
+	flex: 0 0 auto;
+	min-width: 12rem;
+}
+
+/* More than one unlock price means more than one button, and side by side they read as a choice
+   rather than as a repeated call to action. */
+.hp-agl-gallery__folder-unlock {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
 }

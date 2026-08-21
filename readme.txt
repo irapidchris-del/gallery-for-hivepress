@@ -1,14 +1,15 @@
 === Additional Gallery for HivePress ===
 Contributors: chrisb
 Tags: hivepress, gallery, vendors, portfolio, marketplace
-Requires at least: 5.0
+Requires at least: 5.8
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.2.0
-License: GPLv3
+Requires Plugins: hivepress
+Stable tag: 1.8.4
+License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
-Gives HivePress vendors a front-end photo gallery with public, members-only and private folders, with optional HivePress Memberships monetisation.
+Gives HivePress vendors a front-end photo gallery with public, members-only and private folders, protected files, per-photo pages with likes and comments, and optional monetisation through Memberships or per-vendor paid access.
 
 == Description ==
 
@@ -18,23 +19,26 @@ Vendors can:
 
 * Create gallery folders from a new "Gallery" page in their account menu, and drag folders into any order
 * Upload, reorder (drag and drop) and remove images - and videos, if the site allows them - in each folder
-* Describe each photo or video; descriptions appear in the lightbox and double as image alt text
+* Describe each photo or video; descriptions appear on the photo's own page, under its tile, and double as image alt text
 * Set each folder to Public, Members only, or Private
 * Share their gallery link or a direct link to any folder, and see the gallery linked automatically from their vendor profile and listing pages
 
-Visitors see a gallery of folder covers with an "Updated 2 days ago" line, and click into each folder (every folder has its own shareable URL). A setting can switch this to the classic all-photos-expanded layout. Videos play in the same lightbox as photos. Members-only folders appear locked, with heavily blurred previews (or lock placeholders) that tease the content until the visitor unlocks access, and the original image URLs are never present in the page for locked folders.
+Visitors see a gallery of folder covers with an "Updated 2 days ago" line, and click into each folder (every folder has its own shareable URL). A setting can switch this to the classic all-photos-expanded layout. Clicking any photo opens that photo's own page, with its description, likes, previous and next buttons and the comment thread; a Lightbox setting additionally lets visitors click the photo there to enlarge it. Members-only folders appear locked, with heavily blurred previews (or lock placeholders) that tease the content until the visitor unlocks access, and the original image URLs are never present in the page for locked folders.
 
 Site owners can control everything from HivePress > Settings > Vendors > Gallery:
 
 * Hide the gallery link on vendor profiles and/or listing pages
 * Limit the number of folders per vendor, and images per folder (default 30)
-* Charge vendors for the gallery feature: pick the membership plans that include it (requires the HivePress Memberships extension)
-* Charge users to view members-only folders: pick the membership plans that unlock them
+* Gate the gallery to membership plans, set up natively on each plan in HivePress Memberships (an "Allow using the photo gallery" and an "Allow viewing members-only gallery folders" option per plan)
 * Choose how locked folders look: blurred previews, lock placeholders, or hidden entirely
 * Choose the Upgrade Page that "Unlock Access" links point to (e.g. your pricing page)
-* Protect image files with unguessable file names
+* Protect private and members-only image files so their URLs cannot be opened directly
+* Keep galleries light: cap upload file size, restrict image formats, and resize photos on upload
+* Set a storage quota per vendor (site-wide or per membership plan); vendors then see "X used of X allowed" on their Gallery page
+* Let signed-in visitors like and comment on individual photos, or switch either feature off
+* Choose which side of the photo pages the sidebar sits on, and fill its "Photo Page (sidebar)" widget area from Appearance > Widgets
 
-In wp-admin, each Gallery Folder now has an Images meta box with the same drag-and-drop manager used for listings, plus a Settings meta box for visibility, and the folders list shows the vendor, visibility and image count.
+In wp-admin, each Gallery Folder has an Images meta box with the same drag-and-drop manager used for listings, plus a Settings meta box for visibility, and the folders list shows the vendor, visibility, image count and size. Photo comments appear on the usual WordPress Comments screen.
 
 = How it works =
 
@@ -47,17 +51,24 @@ the core HivePress attachment component.
 
 = Memberships integration =
 
+Gallery gating is configured natively on your membership plans, the same way
+HivePress Memberships gates its own features. Editing a Membership Plan shows
+these options: "Allow using the photo gallery" (vendor access) in the plan's
+Settings box, and "Allow viewing members-only gallery folders" (viewer access)
+plus optional per-plan folder and photo limits, in its Restrictions (General)
+box. Tick them on the plans that should include gallery access.
+
 Membership access is read directly from the Memberships data (active memberships
 are `hp_membership` records linked to a plan), matching the access check the
 Memberships extension itself uses (verified against its source, version 2.2.0),
 so it works with your existing plans and purchase flow. The "Unlock Access"
 links fall back to the Memberships plan selection page automatically when no
-Upgrade Page is chosen. If plans are selected for vendor access, vendors without
-an active plan lose the gallery menu, the gallery pages, folder editing and their public gallery
-until they upgrade; this also fails closed if the Memberships extension is
-deactivated, so paid access is never given away by accident. The plan list in
-the settings is detected at runtime, so it adapts to the Memberships version
-installed.
+Upgrade Page is chosen. Gating is entirely optional: if no plan enables gallery
+access, every vendor can use the gallery. Once at least one plan enables it,
+vendors without an active plan lose the gallery menu, the gallery pages, folder
+editing and their public gallery until they upgrade. This fails closed if the
+Memberships extension is deactivated (the gating state is remembered), so paid
+access is never given away by accident.
 
 = Blurred previews =
 
@@ -66,25 +77,106 @@ cached in `uploads/hp-agl-teasers/`), because a CSS-only blur would leave the
 original image URLs in the page source. If a preview cannot be generated, a
 lock placeholder is shown instead; originals are never exposed.
 
-= A note on file protection =
+= File protection =
 
 Private and members-only folders are hidden from all gallery pages, links,
 attachment pages and public media API queries.
 
+With the Protect Files setting on (the default), the files in private and
+members-only folders are moved to a protected uploads directory and served
+through an access-checked link, so their URLs cannot be opened directly - a
+guessed or shared link returns a 403 to visitors without access. Owners,
+site editors and members with the right plan still see them. Public folder
+images stay as ordinary, directly-served media so public galleries remain
+fast and SEO-friendly. When a folder's visibility changes, its files move
+between the protected and public locations automatically.
+
+The protected directory is guarded with an Apache deny rule. On Nginx, add a
+rule so the directory is not served directly, for example:
+
+`location ^~ /wp-content/uploads/hp-agl-protected/ { deny all; }`
+
+The access check runs regardless, so the proxy still protects the files; the
+server rule is defence in depth.
+
+= Keeping galleries light =
+
+Three upload rules keep a gallery from bloating a site: a maximum file size,
+a list of allowed image formats, and a maximum width and height. Photos
+straight from a phone or camera are far bigger than any screen needs, so the
+resize is the biggest single saving; it runs before WordPress makes its
+thumbnails, so every size comes from the scaled image. Under a storage quota, vendors see their
+usage on their Gallery page; the admin folders list always shows sizes.
+
+Compression, metadata stripping, WebP conversion and re-processing images you
+already have are deliberately left to dedicated image plugins such as
+Imagify, ShortPixel or FlyingPress, which do all of that better and across
+your whole media library rather than just the gallery.
+
+= Photo pages, likes and comments =
+
+Every photo has its own page, with previous and next buttons, the photo's
+title and description, a heart anyone signed in can press, and a comment
+thread beneath, where people can also reply and like comments. Public photo
+pages can be linked to directly. Both likes and comments can be switched off
+in the Gallery settings, and everything respects folder visibility: a photo
+in a folder someone cannot open can be neither viewed, liked nor commented
+on. Comments are stored as ordinary WordPress comments, so they show up in
+wp-admin alongside everything else. People can remove their own comments,
+and a vendor can remove any comment on their own photos.
+
+Each photo page also has a sidebar (left or right, chosen in settings). It
+shows the vendor's profile card, so visitors can reach the vendor from any
+photo, and it is a normal WordPress widget area named "Photo Page (sidebar)"
+that you can fill from Appearance > Widgets. When the photo's owner views
+their own photo, a Manage Photo card appears there too, with the title and
+description fields, a move-to-another-folder choice with confirmation, and
+deletion.
+
+= Paid access (optional) =
+
+With the Paid Access setting on and WooCommerce active, each vendor can set
+their own price for unlocking their members-only folders, from their Gallery
+page. Buying is a normal WooCommerce checkout; the unlock covers that one
+vendor's locked folders and is taken back automatically if the order is
+refunded or cancelled. With HivePress Marketplace active, these sales count
+towards vendor earnings and your usual commission applies.
+
+An Access Period setting turns the unlock into a timed pass: purchases last
+that many days, the unlock button states the price and the period, and once
+a pass lapses the visitor can simply buy again. Left empty, purchases grant
+lifetime access. Access already bought keeps the period it was bought with,
+so changing the setting never shortens someone's pass.
+
+You can offer up to three lengths at once by filling in the second and third
+Access Period boxes. Each vendor then gets a price box per length and prices
+whichever they want to sell, leaving the rest empty; a locked folder offers
+the buyer whichever of them that vendor has priced, shortest first. Someone
+who buys again while a pass is still running has the days added to it.
+
+You can also take a commission on these sales: a percentage, a fixed amount,
+or both, with both boxes empty meaning none. It is added on top at checkout
+and shown to the buyer as its own line, so the vendor still receives the
+price they set. With HivePress Marketplace active, these sales count towards
+vendor earnings and your usual vendor commission applies, and the fee above
+is recorded against the order so it stays out of the vendor's balance.
+
+While a vendor sells access their locked folders offer that purchase; those
+without a price fall back to the site's Upgrade Page link, so visitors are
+never asked to choose between paying the vendor and paying the site.
+Membership plans that include viewing still unlock folders either way.
+
+= AI moderation =
+
 The optional AI Moderation setting reviews a folder's photos with OpenAI
 when the vendor saves it, using the shared API key from Settings >
-Integrations. All photos are checked together in one free request. The site
+Integrations. The first ten photos in the folder are checked together in one
+free request; any beyond the tenth are not checked. The site
 must be publicly reachable for OpenAI to fetch the photos; on local or
 private sites, and whenever the service is unavailable, saving simply
-proceeds unchecked rather than blocking the vendor.
-
-The optional Protect Files
-setting additionally stores new uploads with random, unguessable file names
-(the HivePress protection mechanism). Be aware of the honest limits: existing
-files are not renamed, and anyone who already has a direct file URL can still
-open that file. True file-level access control would require web server rules;
-this setting prevents URL guessing and enumeration, which covers the realistic
-risk for a gallery.
+proceeds unchecked rather than blocking the vendor. Protected files (in
+private and members-only folders) cannot be fetched externally, so moderation
+applies to public folders.
 
 == Installation ==
 
@@ -107,7 +199,180 @@ Account menu > Gallery (only shown to users with a published vendor profile).
 
 Yes. HivePress's attachment component removes all attached images when the folder is deleted.
 
+= What happens if I deactivate or delete the plugin? =
+
+Nothing is lost either way, unless you ask for it. Deactivating changes nothing:
+every folder, photo and setting is still there when you activate it again.
+Deleting keeps your data too, so a plugin removed by accident, or removed to
+reinstall a clean copy, comes back exactly as it was.
+
+WordPress will still warn you that deleting a plugin "will also delete its
+data". That warning is generic and appears for every plugin; it does not
+describe this one. Only the regenerable cache of blurred previews is cleared.
+
+If you really do want everything gone, tick "Delete all gallery data when this
+plugin is deleted" under HivePress > Settings > Vendors > Removing the Plugin
+first. With that ticked, deleting the plugin removes its settings, folders,
+likes, comments, purchased access and private directories, and cannot be
+undone. Even then the vendors' photos are kept: they stay in your media library
+as ordinary uploads, and any file that was in the protected directory is moved
+back to its normal location first so it is still viewable without the plugin.
+Your OpenAI API key is left alone either way, because other extensions share it.
+
 == Changelog ==
+
+= 1.8.4 =
+* **Added - vendors can charge different prices for different lengths of access.** Until now a site
+  offered one length and a vendor set one price for it. You can now set up to three lengths in
+  Settings, and each vendor prices whichever of them they want to sell; a buyer picks from the ones
+  that vendor has priced. Sites offering a single length carry on exactly as before, and every price
+  already set stays where it is.
+* **Added - commission on gallery access sales.** Set a percentage, a fixed amount, or both, and
+  leave both empty to take nothing. The amount is added on top at checkout and appears to the buyer
+  as its own line, on the block checkout and the classic one alike, so the vendor still receives the
+  price they set. With HivePress Marketplace running, the fee is recorded against the order so that
+  it does not count towards the vendor's earnings.
+* **Changed - buying access while you still have some now extends it.** Before, a second purchase
+  was ignored, which was harmless when there was only one thing to buy and would have meant taking
+  someone's money for nothing now that there is more than one. Refunding one of those purchases now
+  takes back only the days it paid for, instead of everything.
+* **Changed - the length of access is recorded on the order.** An order that takes days to clear,
+  such as a bank transfer, now grants what the site was offering when it was paid for, rather than
+  whatever the setting happens to say when the money arrives.
+* Changed - the gallery's settings have moved out of the Vendors tab into a Gallery tab of their
+  own. Nothing you have configured moves or resets.
+* Fixed - the Settings link beside the plugin on the Plugins screen, and the warning shown when
+  protected photos cannot be moved out of the published folder, both pointed at the old tab.
+
+= 1.8.3 =
+**Security fix. Update if you use private or members-only folders.**
+
+* **Protected photos are now stored outside the folder your web server publishes.** Until now they
+  were kept inside it with a deny rule beside them. That rule works on Apache on its own, but it is
+  never read where another web server hands out files before Apache sees the request, which is how
+  most shared hosting is arranged. On those sites every private and members-only photo could be
+  opened by anyone who had the address. The unguessable file name was obscurity, not protection.
+  Confirmed on a real host on 20 August 2026: the photo came back in full while the folder listing
+  and the deny rule itself both correctly refused.
+* Existing protected photos are moved for you when you update. Nothing about how they are shown
+  changes, and their addresses are unchanged, because they were already served through the
+  access-checked link rather than directly.
+* **If your hosting has nowhere outside the published folder that can be written to**, the photos
+  stay where they are and a notice on the settings screen tells you so plainly, rather than the
+  setting promising protection your hosting cannot give. You can point the plugin at a folder
+  yourself by defining `HP_AGL_PROTECTED_DIR` in `wp-config.php`.
+* Corrected the AI moderation tooltip, which claimed these files "cannot be reached from outside".
+  That was not true on every host, and a security claim has to be true everywhere.
+* **New - likes and comments show up for everyone straight away.** A page cache serves signed-out
+  visitors the copy it stored, counts and all, so a new like or comment stayed invisible to
+  everybody but the person who left it until that copy expired. Measured on a real host: still
+  reading zero more than eighty minutes later. The affected pages are now refreshed the moment a
+  like or comment lands, in the background rather than while somebody waits, and a burst on one
+  photo is handled as a single refresh. Works with FlyingPress, SiteGround Optimizer, WP Rocket and
+  LiteSpeed, and any other cache can hook the new `hp_agl/purge_urls` action.
+* Fixed - the photo count beside the like button stayed at zero after posting a comment while the
+  heading right below it already counted it. Both now update together.
+* Fixed - counting a folder's photos no longer loads every photo in it as a full record just to
+  read its file type. It is one small query, cached, and cleared whenever the folder's photos
+  change. A vendor with many folders paid for the old way on every view of their gallery.
+* Fixed - the AI photo check no longer re-checks photos it has already seen. Re-saving a folder to
+  correct a typo used to send every photo in it to OpenAI again and wait for the answer, measured at
+  around four seconds a time. Editing a folder with no new photos now costs nothing.
+* Fixed - you can open your own private folder from its address. Everyone was refused, including its
+  owner, and the refusal quietly sent you to the gallery index with nothing to say why.
+* Fixed - checking for updates no longer holds up an admin page, and now reads github.com rather
+  than the GitHub API, which has an hourly limit shared by every plugin on your server. A failed
+  check also no longer erases the last good answer.
+* Fixed - "View details" is back on the Plugins screen. WordPress only offers that link for a
+  plugin that has told it about itself, and this one stayed quiet whenever there was nothing to
+  update to, which is almost always. The details popup, its changelog and the donate link inside
+  it were all unreachable from the Plugins screen as a result.
+
+= 1.8.2 =
+* Two new hooks so Notifications for HivePress can tell people about things that used to happen in
+  silence: `hp_agl/folder_flagged` when the photo review hides a gallery, and `hp_agl/access_expiring`
+  a week before somebody's purchased access lapses.
+* New - buyers can be warned before their gallery access runs out, rather than only being told once
+  it already has. A daily check looks a week ahead, warns once per purchase, and leaves lifetime
+  access alone. Filter `hp_agl/access_warning_days` to change the notice period.
+* Fixed - the internal version constant said 1.8.0 while the plugin said 1.8.1, so stylesheets and
+  scripts were being cached against the wrong version after the 1.8.1 update.
+
+= 1.8.1 =
+* Fixed: AI photo moderation never actually checked a folder containing more than one photo. Every photo was sent to OpenAI in a single request, and OpenAI accepts only one image per request, so the request failed. The plugin is built to allow the save when the check cannot run, so the folder went through and it looked exactly like a clean pass. A folder with one photo worked correctly, which is why this was not obvious. Each photo is now sent in its own request.
+* Fixed: saving a gallery folder could hang for as long as OpenAI took to answer, because the photos were checked while the vendor waited. Each of those checks occupies one of the small number of PHP processes your host provides, so several people saving folders at once could leave nothing to serve anybody else and produce site-wide timeouts unconnected to the gallery.
+* Changed: photos are now checked in the background, moments after the folder is saved. Saving is immediate again. A folder found to contain inappropriate content is set to Draft, so it stops being publicly visible just as a refused save would have prevented, but the vendor is told on review rather than at the moment they save.
+* Changed: photo review now has an overall time limit of 30 seconds and stops at the first photo that is flagged.
+
+= 1.8.0 =
+* Changed: Deleting the plugin now KEEPS your galleries by default. Folders, photos, likes, comments, purchased access and settings all survive, so a plugin removed by accident or reinstalled fresh comes back as it was. To remove everything, tick the new "Delete all gallery data when this plugin is deleted" setting under Removing the Plugin first. WordPress's own delete-screen warning about deleting plugin data is generic and does not apply unless you tick that box.
+* Fixed: Save and error messages in the gallery's own forms were invisible. The photo's Manage Photo card, the comment box and the access price form all wrote their confirmation into a box that HivePress keeps hidden until its own script reveals it, so "Saved" never appeared.
+* Fixed: A membership plan with a gallery folder limit of 0 granted unlimited folders instead of none. The plan limits now start at 1, and 0 falls back to the site-wide limit; use the plan's "Allow using the photo gallery" tick to withhold the gallery entirely.
+* Fixed: The AI Moderation setting said every photo in a folder was checked. Only the first ten are, which is what it now says, in the settings and in this readme.
+* Fixed: Counts no longer read "1 photos, 1 videos", "1 folders" or "(1 days)".
+* Fixed: The OpenAI API key is now masked on the Integrations screen, with a show/hide toggle, instead of sitting in plain sight where it can be caught in a screenshot or a screen share.
+* Fixed: Requests to OpenAI and to GitHub now identify themselves as this plugin. Without that, WordPress attaches your site's address and exact WordPress version to every one.
+* Fixed: A vendor whose membership no longer includes the gallery could still move photos between folders; that endpoint now checks entitlement like every other one.
+* Changed: Every PHP class and file name carries the plugin's own prefix, so it cannot collide with HivePress or a future official extension. A collision silently stops one plugin's code loading, so this matters even though nothing is visibly different.
+* Changed: The gallery's own form fields now carry HivePress's field classes on the controls themselves, so they inherit your theme's input styling instead of the plugin's.
+* Added: A "Donate" link on the plugin's row on the Plugins screen and in its "View details" popup. Nothing is added inside the plugin's own screens.
+* Changed: The "HivePress is missing" notice is now dismissible and only shown to people who can actually install plugins.
+
+= 1.7.0 =
+* Added: A sidebar on every photo page, holding the vendor's profile card and a "Photo Page (sidebar)" widget area you can fill from Appearance > Widgets. A setting chooses whether it sits left or right of the photo.
+* Added: A Manage Photo card in that sidebar for the photo's owner, with the title and description fields, the move-to-another-folder choice and deletion. It replaces the separate photo editing page and the pencil icon in the folder editor.
+* Added: An Access Period setting for paid access. Purchases can now last a set number of days instead of forever; the unlock button states the period, expired passes can be bought again, and access already bought keeps the period it was bought with. A new hp_agl/access_expired action fires when a pass lapses.
+* Changed: A locked folder now shows a single unlock button: the vendor's purchase while they have a price set, otherwise the site's upgrade page link. Previously both could appear together, which asked visitors to choose between paying the vendor and paying the site.
+* Changed: Clicking a photo in a gallery now always opens the photo's own page, where the description, likes and comments live. The Lightbox setting instead controls whether the photo can be clicked to enlarge on its page.
+* Changed: The gallery settings are now split into a Gallery section and a Gallery Monetisation section, so the monetisation options and their explanation live together.
+* Fixed: On gallery and folder pages, the like and comment counts under a captioned photo were pushed a full tile-height down, leaving them floating in space. Captions became links in the previous version and were accidentally given the photo's square frame.
+* Fixed: The reply box under a comment now appears full-width beneath the comment text instead of squeezed to the far right, and the Post Comment button sits directly under its box.
+* Changed: The comment box invites visitors to "Share your thoughts on this photo...", the Comments heading is smaller, and the vendor-facing paid access copy explains how to stop selling more clearly.
+* Added: Every photo now has its own page, with the image, its title and description, previous and next buttons, and a full comment thread beneath it. Public photos can be linked to directly.
+* Added: Replies and comment likes. Conversations nest one level deep, and signed-in visitors can heart individual comments.
+* Added: Comments are now written in an inline "Comment here..." box on the photo page, replacing the old pop-up. The comment counts on grid tiles remain and link straight to the conversation.
+* Added: A per-photo editing page for vendors, with proper Title and Description fields, a move-to-another-folder choice with confirmation, a link to the photo's public page, and deletion. Reached via the pencil on each photo in the folder editor, or the Edit link on your own photo pages.
+* Added: Paid gallery access. When enabled in settings (and WooCommerce is active), each vendor can set their own price for unlocking their members-only folders; buying is a normal checkout and the unlock is per vendor. Refunding or cancelling the order takes the access back. With HivePress Marketplace active these sales count towards vendor earnings and your usual commission applies.
+* Added: A storage quota (site-wide or per membership plan). When set, vendors see "X used of Y allowed" on their Gallery page and uploads over the cap are rejected; without one, gallery sizes are no longer shown on the front end.
+* Added: A Lightbox setting. On (the default), photos open in the pop-up viewer as before; off, clicking a photo goes straight to its page.
+* Added: A setting to hide the photo count on the "View Gallery" button.
+* Added: A Members-Only Folders setting. Switching it off leaves vendors a simple public-or-private choice, and any existing members-only folders behave as private.
+* Added: Developer actions for notification plugins: hp_agl/photo_liked, hp_agl/photo_commented, hp_agl/comment_replied, hp_agl/comment_liked, hp_agl/access_purchased and hp_agl/access_revoked.
+* Changed: The Gallery settings description now explains how to monetise the gallery through membership plans.
+* Changed: The OpenAI Integrations section now states that moderation checks are free and links to the OpenAI sign-up page.
+
+= 1.5.0 =
+* Added: Photo likes. Signed-in visitors can like individual photos, with a count everyone can see. Each person can like a photo once, and likes respect folder visibility, so a photo nobody can open cannot be liked.
+* Added: Photo comments. Signed-in visitors can comment on individual photos in a pop-up per photo. People can delete their own comments, the folder's owner can delete any comment on their own photos, and moderators can delete anything. Comments are stored as ordinary WordPress comments, so they are visible in wp-admin.
+* Added: Both likes and comments can be switched off in the Gallery settings, and both are on by default.
+* Added: Per-plan gallery limits in HivePress Memberships. A membership plan can now set its own gallery folder limit and photos-per-folder limit, in Restrictions (General), so higher plans can offer more. A vendor on more than one plan gets the most generous limit, and an empty limit falls back to the site-wide setting.
+* Changed: "Allow viewing members-only gallery folders" moved from the plan's Settings box to its Restrictions (General) box, next to the other viewing restrictions. Existing settings are unaffected.
+* Removed: Image quality, metadata stripping, WebP conversion, Keep Originals, and the bulk "Optimise images" / "Restore original images" actions. Dedicated image plugins such as Imagify, ShortPixel or FlyingPress do all of this better, with fallbacks and CDN support. Resizing on upload, the file-size cap and the allowed-format list remain, because those belong to the upload itself. Any backups the removed feature made are cleaned up automatically on update.
+* Fixed: A PHP warning ("Array to string conversion") that HivePress logged on every request in 1.4.0, caused by how this plugin registered itself. Registration now uses the form HivePress expects whenever the plugin folder is named normally.
+* Changed: Visibility badges now use HivePress's own status pill, and muted text uses its own meta style, so the gallery inherits each theme's colours instead of defining its own.
+
+= 1.4.0 =
+* Fixed: The plugin now registers itself with HivePress explicitly, so it works even when installed into a folder whose name does not match the plugin file (for example from a GitHub "Download ZIP"). Previously such an install left the plugin active but completely inactive.
+* Fixed: Copy buttons now work on sites that are not served over HTTPS. The browser clipboard API is unavailable outside a secure context, and the fallback needed a text field beside the button, which the folder rows do not have.
+* Fixed: Stylesheet and script versions now include the file modification time, so an updated asset is never served from a stale browser cache.
+* Fixed: Deactivating the plugin now clears the cached rewrite rules instead of rewriting them, so the gallery URLs are properly removed.
+* Fixed: The "Check for updates" link now reports that the plugin is up to date when the repository has no release yet, rather than reporting a failure, and the "View details" popup falls back to the installed plugin's details.
+* Fixed: A vendor whose membership no longer includes the gallery can no longer reorder folders through the REST endpoint.
+* Added: An uninstall routine. Deleting the plugin now removes all of its options, plan settings, folder posts and private directories. The vendors' photos are deliberately kept, detached into the media library, and any protected file is moved back to its normal location first so it stays viewable. The shared OpenAI key is left in place.
+* Added: A Settings link on the Plugins screen.
+* Changed: The sidebar gallery button is now injected with HivePress's newer block-merging method, which finds the sidebar wherever a theme has moved it.
+* Changed: The gallery settings section gained an explanatory description, units moved into the file size, dimensions and quality labels, and the AI Moderation description now says that photos in protected folders are skipped.
+* Changed: The gallery component and controller classes are now prefixed, so they cannot silently collide with a future HivePress class of the same name.
+
+= 1.3.0 =
+* Added: Automatic updates from GitHub releases - sites are notified of new versions and can update from the Plugins screen, with a "Check for updates" link. Self-contained, no external service required.
+* Added: Native HivePress Memberships integration - gallery access and members-only viewing are now configured per plan, directly in the Membership Plan editor (replacing the separate plan-picker settings, which are migrated automatically). Gating is optional and fails closed if Memberships is deactivated.
+* Added: Strong file protection - files in private and members-only folders are moved to a protected directory and served through an access-checked link, so their URLs cannot be opened directly. Public folder images stay directly served for speed and SEO. On visibility change, files move automatically.
+* Added: Image optimisation settings - maximum file size, allowed formats, maximum dimensions (resize on upload), image quality, strip metadata, and convert to WebP. New uploads are optimised before thumbnails are generated.
+* Added: Bulk "Optimise images" and "Restore original images" actions on the Gallery Folders list, with an optional "Keep Originals" backup for reversible optimisation of existing galleries.
+* Added: Gallery image "weight" (total size) shown on the account page and in the admin folders list.
+* Added: GPL-3.0 license header and bundled LICENSE file.
+* Changed: The Protect Files setting now enables the protected proxy (on by default) as well as unguessable file names and public media API exclusion.
 
 = 1.2.0 =
 * Added: Folder pages - the gallery now shows folder covers that open each folder on its own page with a shareable, deep-linkable URL (a Gallery Layout setting restores the previous expanded view).

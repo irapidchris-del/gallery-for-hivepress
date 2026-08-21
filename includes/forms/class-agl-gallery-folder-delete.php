@@ -15,7 +15,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Deletes a gallery folder.
  */
-class Gallery_Folder_Delete extends Model_Form {
+class Agl_Gallery_Folder_Delete extends Model_Form {
 
 	/**
 	 * Class initializer.

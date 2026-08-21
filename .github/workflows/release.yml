@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.8.4)'
+        required: true
+      notes:
+        description: 'Release notes (Markdown, optional — auto-generated if empty)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build plugin zip
+        run: |
+          set -euo pipefail
+          SLUG=additional-gallery-for-hivepress
+          mkdir -p "build/$SLUG"
+
+          # Named explicitly so nothing that is not part of the plugin can slip into a release.
+          # Add any new top-level file or directory here as well, or it ships missing and every
+          # local test still passes.
+          for item in "$SLUG.php" uninstall.php readme.txt LICENSE includes assets templates languages; do
+            if [ -e "$item" ]; then
+              cp -r "$item" "build/$SLUG/"
+            else
+              echo "warning: $item is absent from the repository" >&2
+            fi
+          done
+
+          cd build
+          zip -qr "$SLUG.zip" "$SLUG"
+
+      - name: Show what is in the zip
+        run: unzip -l build/additional-gallery-for-hivepress.zip
+
+      - name: Create or refresh the release (manual dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            git tag -f "$TAG" "$GITHUB_SHA"
+            git push --force origin "refs/tags/$TAG"
+            if [ -n "$NOTES" ]; then
+              gh release edit "$TAG" --notes "$NOTES" --repo "$GITHUB_REPOSITORY"
+            fi
+            gh release upload "$TAG" build/additional-gallery-for-hivepress.zip --clobber --repo "$GITHUB_REPOSITORY"
+          elif [ -n "$NOTES" ]; then
+            gh release create "$TAG" build/additional-gallery-for-hivepress.zip --title "$TAG" --notes "$NOTES" --target "$GITHUB_SHA" --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" build/additional-gallery-for-hivepress.zip --title "$TAG" --generate-notes --target "$GITHUB_SHA" --repo "$GITHUB_REPOSITORY"
+          fi
+
+      - name: Upload asset to the release
+        if: github.event_name == 'release'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" build/additional-gallery-for-hivepress.zip --clobber --repo "$GITHUB_REPOSITORY"

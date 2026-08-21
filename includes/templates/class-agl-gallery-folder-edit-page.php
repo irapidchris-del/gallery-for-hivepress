@@ -1,6 +1,6 @@
 <?php
 /**
- * Gallery edit page template.
+ * Gallery folder edit page template.
  *
  * @package AdditionalGalleryForHivePress\Templates
  */
@@ -13,9 +13,9 @@ use HivePress\Helpers as hp;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Account page listing the vendor's gallery folders.
+ * Account page for editing a single gallery folder.
  */
-class Gallery_Edit_Page extends User_Account_Page {
+class Agl_Gallery_Folder_Edit_Page extends User_Account_Page {
 
 	/**
 	 * Class constructor.
@@ -28,8 +28,8 @@ class Gallery_Edit_Page extends User_Account_Page {
 				'blocks' => [
 					'page_content' => [
 						'blocks' => [
-							'gallery_folders' => [
-								'type'   => 'gallery_folders',
+							'gallery_folder_edit' => [
+								'type'   => 'agl_gallery_folder_edit',
 								'_order' => 10,
 							],
 						],

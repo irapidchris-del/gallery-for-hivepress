@@ -19,7 +19,7 @@ defined( 'ABSPATH' ) || exit;
  * supports drag-and-drop sorting. Field values are populated automatically
  * from the model by `Model_Form::boot()`.
  */
-class Gallery_Folder_Update extends Model_Form {
+class Agl_Gallery_Folder_Update extends Model_Form {
 
 	/**
 	 * Class initializer.

@@ -15,7 +15,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Public page displaying a single gallery folder.
  */
-class Gallery_Folder_View_Page extends Page_Wide {
+class Agl_Gallery_Folder_View_Page extends Page_Wide {
 
 	/**
 	 * Class constructor.
@@ -29,7 +29,7 @@ class Gallery_Folder_View_Page extends Page_Wide {
 					'page_content' => [
 						'blocks' => [
 							'gallery_folder_view' => [
-								'type'   => 'gallery_folder_view',
+								'type'   => 'agl_gallery_folder_view',
 								'_order' => 10,
 							],
 						],
