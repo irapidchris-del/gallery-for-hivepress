@@ -125,6 +125,15 @@ final class Agl_Gallery extends Component {
 		 */
 		foreach ( [ '', '_2', '_3' ] as $suffix ) {
 			add_action( 'update_option_hp_gallery_access_period' . $suffix, [ $this, 'queue_access_product_restamp' ], 10, 3 );
+
+			/*
+			 * Both hooks, because they are not alternatives. update_option() on an option that does
+			 * not exist yet hands off to add_option() and returns (wp-includes/option.php:929), so
+			 * it fires add_option_{name} and never update_option_{name}. Listening only for the
+			 * update meant the very first time an owner filled a period in - the one time it is
+			 * guaranteed to differ from what the products say - nothing was brought back in step.
+			 */
+			add_action( 'add_option_hp_gallery_access_period' . $suffix, [ $this, 'queue_access_product_restamp_on_add' ], 10, 2 );
 		}
 
 		add_action( 'hp_agl_restamp_access_products', [ $this, 'restamp_access_products' ] );
@@ -4418,7 +4427,10 @@ final class Agl_Gallery extends Component {
 	 * @return void
 	 */
 	public function queue_access_product_restamp( $old_value, $value, $option ) {
-		if ( (string) $old_value === (string) $value ) {
+
+		// Nothing moved, nothing to bring back in step. A first-time save arrives with null here,
+		// which never equals a value the owner actually typed.
+		if ( ! is_null( $old_value ) && (string) $old_value === (string) $value ) {
 			return;
 		}
 
@@ -4434,6 +4446,21 @@ final class Agl_Gallery extends Component {
 		if ( $scheduler ) {
 			$scheduler->add_action( 'hp_agl_restamp_access_products', [ $tier ] );
 		}
+	}
+
+	/**
+	 * Queues the same refresh when an access length is set for the very first time.
+	 *
+	 * `add_option_{name}` passes the name and the new value, in that order, where
+	 * `update_option_{name}` passes the old value, the new value and the name. The two cannot share
+	 * a callback signature, so this one adapts and hands over.
+	 *
+	 * @param string $option Option name.
+	 * @param mixed  $value New value.
+	 * @return void
+	 */
+	public function queue_access_product_restamp_on_add( $option, $value ) {
+		$this->queue_access_product_restamp( null, $value, $option );
 	}
 
 	/**
@@ -4969,12 +4996,23 @@ final class Agl_Gallery extends Component {
 	 * @param int $user_id User ID.
 	 * @param int $vendor_id Vendor ID.
 	 * @param int $order_id Order that paid for it.
+	 * @param int $product_id Product that was bought, so two lengths in one order both count.
 	 * @param int $period Days bought, 0 for lifetime.
-	 * @return array|null The stored grant, or null when this order had already been counted.
+	 * @return array|null The stored grant, or null when this line had already been counted.
 	 */
-	protected function add_access_time( $user_id, $vendor_id, $order_id, $period ) {
+	protected function add_access_time( $user_id, $vendor_id, $order_id, $product_id, $period ) {
 		$grant  = $this->read_access_grant( $user_id, $vendor_id );
 		$period = max( 0, absint( $period ) );
+
+		/*
+		 * Keyed by the line, not by the order. One order can hold two different lengths for the
+		 * same vendor - the unlock page links straight to add-to-cart and WooCommerce keeps the
+		 * cart, so somebody can press "7 days" and then "90 days" and pay once. Keyed by the order
+		 * alone, the second line was silently dropped and they were charged for both and given the
+		 * shorter one. The same line still yields the same key on the processing and completed
+		 * passes, which is what stops a single payment counting twice.
+		 */
+		$part_key = $order_id . ':' . absint( $product_id );
 
 		if ( $grant && $grant['expires'] && $grant['expires'] < time() ) {
 
@@ -4990,7 +5028,7 @@ final class Agl_Gallery extends Component {
 				'parts'   => [],
 			];
 		} else {
-			if ( isset( $grant['parts'][ (string) $order_id ] ) ) {
+			if ( isset( $grant['parts'][ $part_key ] ) ) {
 
 				// Already counted. An order moves to processing and then to completed, and both of
 				// those grant access, so this runs twice for a single payment as a matter of course.
@@ -5016,9 +5054,9 @@ final class Agl_Gallery extends Component {
 		 * Any `warned` flag a previous expiry left behind is dropped here on purpose: the new
 		 * date has not been warned about, and the buyer should hear about that one too.
 		 */
-		$grant['parts'][ (string) $order_id ] = $period;
-		$grant['order']                       = $order_id;
-		$grant['expires']                     = $this->calculate_grant_expiry( $grant );
+		$grant['parts'][ $part_key ] = $period;
+		$grant['order']              = $order_id;
+		$grant['expires']            = $this->calculate_grant_expiry( $grant );
 
 		update_user_meta( $user_id, 'hp_agl_access_' . $vendor_id, $grant );
 
@@ -5054,11 +5092,24 @@ final class Agl_Gallery extends Component {
 			return true;
 		}
 
-		if ( ! isset( $grant['parts'][ (string) $order_id ] ) ) {
-			return false;
+		/*
+		 * Every line that order paid for goes, not one. Grants written before the ledger was keyed
+		 * by line hold a bare order ID, so both shapes are matched.
+		 */
+		$prefix  = $order_id . ':';
+		$removed = false;
+
+		foreach ( array_keys( $grant['parts'] ) as $key ) {
+			if ( (string) $key === (string) $order_id || 0 === strpos( (string) $key, $prefix ) ) {
+				unset( $grant['parts'][ $key ] );
+
+				$removed = true;
+			}
 		}
 
-		unset( $grant['parts'][ (string) $order_id ] );
+		if ( ! $removed ) {
+			return false;
+		}
 
 		if ( ! $grant['parts'] ) {
 			delete_user_meta( $user_id, 'hp_agl_access_' . $vendor_id );
@@ -5075,7 +5126,8 @@ final class Agl_Gallery extends Component {
 			return true;
 		}
 
-		$grant['order'] = hp_agl_int( hp\get_last_array_value( array_keys( $grant['parts'] ) ) );
+		// Keys may be "order:product" or a bare order ID, so take the order half either way.
+		$grant['order'] = hp_agl_int( strtok( (string) hp\get_last_array_value( array_keys( $grant['parts'] ) ), ':' ) );
 
 		update_user_meta( $user_id, 'hp_agl_access_' . $vendor_id, $grant );
 
@@ -5126,7 +5178,7 @@ final class Agl_Gallery extends Component {
 
 			$period = '' === $period ? $this->get_access_period() : hp_agl_int( $period );
 
-			$grant = $this->add_access_time( $user_id, $vendor_id, absint( $order_id ), $period );
+			$grant = $this->add_access_time( $user_id, $vendor_id, absint( $order_id ), $product_id, $period );
 
 			if ( ! $grant ) {
 				continue;

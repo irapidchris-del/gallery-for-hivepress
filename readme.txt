@@ -5,7 +5,7 @@ Requires at least: 5.8
 Tested up to: 7.0
 Requires PHP: 7.4
 Requires Plugins: hivepress
-Stable tag: 1.8.4
+Stable tag: 1.8.5
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -220,6 +220,21 @@ back to its normal location first so it is still viewable without the plugin.
 Your OpenAI API key is left alone either way, because other extensions share it.
 
 == Changelog ==
+
+= 1.8.5 =
+**Fixes a fault in 1.8.4 that could short-change a buyer. Update if you sell gallery access.**
+
+* **Fixed - buying two lengths of access in one go granted only one of them.** A buyer could put,
+  say, seven days and ninety days in the basket together and pay for both, and only the first was
+  counted: they were charged for ninety-seven days and given seven. Access was being recorded
+  against the order rather than against each thing bought, so the second line was quietly dropped.
+  Both are now counted. Access already granted is unaffected, and a refund still takes back only
+  what that order paid for.
+* Fixed - filling in an access length for the very first time did not update the products already
+  selling it, so the unlock button could advertise one length while the checkout named another.
+  Setting a length for the first time and changing an existing one now both bring the products back
+  in step. WordPress fires a different hook when an option is created than when it is changed, and
+  only the second was being listened for.
 
 = 1.8.4 =
 * **Added - vendors can charge different prices for different lengths of access.** Until now a site
