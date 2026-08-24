@@ -58,6 +58,22 @@ return [
 						'_order'  => 20,
 					],
 
+					'gallery_show_on_vendors'   => [
+						'label'       => esc_html__( 'Gallery on Vendor Profiles', 'additional-gallery-for-hivepress' ),
+						'caption'     => esc_html__( 'Show the gallery on vendor profiles', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Adds a Gallery section to a vendor profile, below their listings, showing their folders in place rather than only linking to them. Vendors with no gallery get no section at all. This is separate from the sidebar button above, so you can have either, both or neither.', 'additional-gallery-for-hivepress' ),
+						'type'        => 'checkbox',
+						'_order'      => 26,
+					],
+
+					'gallery_show_on_listings'  => [
+						'label'       => esc_html__( 'Gallery on Listings', 'additional-gallery-for-hivepress' ),
+						'caption'     => esc_html__( 'Show the gallery on listing pages', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Adds a Gallery section to the foot of every listing by that vendor, after the tags and before the reviews. Useful where the work itself is what sells the listing. Vendors with no gallery get no section at all.', 'additional-gallery-for-hivepress' ),
+						'type'        => 'checkbox',
+						'_order'      => 27,
+					],
+
 					'gallery_show_button_count' => [
 						'label'       => esc_html__( 'Gallery Button', 'additional-gallery-for-hivepress' ),
 						'caption'     => esc_html__( 'Show the photo count on the View Gallery button', 'additional-gallery-for-hivepress' ),
@@ -242,38 +258,14 @@ return [
 					'gallery_enable_paid_access' => [
 						'label'       => esc_html__( 'Paid Access', 'additional-gallery-for-hivepress' ),
 						'caption'     => esc_html__( 'Let vendors sell access to their members-only folders', 'additional-gallery-for-hivepress' ),
-						'description' => esc_html__( 'Each vendor can set their own price on their Gallery page; setting one is optional. Buying access is a normal WooCommerce checkout, and the unlock applies to that one vendor\'s locked folders. While a vendor has a price set, their locked folders show the purchase button rather than the upgrade page link. Requires WooCommerce. With HivePress Marketplace active, these sales count towards vendor earnings and your usual commission applies.', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Each vendor sets their own lengths and prices on their Gallery page, choosing from a day, a week, a month, three months or permanent access, and may offer up to three of them at once. Setting any is optional. Buying is a normal WooCommerce checkout and the unlock applies to that one vendor\'s locked folders. While a vendor sells access, their locked folders show the purchase button rather than the upgrade page link. Requires WooCommerce. With HivePress Marketplace active, these sales count towards vendor earnings and your usual commission applies.', 'additional-gallery-for-hivepress' ),
 						'type'        => 'checkbox',
 						'_order'      => 30,
 					],
 
-					'gallery_access_period'      => [
-						'label'       => esc_html__( 'Access Period (days)', 'additional-gallery-for-hivepress' ),
-						'description' => esc_html__( 'How long a purchased unlock lasts, counted from the day of purchase. Leave empty for lifetime access. Changing this only affects new purchases; access already bought keeps the period it was bought with.', 'additional-gallery-for-hivepress' ),
-						'type'        => 'number',
-						'min_value'   => 1,
-						'_order'      => 40,
-					],
-
-					'gallery_access_period_2'    => [
-						'label'       => esc_html__( 'Second Access Period (days)', 'additional-gallery-for-hivepress' ),
-						'description' => esc_html__( 'Optional. Fill this in to offer a second, differently priced length of access alongside the first, and vendors get a second price box to go with it. Leave it empty to offer one length only. Unlike the first period, empty here means "not offered" rather than lifetime.', 'additional-gallery-for-hivepress' ),
-						'type'        => 'number',
-						'min_value'   => 1,
-						'_order'      => 42,
-					],
-
-					'gallery_access_period_3'    => [
-						'label'       => esc_html__( 'Third Access Period (days)', 'additional-gallery-for-hivepress' ),
-						'description' => esc_html__( 'Optional, and the last one. Three lengths is the most a vendor can offer, which keeps the choice in front of a buyer short enough to read.', 'additional-gallery-for-hivepress' ),
-						'type'        => 'number',
-						'min_value'   => 1,
-						'_order'      => 44,
-					],
-
 					'gallery_commission_rate'    => [
 						'label'       => esc_html__( 'Commission Rate', 'additional-gallery-for-hivepress' ),
-						'description' => esc_html__( 'Your percentage of a gallery access sale. Leave both commission boxes empty to take none. The amount is added on top at checkout and shown to the buyer as a separate line, so the vendor still receives the price they set.', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Your percentage of a gallery access sale. Leave both commission boxes empty to take none. The amount is added on top at checkout and shown to the buyer as a separate line called Platform fee, so the vendor still receives the price they set.', 'additional-gallery-for-hivepress' ),
 						'type'        => 'number',
 						'decimals'    => 2,
 						'min_value'   => 0,

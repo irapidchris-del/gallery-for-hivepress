@@ -5,7 +5,7 @@ Requires at least: 5.8
 Tested up to: 7.0
 Requires PHP: 7.4
 Requires Plugins: hivepress
-Stable tag: 1.8.5
+Stable tag: 1.8.15
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -139,27 +139,86 @@ With the Paid Access setting on and WooCommerce active, each vendor can set
 their own price for unlocking their members-only folders, from their Gallery
 page. Buying is a normal WooCommerce checkout; the unlock covers that one
 vendor's locked folders and is taken back automatically if the order is
-refunded or cancelled. With HivePress Marketplace active, these sales count
-towards vendor earnings and your usual commission applies.
+refunded or cancelled.
 
-An Access Period setting turns the unlock into a timed pass: purchases last
-that many days, the unlock button states the price and the period, and once
-a pass lapses the visitor can simply buy again. Left empty, purchases grant
-lifetime access. Access already bought keeps the period it was bought with,
-so changing the setting never shortens someone's pass.
+Each vendor chooses their own lengths and prices, on their own Gallery page.
+A length is picked from a list - a day, a week, a month, three months, or
+permanent - and given a price, and a vendor can offer up to three at once. A
+locked folder then shows the buyer whichever lengths that vendor sells,
+shortest first with permanent last, each with its price. Someone who buys again
+while a pass is still running has the new days added to what they have left,
+rather than starting over.
 
-You can offer up to three lengths at once by filling in the second and third
-Access Period boxes. Each vendor then gets a price box per length and prices
-whichever they want to sell, leaving the rest empty; a locked folder offers
-the buyer whichever of them that vendor has priced, shortest first. Someone
-who buys again while a pass is still running has the days added to it.
+There is no site-wide access period to set. Earlier versions had up to three
+Access Period boxes on this tab; they have been replaced by the per-vendor
+lengths above. If you are upgrading, each period you had set carries over into
+the matching vendor length slot, so nobody's passes change and nothing needs
+doing.
 
 You can also take a commission on these sales: a percentage, a fixed amount,
 or both, with both boxes empty meaning none. It is added on top at checkout
-and shown to the buyer as its own line, so the vendor still receives the
-price they set. With HivePress Marketplace active, these sales count towards
-vendor earnings and your usual vendor commission applies, and the fee above
-is recorded against the order so it stays out of the vendor's balance.
+and shown to the buyer as its own line called Platform fee, so the vendor
+still receives the price they set.
+
+= Who actually receives the money =
+
+Worth reading before you set a price, because the answer depends on how your
+site takes payments and not on anything in this plugin.
+
+A gallery access sale is an ordinary WooCommerce product sale. The product is
+created for you, owned by the vendor selling the access, and it goes through
+your checkout and your payment gateway exactly like anything else you sell.
+This plugin never moves money itself. What it does is make sure the sale is
+attributed to the right vendor, and that anything you charge on top stays
+yours.
+
+There are three arrangements, and they behave differently:
+
+**1. WooCommerce on its own, no HivePress Marketplace.** Everything the buyer
+pays arrives in your own payment account. Vendors are not paid anything
+automatically and no earnings are recorded. This is the right setup if you are
+the one monetising the galleries - if the galleries are yours, or you settle up
+with vendors outside the site.
+
+**2. WooCommerce with HivePress Marketplace.** The money still arrives in your
+payment account, because the buyer pays you. Marketplace records what the
+vendor has earned as a balance and you pay it out through its payouts, and your
+usual vendor commission is taken off that balance. The Platform fee above is
+recorded against the order so it stays out of the vendor's balance entirely.
+
+  A worked example. A vendor sells 90 days' access for 100.00, your vendor
+  commission is 20% and your Platform fee is 10%. The buyer pays 110.00. The
+  vendor's balance goes up by 80.00 and you keep 30.00 - your 20.00 commission
+  plus the whole 10.00 fee. The fee is not shared with the vendor.
+
+**3. A Stripe Connect gateway using direct charges.** Read this carefully if
+you use one, because it reverses the first sentence of case 2. With direct
+charges the buyer's card is charged on the VENDOR'S connected Stripe account,
+so the whole order total lands with the vendor and never touches your Stripe
+balance. Your income is the application fee that gateway is configured to
+take, and nothing else.
+
+  This has one consequence people are caught by: under direct charges the
+  Platform fee above does NOT reach you. It is a line on the order, so it is
+  part of the total that is charged to the vendor's account, and it simply
+  increases what the buyer pays and what the vendor receives. If you use a
+  direct-charges gateway and want a cut, set it as that gateway's application
+  fee and leave the Platform fee here empty, or you will be charging your
+  buyers for something you never collect. Marketplace balances still show
+  numbers in this arrangement, but they are bookkeeping - the money has
+  already gone to the vendor.
+
+Whichever applies, the vendor a sale is credited to is the vendor whose gallery
+it is. HivePress Marketplace works this out from the owner of the product, and
+this plugin creates each access product owned by that vendor, so the two agree.
+
+One last rule follows from that. HivePress Marketplace credits an entire order
+to whoever sold its FIRST line, which is fine for it because its own buy button
+empties the basket first. This plugin lets a buyer collect several passes from
+one vendor and pay once, which is deliberate and safe, but it will refuse to add
+gallery access to a basket that already holds another seller's goods, and will
+say so at checkout. Without that refusal a basket holding two vendors' galleries
+would pay both to the first vendor.
 
 While a vendor sells access their locked folders offer that purchase; those
 without a price fall back to the site's Upgrade Page link, so visitors are
@@ -220,6 +279,113 @@ back to its normal location first so it is still viewable without the plugin.
 Your OpenAI API key is left alone either way, because other extensions share it.
 
 == Changelog ==
+
+= 1.8.15 =
+* Fixed: the padlock on a locked folder's "Members only" label sat hard against the words, unlike
+  the padlock on the Unlock buttons below it. The label is laid out in a way that drops the space
+  the markup already had, so the gap is now set properly and the two match.
+* Fixed: that same label left an HTML tag unclosed. Browsers repaired it silently, so nothing looked
+  wrong, but anything added after the label could pick up the label's own styling.
+
+= 1.8.14 =
+* Fixed: a fatal error on every request when the plugin ran without HivePress on WordPress
+  versions that do not enforce the `Requires Plugins` header. The 1.8.3 upgrade step called
+  HivePress unguarded; it now waits, and the upgrade simply completes once HivePress is back.
+* Fixed: gallery access could be bought while signed out. Access attaches to an account, so a
+  guest order paid and received nothing. Signed-out visitors are now refused at add-to-cart,
+  the classic cart and checkout, and the blocks checkout, and asked to sign in first.
+* Fixed: the AI photo check never finished for folders holding a video. The video was sent to
+  the image endpoint, which cannot judge it, so no photo was ever marked as checked and every
+  re-save paid for a full re-review. Videos are now left out of the check, and only photos
+  actually reviewed are marked - not ones skipped by the cap or file protection.
+= 1.8.13 =
+* Fixed: gallery access could not be paid for with a Stripe Connect direct-charges gateway. Such
+  gateways find a product's vendor to route the charge, and gallery access - a standalone product
+  with no listing behind it - only carried this plugin's own vendor marker, not the standard one
+  the gateway reads. It now also stamps the conventional `hp_vendor` product meta, so the vendor
+  resolves and the gateway offers itself. Existing access products pick this up next time their
+  price or length is saved. Inert for sites not using such a gateway.
+= 1.8.12 =
+* Added: every photo comment is now a link target (`#agl-comment-N`), and the comment somebody
+  arrives at through a notification link announces itself with a soft highlight. Nothing changes
+  for anyone browsing normally.
+
+= 1.8.11 =
+* Fixed: the one-seller basket rule only ran when an item was ADDED, and WooCommerce also builds
+  baskets by merging - signing in merges a saved basket into the current one with no checks, and
+  re-ordering a past order rebuilds the basket against checks that see it as empty. Either could
+  quietly assemble a basket holding two vendors' gallery passes, which Marketplace would then pay
+  entirely to the first vendor. The whole basket is now re-checked at the cart, the classic
+  checkout and the blocks checkout, so a mixed basket cannot reach payment however it was made.
+* Fixed: the Platform fee was recorded on the first GALLERY line of the order, but HivePress
+  Marketplace only reads it from the order's first line of any kind. A basket whose first line was
+  the same vendor's ordinary listing purchase - which the one-seller rule rightly allows - had the
+  fee paid out to the vendor as earnings instead of staying with the site. It is now recorded on
+  the order's first line, and added to anything already recorded there rather than overwriting it.
+* Documentation: the note about upgrading from the old site-wide Access Period boxes now says there
+  were up to three and that each carries into the matching vendor length slot.
+
+= 1.8.10 =
+* Fixed: pressing a Buy button for gallery access added the pass to the basket and then dropped the
+  buyer back on another page instead of the checkout, with no confirmation and nothing charged - so
+  the button looked broken. The purchase now goes straight to the checkout. This was masked on the
+  site it was built against by a third-party "direct checkout" plugin forcing the redirect for every
+  product; sites without one got the bounce.
+
+= 1.8.9 =
+* Fixed: a basket holding gallery access from two different vendors paid the whole order to the
+  first of them. HivePress Marketplace credits an order to whoever sold its first line, so adding a
+  second vendor's access is now refused with an explanation at checkout. Buying several lengths from
+  one vendor in a single order still works, which is what the basket was kept for.
+* Fixed: the View Gallery button lost its full width when it was given its taller shape. It now
+  carries the core button classes that supply the width and the icon spacing as well as the theme
+  classes that supply the height.
+* Documentation: a new "Who actually receives the money" section in the readme sets out exactly who
+  is paid under WooCommerce alone, under HivePress Marketplace, and under a Stripe Connect gateway
+  using direct charges - including the fact that the Platform fee does not reach the site under
+  direct charges, where the gateway's own application fee should be used instead.
+* Documentation: removed the description of the site-wide Access Period setting, which per-vendor
+  lengths replaced. Existing values still carry over on upgrade.
+
+= 1.8.8 =
+* **Added - show the gallery on vendor profiles and on listings**, rather than only linking to it.
+  Two new settings, both off to begin with and both independent of the sidebar buttons, so you can
+  have the section instead of the button, as well as it, or neither. On a profile the Gallery
+  section sits below the vendor's listings; on a listing it sits after the tags and before the
+  reviews, which keeps its place whether either of those extensions is active. A vendor with no
+  gallery gets no section and no empty heading.
+* Fixed - the "Members only" badge on a locked folder left a `<span>` unclosed. Browsers repaired it
+  quietly, so nothing looked wrong, but the markup was invalid.
+
+= 1.8.7 =
+* **Added - vendors can choose which photo is a folder's cover.** Open any photo and use "Use as
+  folder cover"; without a choice the first photo is still used, exactly as before. A cover that is
+  later deleted or moved elsewhere quietly falls back to the first photo rather than leaving a gap.
+* Changed - the fee shown to buyers at checkout is now called "Platform fee" rather than "Gallery
+  Access Fee", which said less than it should have.
+* Fixed - the View Gallery button now matches the height of the Send Message button above it. It
+  carries the same classes HivePress puts on that button, and an old rule of ours that overrode the
+  padding has gone.
+* Fixed - the sidebar on a photo page no longer has its own scroll bar. It is made sticky by
+  HivePress's own component, and a stylesheet rule here was fighting it and forcing the sidebar to
+  scroll within itself, which no native HivePress sidebar does.
+* Fixed - the "Delete this photo" control is centred.
+
+= 1.8.6 =
+**Vendors now choose their own access lengths.** Setting up paid access is a good deal simpler.
+
+* **Changed - a vendor picks how long their access lasts** from a short list: a day, a week, a
+  month, three months, or permanent. Before this, you set the lengths in Settings and each vendor
+  could only price what you had decided. Vendors know their own work best, and the list keeps the
+  offers comparable between them.
+* **Changed - one row to fill in, not three boxes.** A vendor sets a length and a price, and adds
+  another row only if they want to offer more than one. Up to three at a time, so a buyer is
+  choosing between offers rather than reading a price list.
+* **Changed - the three Access Period settings have gone** from the Gallery tab, because vendors now
+  set their own. Nothing anybody is already selling changes: a vendor who had priced access keeps
+  selling exactly the same length at the same price until they choose otherwise.
+* Removed the background job that kept access products in step with those settings. It only existed
+  because you owned the lengths; a vendor changing their own now updates their own product.
 
 = 1.8.5 =
 **Fixes a fault in 1.8.4 that could short-change a buyer. Update if you sell gallery access.**

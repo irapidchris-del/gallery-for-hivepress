@@ -36,6 +36,13 @@ final class Agl_Gallery extends Component {
 	const PROTECTED_PREFIX = 'hp-agl-protected/';
 
 	/**
+	 * Where a folder's chosen cover photo is kept.
+	 *
+	 * @var string
+	 */
+	const COVER_META = 'hp_agl_cover';
+
+	/**
 	 * Current vendor cache.
 	 *
 	 * @var mixed
@@ -110,6 +117,48 @@ final class Agl_Gallery extends Component {
 		add_action( 'delete_attachment', [ $this, 'delete_photo_engagement' ] );
 
 		/*
+		 * The gallery shown in place, rather than as a link away. Both are off by default and are
+		 * independent of the sidebar buttons.
+		 */
+		add_filter( 'hivepress/v1/templates/vendor_view_page', [ $this, 'add_vendor_gallery_section' ] );
+		add_filter( 'hivepress/v1/templates/listing_view_page', [ $this, 'add_listing_gallery_section' ] );
+
+		/*
+		 * Keep a basket to one seller, so Marketplace pays the right person. Three layers, because
+		 * WooCommerce assembles carts three ways and only the first is covered by add-time
+		 * validation. See validate_single_seller_cart() for the rule itself.
+		 *
+		 * Add time catches the ordinary case. It does NOT catch a cart WooCommerce built by
+		 * merging: logging in merges the saved cart into the session cart with no validation
+		 * (class-wc-cart-session.php:118-121, array_merge with the saved lines first), and the
+		 * order-again rebuild validates each line against a cart that reads as empty (see the
+		 * checkout method's docblock). So the whole basket is re-checked where every route to
+		 * payment converges: `woocommerce_check_cart_items` for the classic cart, checkout and
+		 * WC_Checkout::process_checkout(), and `woocommerce_store_api_cart_errors` for the blocks
+		 * checkout (CartController::validate_cart(), src/StoreApi/Utilities/CartController.php:496).
+		 */
+		add_filter( 'woocommerce_add_to_cart_validation', [ $this, 'validate_single_seller_cart' ], 10, 2 );
+		add_action( 'woocommerce_check_cart_items', [ $this, 'enforce_single_seller_cart' ] );
+		add_action( 'woocommerce_store_api_cart_errors', [ $this, 'enforce_single_seller_cart_blocks' ], 10, 2 );
+
+		/*
+		 * Never sell gallery access to a visitor who is not signed in. Access attaches to the
+		 * order's ACCOUNT - grant_paid_access() reads the order's customer ID - so a guest order
+		 * has nobody to grant to: the money is taken and nothing is ever delivered. The unlock
+		 * buttons already send signed-out visitors to sign in, but that only changes which URL is
+		 * PRINTED; the buy URL itself (checkout plus add-to-cart) is public and shareable, so with
+		 * WooCommerce guest checkout on, a shared link paid without an account. The refusal has to
+		 * live in the cart, through the same three layers as the single-seller rule above and for
+		 * the same reason: merged and rebuilt carts never pass add-time validation.
+		 */
+		add_filter( 'woocommerce_add_to_cart_validation', [ $this, 'validate_signed_in_access_purchase' ], 10, 2 );
+		add_action( 'woocommerce_check_cart_items', [ $this, 'enforce_signed_in_access_purchase' ] );
+		add_action( 'woocommerce_store_api_cart_errors', [ $this, 'enforce_signed_in_access_purchase_blocks' ], 10, 2 );
+
+		// Land the buyer on the checkout they pressed a Buy button to reach. See the method.
+		add_filter( 'woocommerce_add_to_cart_redirect', [ $this, 'redirect_access_purchase_to_checkout' ], 10, 2 );
+
+		/*
 		 * The site's cut of a gallery access sale. `woocommerce_cart_calculate_fees` is the one hook
 		 * the Store API honours as well as the classic cart, so the block checkout and the old one
 		 * show the same total; adding the fee anywhere else makes the two disagree.
@@ -117,26 +166,6 @@ final class Agl_Gallery extends Component {
 		add_action( 'woocommerce_cart_calculate_fees', [ $this, 'add_commission_fee' ] );
 		add_action( 'woocommerce_checkout_create_order_line_item', [ $this, 'set_commission_item_meta' ], 10, 3 );
 		add_action( 'woocommerce_checkout_create_order_line_item', [ $this, 'set_access_item_meta' ], 10, 3 );
-
-		/*
-		 * Changing an access length has to reach the products that sell it. The button on the
-		 * gallery page reads the setting live, so leaving the products alone would have the page
-		 * advertise sixty days and the checkout line still say thirty.
-		 */
-		foreach ( [ '', '_2', '_3' ] as $suffix ) {
-			add_action( 'update_option_hp_gallery_access_period' . $suffix, [ $this, 'queue_access_product_restamp' ], 10, 3 );
-
-			/*
-			 * Both hooks, because they are not alternatives. update_option() on an option that does
-			 * not exist yet hands off to add_option() and returns (wp-includes/option.php:929), so
-			 * it fires add_option_{name} and never update_option_{name}. Listening only for the
-			 * update meant the very first time an owner filled a period in - the one time it is
-			 * guaranteed to differ from what the products say - nothing was brought back in step.
-			 */
-			add_action( 'add_option_hp_gallery_access_period' . $suffix, [ $this, 'queue_access_product_restamp_on_add' ], 10, 2 );
-		}
-
-		add_action( 'hp_agl_restamp_access_products', [ $this, 'restamp_access_products' ] );
 
 		// Paid gallery access: grant on payment, revoke when the money comes
 		// back. Orders settle on `processing` for normal items and go straight
@@ -988,6 +1017,18 @@ final class Agl_Gallery extends Component {
 	public function get_folder_cover_id( $folder ) {
 		$image_ids = (array) $folder->get_images__id();
 
+		/*
+		 * The vendor's own choice wins, but only while it is still one of this folder's images.
+		 * A cover that has since been deleted, or moved to another folder, quietly falls back to
+		 * the first image rather than leaving a hole where the cover used to be.
+		 */
+		$chosen = absint( get_post_meta( $folder->get_id(), self::COVER_META, true ) );
+
+		if ( $chosen && in_array( $chosen, array_map( 'absint', $image_ids ), true )
+			&& 0 === strpos( (string) get_post_mime_type( $chosen ), 'image' ) ) {
+			return $chosen;
+		}
+
 		foreach ( $image_ids as $image_id ) {
 			if ( 0 === strpos( (string) get_post_mime_type( $image_id ), 'image' ) ) {
 				return $image_id;
@@ -995,6 +1036,56 @@ final class Agl_Gallery extends Component {
 		}
 
 		return $image_ids ? hp\get_first_array_value( $image_ids ) : null;
+	}
+
+	/**
+	 * Whether a photo is its folder's chosen cover.
+	 *
+	 * Asks the same question the gallery grid asks, so the control on the photo page can never
+	 * disagree with the picture actually being shown - including for a folder where nobody has
+	 * chosen, where the first image is the cover by default.
+	 *
+	 * @param object $folder Folder object.
+	 * @param int    $photo_id Attachment ID.
+	 * @return bool
+	 */
+	public function is_folder_cover( $folder, $photo_id ) {
+		return absint( $photo_id ) && absint( $this->get_folder_cover_id( $folder ) ) === absint( $photo_id );
+	}
+
+	/**
+	 * Sets a folder's cover photo.
+	 *
+	 * @param object $folder Folder object.
+	 * @param int    $photo_id Attachment ID, 0 to go back to the first image.
+	 * @return bool
+	 */
+	public function set_folder_cover( $folder, $photo_id ) {
+		$photo_id = absint( $photo_id );
+
+		if ( ! $photo_id ) {
+			delete_post_meta( $folder->get_id(), self::COVER_META );
+
+			return true;
+		}
+
+		if ( ! in_array( $photo_id, array_map( 'absint', (array) $folder->get_images__id() ), true ) ) {
+			return false;
+		}
+
+		update_post_meta( $folder->get_id(), self::COVER_META, $photo_id );
+
+		/*
+		 * The gallery index and the folder page both show the cover, and a page cache would go on
+		 * serving the old one. Same queued purge the like and comment counts use.
+		 */
+		$scheduler = hivepress()->scheduler;
+
+		if ( $scheduler ) {
+			$scheduler->add_action( 'hp_agl_purge_photo_cache', [ $photo_id ] );
+		}
+
+		return true;
 	}
 
 	/**
@@ -1521,10 +1612,13 @@ final class Agl_Gallery extends Component {
 	 * Prepares the image URLs of a folder save for moderation.
 	 *
 	 * Only public http(s) URLs are usable, because OpenAI fetches each
-	 * image server-side. The list is de-duplicated and capped.
+	 * image server-side. The list is de-duplicated and capped, and keyed by
+	 * attachment ID so the caller can tell which photos were actually put in
+	 * front of the service - marking anything else as checked would exempt
+	 * photos nobody ever looked at.
 	 *
 	 * @param array $attachment_ids Attachment IDs.
-	 * @return array Image URLs.
+	 * @return array Image URLs keyed by attachment ID.
 	 */
 	public function prepare_moderation_urls( $attachment_ids ) {
 		$urls = [];
@@ -1533,6 +1627,19 @@ final class Agl_Gallery extends Component {
 			$attachment_id = hp_agl_int( $attachment_id );
 
 			if ( ! $attachment_id ) {
+				continue;
+			}
+
+			/*
+			 * Only images. The moderation endpoint takes image_url inputs and nothing else, so a
+			 * video (folders hold them when hp_gallery_allow_video is on) can never get a verdict
+			 * - and one dud in the batch used to poison the WHOLE run: moderate_image_urls() read
+			 * the refusal as "no verdict", answered null, nothing was marked as checked, and every
+			 * later save of the folder re-bought a full review of photos that had already passed.
+			 * Videos are simply not part of this check; leaving them out is what lets the run
+			 * finish and the checked marks stick.
+			 */
+			if ( ! wp_attachment_is_image( $attachment_id ) ) {
 				continue;
 			}
 
@@ -1553,7 +1660,7 @@ final class Agl_Gallery extends Component {
 				continue;
 			}
 
-			$urls[] = $url;
+			$urls[ $attachment_id ] = $url;
 		}
 
 		/**
@@ -1566,7 +1673,8 @@ final class Agl_Gallery extends Component {
 
 		$cap = max( 0, is_scalar( $cap ) ? (int) $cap : 0 );
 
-		return array_slice( $urls, 0, $cap );
+		// Keys survive the cap: they are the attachment IDs the caller marks as checked.
+		return array_slice( $urls, 0, $cap, true );
 	}
 
 	/**
@@ -1775,12 +1883,17 @@ final class Agl_Gallery extends Component {
 		$flagged = $this->moderate_image_urls( $image_urls );
 
 		/*
-		 * Marked as checked only on a definite answer. moderate_image_urls() returns null when the
-		 * service could not be reached, and treating that as "checked" would let a photo through
-		 * for good on a single outage -- the one failure this must not have.
+		 * Marked as checked only on a definite answer, and only for the photos actually sent.
+		 * moderate_image_urls() returns null when the service could not be reached, and treating
+		 * that as "checked" would let a photo through for good on a single outage -- the one
+		 * failure this must not have. Marking all of $unchecked had the mirror failure: entries
+		 * prepare_moderation_urls() drops (videos, protected files, duplicates, anything past the
+		 * cap) were stamped as reviewed without ever being looked at. The dropped ones stay
+		 * unmarked on purpose - a capped-off photo gets its turn on the next save, and a video or
+		 * protected file just falls out again up front, at the cost of a meta read, not a request.
 		 */
 		if ( null !== $flagged ) {
-			foreach ( $unchecked as $image_id ) {
+			foreach ( array_keys( $image_urls ) as $image_id ) {
 				update_post_meta( $image_id, '_hp_agl_ai_checked', 1 );
 			}
 		}
@@ -3908,7 +4021,13 @@ final class Agl_Gallery extends Component {
 		$like_count = isset( $like_data['counts'][ $comment_id ] ) ? hp_agl_int( $like_data['counts'][ $comment_id ] ) : 0;
 		$liked      = in_array( $comment_id, $like_data['liked'], true );
 
-		$output = '<article class="hp-agl-comment' . ( $is_reply ? ' hp-agl-comment--reply' : '' ) . '" data-agl-comment-id="' . esc_attr( (string) $comment_id ) . '">';
+		/*
+		 * The id makes every comment a link target, so a "reply to your comment" notification can
+		 * land the reader ON the comment rather than at the top of the photo page. The sticky
+		 * header's scroll-padding-top (set by the Notifications plugin exactly for fragment jumps
+		 * like this) keeps the target clear of the pinned header, the same as review deep links.
+		 */
+		$output = '<article id="agl-comment-' . esc_attr( (string) $comment_id ) . '" class="hp-agl-comment' . ( $is_reply ? ' hp-agl-comment--reply' : '' ) . '" data-agl-comment-id="' . esc_attr( (string) $comment_id ) . '">';
 
 		$output .= '<div class="hp-agl-comment__image">' . get_avatar( absint( $comment->user_id ), 48 ) . '</div>';
 
@@ -4038,6 +4157,354 @@ final class Agl_Gallery extends Component {
 	}
 
 	/**
+	 * Sends somebody who has just added gallery access straight to the checkout.
+	 *
+	 * The unlock button links to `?add-to-cart=N` on the checkout URL, which reads as though it
+	 * settles where the buyer ends up. It does not. WooCommerce adds the product and then decides the
+	 * destination for itself, and on a default site that is not the checkout - the buyer is bounced
+	 * back to wherever WooCommerce prefers, with the pass sitting in a basket they were never shown.
+	 * They see a page they did not ask for, no confirmation, and no charge, so the reasonable
+	 * conclusion is that the button is broken.
+	 *
+	 * This went unnoticed for a long time because the site it was built against runs a third-party
+	 * "direct checkout" plugin that forces the redirect globally. That plugin was doing the work, and
+	 * every site without one got the bounce. Turning it off on staging is what exposed it.
+	 *
+	 * Only our own products are redirected, identified by the marker written when the product is
+	 * created. A basket that also holds somebody else's goods is left to whatever that seller's own
+	 * flow wants; this decides nothing on their behalf.
+	 *
+	 * @param string               $url Redirect URL chosen so far.
+	 * @param \WC_Product|int|null $product The product being added. WooCommerce passes an OBJECT.
+	 * @return string
+	 */
+	public function redirect_access_purchase_to_checkout( $url, $product = null ) {
+		if ( ! function_exists( 'wc_get_checkout_url' ) ) {
+			return $url;
+		}
+
+		/*
+		 * The second argument is a WC_Product, not an ID.
+		 *
+		 * `WC_Form_Handler::add_to_cart_action()` builds it with `wc_get_product( $product_id )` and
+		 * passes that object straight into the filter (class-wc-form-handler.php:856 and :889,
+		 * verified). Every other add-to-cart filter nearby hands over an ID, so an ID is the natural
+		 * assumption - and a wrong one. `absint()` on an object yields 1, which quietly looked up
+		 * post 1, found no marker, and returned early: the redirect simply never happened and there
+		 * was nothing in the logs to say why. An ID is still accepted, because a plugin re-applying
+		 * the filter by hand may well pass one.
+		 */
+		if ( $product instanceof \WC_Product ) {
+			$product_id = absint( $product->get_id() );
+		} else {
+			$product_id = is_scalar( $product ) ? absint( $product ) : 0;
+		}
+
+		// Without a product there is nothing to identify, and guessing from the basket would redirect
+		// somebody who was adding something else entirely.
+		if ( ! $product_id || ! get_post_meta( $product_id, 'hp_agl_vendor', true ) ) {
+			return $url;
+		}
+
+		// Anything already set by something else is left alone: an earlier filter is a deliberate
+		// choice by the site, and a checkout redirect is not worth overruling it for.
+		if ( $url ) {
+			return $url;
+		}
+
+		return wc_get_checkout_url();
+	}
+
+	/**
+	 * Says whether a set of cart lines holds gallery access alongside another seller's goods.
+	 *
+	 * The same author test the add-time guard applies, but over a finished basket rather than one
+	 * incoming item, so it can judge a cart however it was assembled - added normally, merged on
+	 * login, or rebuilt by order-again.
+	 *
+	 * @param array $items Cart contents, as WC_Cart::get_cart() returns them.
+	 * @return bool
+	 */
+	protected function cart_holds_mixed_sellers( $items ) {
+		$has_access = false;
+		$authors    = [];
+
+		foreach ( (array) $items as $item ) {
+			$product_id = absint( hp\get_array_value( (array) $item, 'product_id' ) );
+
+			if ( ! $product_id ) {
+				continue;
+			}
+
+			if ( get_post_meta( $product_id, 'hp_agl_vendor', true ) ) {
+				$has_access = true;
+			}
+
+			$authors[ absint( get_post_field( 'post_author', $product_id ) ) ] = true;
+		}
+
+		return $has_access && count( $authors ) > 1;
+	}
+
+	/**
+	 * The message shown when a basket mixes gallery access with another seller's goods.
+	 *
+	 * One string, used by all three enforcement layers, so the buyer reads the same explanation
+	 * whichever door they came through.
+	 *
+	 * @return string
+	 */
+	protected function get_single_seller_message() {
+		return esc_html__( 'Gallery access has to be bought on its own, because the payment goes to the person whose gallery it is. Please check out or empty your basket first, then add it again.', 'additional-gallery-for-hivepress' );
+	}
+
+	/**
+	 * Blocks checkout while the basket mixes gallery access with another seller's goods.
+	 *
+	 * The add-time guard cannot be the only layer. WooCommerce also builds carts by MERGING, and
+	 * neither merge path validates: logging in merges the saved cart into the session cart
+	 * (class-wc-cart-session.php:118-121 - a buyer who abandoned vendor A's pass, added vendor B's
+	 * as a guest and then signed in at checkout ends up with both, vendor A's line first), and
+	 * order-again re-validates each line against a cart the guard sees as empty, because the
+	 * rebuilt lines accumulate in a local variable until set_cart_contents() runs at the end
+	 * (class-wc-cart-session.php:615 firing before :264). Marketplace would then pay the whole
+	 * order to the first line's vendor. This hook fires on the cart page, the checkout page and
+	 * inside WC_Checkout::process_checkout(), so however the basket was put together, it cannot
+	 * reach payment mixed.
+	 *
+	 * Refusing, not repairing: silently deleting a line the buyer may have paid attention to is
+	 * worse than telling them why they must choose.
+	 *
+	 * @return void
+	 */
+	public function enforce_single_seller_cart() {
+		if ( ! class_exists( '\HivePress\Components\Marketplace' ) || ! function_exists( 'WC' ) || is_null( WC()->cart ) ) {
+			return;
+		}
+
+		if ( ! $this->cart_holds_mixed_sellers( WC()->cart->get_cart() ) ) {
+			return;
+		}
+
+		$message = $this->get_single_seller_message();
+
+		// The hook fires on both the cart and checkout render, so guard against saying it twice.
+		if ( function_exists( 'wc_add_notice' ) && ( ! function_exists( 'wc_has_notice' ) || ! wc_has_notice( $message, 'error' ) ) ) {
+			wc_add_notice( $message, 'error' );
+		}
+	}
+
+	/**
+	 * The same backstop for the blocks checkout, which never runs `woocommerce_check_cart_items`.
+	 *
+	 * CartController::validate_cart() passes a WP_Error for hooks to fill and turns any entry into
+	 * an InvalidCartException, which the block renders against the basket.
+	 *
+	 * @param \WP_Error $errors Errors to add to.
+	 * @param \WC_Cart  $cart Cart object.
+	 * @return void
+	 */
+	public function enforce_single_seller_cart_blocks( $errors, $cart ) {
+		if ( ! class_exists( '\HivePress\Components\Marketplace' ) || ! $errors instanceof \WP_Error || ! $cart instanceof \WC_Cart ) {
+			return;
+		}
+
+		if ( $this->cart_holds_mixed_sellers( $cart->get_cart() ) ) {
+			$errors->add( 'hp_agl_mixed_sellers', $this->get_single_seller_message() );
+		}
+	}
+
+	/**
+	 * Says whether a signed-out visitor's cart holds gallery access.
+	 *
+	 * Always false for a signed-in buyer: the rule only exists because access has nowhere to go
+	 * without an account, so the moment there is one, the cart is somebody else's business.
+	 *
+	 * @param array $items Cart contents, as WC_Cart::get_cart() returns them.
+	 * @return bool
+	 */
+	protected function cart_holds_guest_access( $items ) {
+		if ( is_user_logged_in() ) {
+			return false;
+		}
+
+		foreach ( (array) $items as $item ) {
+			$product_id = absint( hp\get_array_value( (array) $item, 'product_id' ) );
+
+			if ( $product_id && get_post_meta( $product_id, 'hp_agl_vendor', true ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * The message shown when a signed-out visitor tries to buy gallery access.
+	 *
+	 * One string for all three enforcement layers, matching how the single-seller rule speaks.
+	 *
+	 * @return string
+	 */
+	protected function get_signed_in_access_message() {
+		return esc_html__( 'Gallery access has to be bought while signed in, because it is added to your account. Please sign in or register first, then buy it again.', 'additional-gallery-for-hivepress' );
+	}
+
+	/**
+	 * Refuses to add gallery access to a signed-out visitor's cart.
+	 *
+	 * Access is granted to the order's customer account and to nothing else: grant_paid_access()
+	 * reads `$order->get_customer_id()` and returns when it is 0, deliberately, because there is
+	 * no guest identity worth trusting a grant to. A guest order therefore pays and receives
+	 * nothing, with no trace anywhere - so the purchase must be refused up front, not repaired
+	 * after the money moved. Whether guest checkout is even on is not consulted: an owner can
+	 * switch it on at any time, and this product simply cannot be sold to a guest either way.
+	 *
+	 * @param bool $passed Whether the item may be added.
+	 * @param int  $product_id Product being added.
+	 * @return bool
+	 */
+	public function validate_signed_in_access_purchase( $passed, $product_id ) {
+		if ( ! $passed || is_user_logged_in() ) {
+			return $passed;
+		}
+
+		$product_id = absint( $product_id );
+
+		if ( ! $product_id || ! get_post_meta( $product_id, 'hp_agl_vendor', true ) ) {
+			return $passed;
+		}
+
+		if ( function_exists( 'wc_add_notice' ) ) {
+			wc_add_notice( $this->get_signed_in_access_message(), 'error' );
+		}
+
+		return false;
+	}
+
+	/**
+	 * Blocks checkout while a signed-out visitor's basket holds gallery access.
+	 *
+	 * The whole-cart backstop behind validate_signed_in_access_purchase(), for the same reason the
+	 * single-seller rule has one: WooCommerce also assembles carts without add-time validation
+	 * (login-merge, order-again), and a cart persisted from before this rule existed reaches
+	 * checkout without ever being validated again. Signing in clears the refusal by itself, which
+	 * is exactly the resolution the message asks for.
+	 *
+	 * @return void
+	 */
+	public function enforce_signed_in_access_purchase() {
+		if ( ! function_exists( 'WC' ) || is_null( WC()->cart ) ) {
+			return;
+		}
+
+		if ( ! $this->cart_holds_guest_access( WC()->cart->get_cart() ) ) {
+			return;
+		}
+
+		$message = $this->get_signed_in_access_message();
+
+		// The hook fires on both the cart and checkout render, so guard against saying it twice.
+		if ( function_exists( 'wc_add_notice' ) && ( ! function_exists( 'wc_has_notice' ) || ! wc_has_notice( $message, 'error' ) ) ) {
+			wc_add_notice( $message, 'error' );
+		}
+	}
+
+	/**
+	 * The same backstop for the blocks checkout, which never runs `woocommerce_check_cart_items`.
+	 *
+	 * @param \WP_Error $errors Errors to add to.
+	 * @param \WC_Cart  $cart Cart object.
+	 * @return void
+	 */
+	public function enforce_signed_in_access_purchase_blocks( $errors, $cart ) {
+		if ( ! $errors instanceof \WP_Error || ! $cart instanceof \WC_Cart ) {
+			return;
+		}
+
+		if ( $this->cart_holds_guest_access( $cart->get_cart() ) ) {
+			$errors->add( 'hp_agl_guest_access', $this->get_signed_in_access_message() );
+		}
+	}
+
+	/**
+	 * Stops a basket holding gallery access alongside another seller's goods.
+	 *
+	 * HivePress Marketplace decides who earned an order by reading the post author of its FIRST line
+	 * and nothing else (`Marketplace::create_order()`, which calls
+	 * `hp\get_first_array_value( $order->get_items() )`). Every line after that is paid to whoever
+	 * sold the first one. Marketplace never hits this itself because its own buy button calls
+	 * `WC()->cart->empty_cart()` before adding, so one of its orders can only ever hold one seller.
+	 *
+	 * This plugin does not empty the basket, and deliberately so: a buyer is meant to be able to add
+	 * 7 days and then 90 days from the same vendor and pay once. That is safe, because both lines
+	 * have the same author. Two DIFFERENT vendors in one basket is not safe, and it was verified
+	 * rather than assumed - an order holding one product from each of two vendors was put through
+	 * `woocommerce_new_order` and the whole 21.00 was credited to the first vendor, with the second
+	 * receiving nothing while the buyer was correctly granted access to both galleries.
+	 *
+	 * So the basket is held to one author whenever gallery access is involved, which is the same
+	 * guarantee Marketplace gives itself, arrived at by refusing the addition rather than by silently
+	 * throwing away what the buyer had already chosen.
+	 *
+	 * Nothing is enforced when Marketplace is inactive. Without it there are no vendor earnings to
+	 * misroute - every payment belongs to the site - and refusing a mixed basket would be a
+	 * restriction with no purpose behind it.
+	 *
+	 * @param bool $passed Whether the item may be added.
+	 * @param int  $product_id Product being added.
+	 * @return bool
+	 */
+	public function validate_single_seller_cart( $passed, $product_id ) {
+		/*
+		 * Note the class check rather than `hp\is_plugin_active()`. That helper takes a CLASS or
+		 * FUNCTION name and simply calls `class_exists()` on it, despite reading like a slug test -
+		 * `is_plugin_active( 'woocommerce' )` only works because PHP class names are case-insensitive
+		 * and WooCommerce's class happens to be `WooCommerce`. There is no class called `marketplace`,
+		 * so the slug spelling returned false, this guard never ran, and a two-vendor basket sailed
+		 * through. Name the class.
+		 */
+		if ( ! $passed || ! class_exists( '\HivePress\Components\Marketplace' ) || ! function_exists( 'WC' ) || is_null( WC()->cart ) ) {
+			return $passed;
+		}
+
+		$product_id = absint( $product_id );
+
+		if ( ! $product_id ) {
+			return $passed;
+		}
+
+		$incoming_is_access = (bool) get_post_meta( $product_id, 'hp_agl_vendor', true );
+		$incoming_author    = absint( get_post_field( 'post_author', $product_id ) );
+
+		foreach ( WC()->cart->get_cart() as $item ) {
+			$existing_id = absint( hp\get_array_value( $item, 'product_id' ) );
+
+			if ( ! $existing_id || $existing_id === $product_id ) {
+				continue;
+			}
+
+			// Only step in where gallery access is one of the two. A basket of somebody else's
+			// products is somebody else's business, and their plugin may well handle it already.
+			if ( ! $incoming_is_access && ! get_post_meta( $existing_id, 'hp_agl_vendor', true ) ) {
+				continue;
+			}
+
+			if ( absint( get_post_field( 'post_author', $existing_id ) ) === $incoming_author ) {
+				continue;
+			}
+
+			if ( function_exists( 'wc_add_notice' ) ) {
+				wc_add_notice( $this->get_single_seller_message(), 'error' );
+			}
+
+			return false;
+		}
+
+		return $passed;
+	}
+
+	/**
 	 * Works out the commission due on the gallery access lines of a cart.
 	 *
 	 * Only those lines count. A cart holding a booking as well must not have the site's gallery cut
@@ -4125,7 +4592,7 @@ final class Agl_Gallery extends Component {
 		 * @param {string} $label Label.
 		 * @return {string} Label.
 		 */
-		$label = apply_filters( 'hp_agl/commission_label', esc_html__( 'Gallery Access Fee', 'additional-gallery-for-hivepress' ) );
+		$label = apply_filters( 'hp_agl/commission_label', esc_html__( 'Platform fee', 'additional-gallery-for-hivepress' ) );
 
 		/**
 		 * Filters whether the site's gallery commission is taxable.
@@ -4168,16 +4635,25 @@ final class Agl_Gallery extends Component {
 
 		$commission = $this->get_cart_commission( WC()->cart );
 
-		if ( $commission['total'] <= 0 || ! isset( $commission['items'][ $item_key ] ) ) {
+		if ( $commission['total'] <= 0 || ! $commission['items'] ) {
 			return;
 		}
 
-		// Charged once for the cart, so it is recorded against the first gallery line only.
-		if ( array_key_first( $commission['items'] ) !== $item_key ) {
+		/*
+		 * Charged once for the cart, so it is recorded against ONE line - and that line has to be
+		 * the FIRST line of the whole cart, not the first gallery line. Marketplace's
+		 * create_order() reads `hp_commission_fee` from the order's first item of any kind
+		 * (class-marketplace.php:793, via get_first_array_value) and never looks further. A basket
+		 * whose first line is the same vendor's Marketplace listing with the gallery pass second -
+		 * which the single-seller rule deliberately allows - would otherwise have the fee stamped
+		 * on a line nobody reads, and the fee would be paid out to the vendor as earnings instead
+		 * of staying with the site.
+		 */
+		if ( array_key_first( WC()->cart->get_cart() ) !== $item_key ) {
 			return;
 		}
 
-		$vendor = Models\Vendor::query()->get_by_id( $commission['items'][ $item_key ] );
+		$vendor = Models\Vendor::query()->get_by_id( hp\get_first_array_value( $commission['items'] ) );
 
 		if ( ! $vendor ) {
 			return;
@@ -4187,7 +4663,12 @@ final class Agl_Gallery extends Component {
 		$fee   = round( $commission['total'] * $share, 2 );
 
 		if ( $fee > 0 ) {
-			$item->update_meta_data( 'hp_commission_fee', $fee );
+
+			// Added to anything already recorded, never overwritten: if another integration has
+			// stamped its own figure on this line, both cuts must survive.
+			$fee += floatval( $item->get_meta( 'hp_commission_fee' ) );
+
+			$item->update_meta_data( 'hp_commission_fee', round( $fee, 2 ) );
 		}
 	}
 
@@ -4201,52 +4682,208 @@ final class Agl_Gallery extends Component {
 	}
 
 	/**
-	 * Gets the access lengths this site offers.
+	 * How many lengths one vendor may sell at once.
 	 *
-	 * A site can sell up to three lengths of access at different prices, so a vendor can offer a
-	 * cheap week and a dearer year rather than one take-it-or-leave-it figure. The first is the
-	 * original single setting and is always offered; leaving it empty still means lifetime access,
-	 * exactly as it did before there was more than one. The second and third are opt-in, and an
-	 * empty box there means the length is simply not offered.
-	 *
-	 * Returned in the order a buyer should see them: shortest first, lifetime last, because
-	 * lifetime is the largest offer however small its number is.
-	 *
-	 * @return array Tier numbers keyed by themselves, each with a `period` in days, 0 for lifetime.
+	 * @var int
 	 */
-	public function get_access_tiers() {
-		$tiers = [
-			1 => [
-				'tier'   => 1,
-				'period' => hp_agl_int( get_option( 'hp_gallery_access_period' ) ),
-			],
+	const MAX_TIERS = 3;
+
+	/**
+	 * Adds the gallery section to a vendor profile, below their listings.
+	 *
+	 * Order 30 puts it after the listings container, which core places at 20
+	 * (hivepress/includes/templates/class-vendor-view-page.php, verified).
+	 *
+	 * @param array $template Template arguments.
+	 * @return array
+	 */
+	public function add_vendor_gallery_section( $template ) {
+		if ( ! get_option( 'hp_gallery_show_on_vendors' ) ) {
+			return $template;
+		}
+
+		return hp\merge_trees(
+			$template,
+			[
+				'blocks' => [
+					'page_content' => [
+						'blocks' => [
+							'agl_gallery_section' => [
+								'type'   => 'section',
+								'title'  => esc_html__( 'Gallery', 'additional-gallery-for-hivepress' ),
+								'_order' => 30,
+
+								'blocks' => [
+									'agl_gallery_section_content' => [
+										'type'   => 'agl_gallery_section',
+										'_label' => esc_html__( 'Gallery', 'additional-gallery-for-hivepress' ),
+										'_order' => 10,
+									],
+								],
+							],
+						],
+					],
+				],
+			]
+		);
+	}
+
+	/**
+	 * Adds the gallery section to the foot of a listing.
+	 *
+	 * Order 85 lands it after the tags, which the Tags extension places at 70, and before the
+	 * reviews, which the Reviews extension places at 100 - both verified in their own
+	 * `alter_listing_view_page()`. Sitting between them means the section keeps its place whether
+	 * either extension is active or not, without this plugin having to know which are installed.
+	 *
+	 * @param array $template Template arguments.
+	 * @return array
+	 */
+	public function add_listing_gallery_section( $template ) {
+		if ( ! get_option( 'hp_gallery_show_on_listings' ) ) {
+			return $template;
+		}
+
+		return hp\merge_trees(
+			$template,
+			[
+				'blocks' => [
+					'page_content' => [
+						'blocks' => [
+							'agl_gallery_section' => [
+								'type'   => 'section',
+								'title'  => esc_html__( 'Gallery', 'additional-gallery-for-hivepress' ),
+								'_order' => 85,
+
+								'blocks' => [
+									'agl_gallery_section_content' => [
+										'type'   => 'agl_gallery_section',
+										'_label' => esc_html__( 'Gallery', 'additional-gallery-for-hivepress' ),
+										'_order' => 10,
+									],
+								],
+							],
+						],
+					],
+				],
+			]
+		);
+	}
+
+	/**
+	 * Gets the lengths of access a vendor may choose from.
+	 *
+	 * A fixed list rather than a free number box. A vendor pricing their own work should be choosing
+	 * between recognisable offers, not inventing 43 days, and a buyer comparing two vendors can only
+	 * do so if they are offering comparable things. Zero is permanent access.
+	 *
+	 * @return array Days mapped to the wording shown to vendors and buyers.
+	 */
+	public function get_access_durations() {
+		$durations = [
+			1  => esc_html__( '1 day', 'additional-gallery-for-hivepress' ),
+			7  => esc_html__( '7 days', 'additional-gallery-for-hivepress' ),
+			30 => esc_html__( '30 days', 'additional-gallery-for-hivepress' ),
+			90 => esc_html__( '90 days', 'additional-gallery-for-hivepress' ),
+			0  => esc_html__( 'Permanent', 'additional-gallery-for-hivepress' ),
 		];
 
-		foreach ( [ 2, 3 ] as $tier ) {
-			$period = hp_agl_int( get_option( 'hp_gallery_access_period_' . $tier ) );
+		/**
+		 * Filters the lengths of access a vendor may choose from.
+		 *
+		 * Keys are whole days and zero means permanent. A length removed here stays honoured for
+		 * anybody who already bought it, and for any vendor already selling it, until that vendor
+		 * next saves - taking an option away must never silently rewrite what somebody is selling.
+		 *
+		 * @hook hp_agl/access_durations
+		 * @param {array} $durations Days mapped to their wording.
+		 * @return {array} Days mapped to their wording.
+		 */
+		$durations = (array) apply_filters( 'hp_agl/access_durations', $durations );
 
-			if ( $period ) {
-				$tiers[ $tier ] = [
-					'tier'   => $tier,
-					'period' => $period,
-				];
+		$clean = [];
+
+		foreach ( $durations as $days => $label ) {
+			$clean[ absint( $days ) ] = (string) $label;
+		}
+
+		return $clean;
+	}
+
+	/**
+	 * Puts a length of access into words.
+	 *
+	 * @param int $days Days, 0 for permanent.
+	 * @return string
+	 */
+	public function get_duration_label( $days ) {
+		$days = absint( $days );
+
+		$known = hp\get_array_value( $this->get_access_durations(), $days );
+
+		if ( $known ) {
+			return $known;
+		}
+
+		// A length an owner has since filtered away is still described properly for whoever is
+		// already selling or holding it.
+		if ( ! $days ) {
+			return esc_html__( 'Permanent', 'additional-gallery-for-hivepress' );
+		}
+
+		/* translators: %s: number of days. */
+		return sprintf( _n( '%s day', '%s days', $days, 'additional-gallery-for-hivepress' ), number_format_i18n( $days ) );
+	}
+
+	/**
+	 * Gets the meta key holding the length a vendor sells in one slot.
+	 *
+	 * @param int $tier Slot number.
+	 * @return string
+	 */
+	protected function get_days_meta_key( $tier ) {
+		return 'hp_gallery_days' . ( $tier > 1 ? '_' . absint( $tier ) : '' );
+	}
+
+	/**
+	 * Gets the length of access a vendor sells in one slot.
+	 *
+	 * Falls back to what the slot's product was stamped with, and then to the site-wide period that
+	 * used to define it, so a vendor who priced a slot before vendors chose their own lengths keeps
+	 * selling exactly what they were selling.
+	 *
+	 * @param int $vendor_id Vendor ID.
+	 * @param int $tier Slot number.
+	 * @return int Days, 0 for permanent.
+	 */
+	public function get_tier_days( $vendor_id, $tier ) {
+		$stored = get_post_meta( absint( $vendor_id ), $this->get_days_meta_key( $tier ), true );
+
+		if ( '' !== $stored && ! is_null( $stored ) ) {
+			return absint( $stored );
+		}
+
+		$product_id = absint( get_post_meta( absint( $vendor_id ), $this->get_product_meta_key( $tier ), true ) );
+
+		if ( $product_id ) {
+			$stamped = get_post_meta( $product_id, 'hp_agl_period', true );
+
+			if ( '' !== $stamped && ! is_null( $stamped ) ) {
+				return absint( $stamped );
 			}
 		}
 
-		uasort(
-			$tiers,
-			function ( $a, $b ) {
-
-				// Lifetime sorts last whatever it is compared against.
-				if ( ! $a['period'] || ! $b['period'] ) {
-					return $a['period'] ? -1 : ( $b['period'] ? 1 : 0 );
-				}
-
-				return $a['period'] - $b['period'];
-			}
-		);
-
-		return $tiers;
+		/*
+		 * Last resort: the site-wide Access Period boxes that used to live on the Gallery settings
+		 * tab, before each vendor chose their own lengths. The boxes are gone from the settings
+		 * screen and nothing writes these options any more, but a site that upgraded still HAS them,
+		 * and they are the only record of what its vendors were selling. Reading them keeps those
+		 * vendors selling the same lengths through the upgrade instead of silently dropping to zero.
+		 *
+		 * Do not delete this as dead code. It looks dead because no UI writes it; it is the upgrade
+		 * path for every site that had paid access before per-vendor lengths existed.
+		 */
+		return absint( get_option( 'hp_gallery_access_period' . ( $tier > 1 ? '_' . absint( $tier ) : '' ) ) );
 	}
 
 	/**
@@ -4285,28 +4922,41 @@ final class Agl_Gallery extends Component {
 	}
 
 	/**
-	 * Gets every access length a vendor has actually put a price on.
+	 * Gets every length a vendor is actually selling.
+	 *
+	 * Shortest first, with permanent access last: it is the largest offer however small its number.
 	 *
 	 * @param int $vendor_id Vendor ID.
-	 * @return array Tiers with `tier`, `period`, `price` and `product` keys, in display order.
+	 * @return array Slots with `tier`, `period`, `price` and `product` keys, in the order a buyer
+	 *               should see them.
 	 */
 	public function get_priced_access_tiers( $vendor_id ) {
 		$priced = [];
 
-		foreach ( $this->get_access_tiers() as $tier => $args ) {
+		for ( $tier = 1; $tier <= self::MAX_TIERS; $tier++ ) {
 			$price      = $this->get_access_price( $vendor_id, $tier );
 			$product_id = absint( get_post_meta( absint( $vendor_id ), $this->get_product_meta_key( $tier ), true ) );
 
 			if ( $price && $product_id && 'publish' === get_post_status( $product_id ) ) {
-				$priced[ $tier ] = array_merge(
-					$args,
-					[
-						'price'   => $price,
-						'product' => $product_id,
-					]
-				);
+				$priced[ $tier ] = [
+					'tier'    => $tier,
+					'period'  => $this->get_tier_days( $vendor_id, $tier ),
+					'price'   => $price,
+					'product' => $product_id,
+				];
 			}
 		}
+
+		uasort(
+			$priced,
+			function ( $a, $b ) {
+				if ( ! $a['period'] || ! $b['period'] ) {
+					return $a['period'] ? -1 : ( $b['period'] ? 1 : 0 );
+				}
+
+				return $a['period'] - $b['period'];
+			}
+		);
 
 		return $priced;
 	}
@@ -4323,11 +4973,12 @@ final class Agl_Gallery extends Component {
 	 * the thing they bought rather than read back from a site setting that may since have changed.
 	 *
 	 * @param \HivePress\Models\Vendor $vendor Vendor object.
-	 * @param float                    $price Price, 0 to stop selling.
-	 * @param int                      $tier Access length to price, defaulting to the first.
+	 * @param int                      $tier Slot number, 1 to MAX_TIERS.
+	 * @param int                      $days Length in days, 0 for permanent.
+	 * @param float                    $price Price, 0 to stop selling this length.
 	 * @return bool
 	 */
-	public function set_access_price( $vendor, $price, $tier = 1 ) {
+	public function set_access_tier( $vendor, $tier, $days, $price ) {
 		if ( ! class_exists( 'WC_Product_Simple' ) ) {
 			return false;
 		}
@@ -4335,9 +4986,10 @@ final class Agl_Gallery extends Component {
 		$vendor_id = $vendor->get_id();
 		$price     = max( 0, (float) $price );
 		$tier      = max( 1, absint( $tier ) );
-		$period    = $this->get_access_period( $tier );
+		$period    = absint( $days );
 
 		update_post_meta( $vendor_id, $this->get_price_meta_key( $tier ), $price ? wc_format_decimal( $price ) : '' );
+		update_post_meta( $vendor_id, $this->get_days_meta_key( $tier ), $period );
 
 		// Get or create the product.
 		$product_id = absint( get_post_meta( $vendor_id, $this->get_product_meta_key( $tier ), true ) );
@@ -4374,6 +5026,20 @@ final class Agl_Gallery extends Component {
 		);
 
 		update_post_meta( $product_id, 'hp_agl_vendor', $vendor_id );
+
+		/*
+		 * Also the standard `hp_vendor` product meta, which is how the wider HivePress payment
+		 * ecosystem finds a product's vendor. A gallery access product has no listing behind it -
+		 * it is a bare WooCommerce product with our own `hp_agl_vendor` marker - so any gateway
+		 * that resolves the vendor by walking product -> listing -> vendor comes up empty and, if
+		 * it is a per-vendor gateway, hides itself at checkout. HivePress Marketplace's Stripe
+		 * Connect direct-charges gateway does exactly that and checks `hp_vendor` product meta as
+		 * its fallback, so without this a buyer using direct charges is left with no way to pay for
+		 * gallery access (verified on staging: only the booking "pay on arrival" method showed).
+		 * Stamping the same vendor id under the conventional key lets that resolution succeed, and
+		 * is inert for anyone not using such a gateway.
+		 */
+		update_post_meta( $product_id, 'hp_vendor', $vendor_id );
 
 		/*
 		 * The period is stamped on the product, not looked up when the order is paid. An admin who
@@ -4413,127 +5079,6 @@ final class Agl_Gallery extends Component {
 			$vendor->get_name(),
 			number_format_i18n( $period )
 		);
-	}
-
-	/**
-	 * Queues a refresh of the products selling a length of access that has just changed.
-	 *
-	 * Queued rather than done here: a site with many vendors has one product per vendor per length,
-	 * and pressing Save Changes on a settings page must not sit there rewriting them.
-	 *
-	 * @param mixed  $old_value Previous value.
-	 * @param mixed  $value New value.
-	 * @param string $option Option name.
-	 * @return void
-	 */
-	public function queue_access_product_restamp( $old_value, $value, $option ) {
-
-		// Nothing moved, nothing to bring back in step. A first-time save arrives with null here,
-		// which never equals a value the owner actually typed.
-		if ( ! is_null( $old_value ) && (string) $old_value === (string) $value ) {
-			return;
-		}
-
-		$suffix = str_replace( 'hp_gallery_access_period', '', (string) $option );
-		$tier   = '' === $suffix ? 1 : absint( ltrim( $suffix, '_' ) );
-
-		if ( ! $tier ) {
-			return;
-		}
-
-		$scheduler = hivepress()->scheduler;
-
-		if ( $scheduler ) {
-			$scheduler->add_action( 'hp_agl_restamp_access_products', [ $tier ] );
-		}
-	}
-
-	/**
-	 * Queues the same refresh when an access length is set for the very first time.
-	 *
-	 * `add_option_{name}` passes the name and the new value, in that order, where
-	 * `update_option_{name}` passes the old value, the new value and the name. The two cannot share
-	 * a callback signature, so this one adapts and hands over.
-	 *
-	 * @param string $option Option name.
-	 * @param mixed  $value New value.
-	 * @return void
-	 */
-	public function queue_access_product_restamp_on_add( $option, $value ) {
-		$this->queue_access_product_restamp( null, $value, $option );
-	}
-
-	/**
-	 * Brings the products selling one length of access back in step with the setting.
-	 *
-	 * Works in batches and queues itself again while there is more to do, so the number of vendors
-	 * on the site cannot turn this into a request that never finishes. Only products actually out
-	 * of step are selected, which makes a repeat run cost one query and stop.
-	 *
-	 * @param int $tier Access length.
-	 * @return void
-	 */
-	public function restamp_access_products( $tier ) {
-		global $wpdb;
-
-		$tier = max( 1, absint( $tier ) );
-
-		if ( ! function_exists( 'wc_get_product' ) ) {
-			return;
-		}
-
-		$period   = $this->get_access_period( $tier );
-		$batch    = 100;
-		$meta_key = $this->get_product_meta_key( $tier );
-
-		// The vendor meta names the product, and the product's own stamp says whether it is stale.
-		$product_ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- joining postmeta to postmeta has no meta API equivalent, and this runs once from a queued job after a settings change rather than on any read path.
-			$wpdb->prepare(
-				"SELECT DISTINCT products.meta_value FROM {$wpdb->postmeta} AS products
-				 INNER JOIN {$wpdb->postmeta} AS periods
-				 ON periods.post_id = products.meta_value AND periods.meta_key = 'hp_agl_period'
-				 WHERE products.meta_key = %s AND periods.meta_value != %s
-				 LIMIT %d",
-				$meta_key,
-				(string) $period,
-				$batch
-			)
-		);
-
-		if ( ! $product_ids ) {
-			return;
-		}
-
-		foreach ( $product_ids as $product_id ) {
-			$product_id = absint( $product_id );
-			$vendor_id  = absint( get_post_meta( $product_id, 'hp_agl_vendor', true ) );
-			$vendor     = $vendor_id ? Models\Vendor::query()->get_by_id( $vendor_id ) : null;
-
-			if ( ! $vendor ) {
-
-				// Stamp it anyway, or a product whose vendor has gone is selected again for ever.
-				update_post_meta( $product_id, 'hp_agl_period', $period );
-
-				continue;
-			}
-
-			$product = wc_get_product( $product_id );
-
-			if ( $product ) {
-				$product->set_name( $this->get_access_product_name( $vendor, $period ) );
-				$product->save();
-			}
-
-			update_post_meta( $product_id, 'hp_agl_period', $period );
-		}
-
-		if ( count( $product_ids ) >= $batch ) {
-			$scheduler = hivepress()->scheduler;
-
-			if ( $scheduler ) {
-				$scheduler->add_action( 'hp_agl_restamp_access_products', [ $tier ] );
-			}
-		}
 	}
 
 	/**
@@ -4595,16 +5140,6 @@ final class Agl_Gallery extends Component {
 
 		// Appended rather than set, so a tag the owner has added themselves is never removed.
 		wp_set_object_terms( $product_id, $tag, 'product_tag', true );
-	}
-
-	/**
-	 * Gets a purchased access period in days.
-	 *
-	 * @param int $tier Access length, defaulting to the first.
-	 * @return int Zero for lifetime access.
-	 */
-	public function get_access_period( $tier = 1 ) {
-		return hp_agl_int( get_option( 'hp_gallery_access_period' . ( $tier > 1 ? '_' . absint( $tier ) : '' ) ) );
 	}
 
 	/**
@@ -5176,7 +5711,7 @@ final class Agl_Gallery extends Component {
 				$period = get_post_meta( $product_id, 'hp_agl_period', true );
 			}
 
-			$period = '' === $period ? $this->get_access_period() : hp_agl_int( $period );
+			$period = '' === $period ? absint( get_option( 'hp_gallery_access_period' ) ) : hp_agl_int( $period );
 
 			$grant = $this->add_access_time( $user_id, $vendor_id, absint( $order_id ), $product_id, $period );
 
@@ -5285,16 +5820,22 @@ final class Agl_Gallery extends Component {
 				$buy_url = $login_url ? $login_url : add_query_arg( 'add-to-cart', $tier['product'], wc_get_checkout_url() );
 				$price   = esc_html( wp_strip_all_tags( wc_price( $tier['price'] ) ) );
 
+				/*
+				 * The length leads and the price follows in brackets, so a column of buttons lines
+				 * up on the thing the buyer is actually choosing between. The old wording put the
+				 * price first and buried the length at the end, which read as three near-identical
+				 * sentences. Changed in 1.8.15.
+				 */
 				if ( $tier['period'] ) {
 					$label = sprintf(
-						/* translators: 1: price, 2: number of days. */
-						_n( 'Unlock this gallery for %1$s (%2$s day)', 'Unlock this gallery for %1$s (%2$s days)', $tier['period'], 'additional-gallery-for-hivepress' ),
-						$price,
-						esc_html( number_format_i18n( $tier['period'] ) )
+						/* translators: 1: number of days, 2: price. */
+						_n( 'Unlock for %1$s Day (%2$s)', 'Unlock for %1$s Days (%2$s)', $tier['period'], 'additional-gallery-for-hivepress' ),
+						esc_html( number_format_i18n( $tier['period'] ) ),
+						$price
 					);
 				} else {
 					/* translators: %s: price. */
-					$label = sprintf( esc_html__( 'Unlock this gallery for %s', 'additional-gallery-for-hivepress' ), $price );
+					$label = sprintf( esc_html__( 'Unlock Permanently (%s)', 'additional-gallery-for-hivepress' ), $price );
 				}
 
 				$output .= '<a href="' . esc_url( $buy_url ) . '" class="hp-agl-unlock__buy hp-button button button--primary"><i class="hp-icon fas fa-unlock"></i><span>' . $label . '</span></a>';

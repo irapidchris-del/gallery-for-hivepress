@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Additional Gallery for HivePress
  * Description: Gives vendors a front-end photo gallery with public, members-only and private folders, accessible from the account menu and linked from vendor profiles and listings.
- * Version: 1.8.5
+ * Version: 1.8.15
  * Author: ChrisB @ HivePress Community
  * Author URI: https://community.hivepress.io/u/chrisb/summary
  * Text Domain: additional-gallery-for-hivepress
@@ -22,7 +22,7 @@ defined( 'ABSPATH' ) || exit;
 
 // Plugin constants.
 if ( ! defined( 'HP_AGL_VERSION' ) ) {
-	define( 'HP_AGL_VERSION', '1.8.5' );
+	define( 'HP_AGL_VERSION', '1.8.15' );
 }
 
 if ( ! defined( 'HP_AGL_FILE' ) ) {
@@ -431,6 +431,22 @@ add_action(
 			// inside it is not read at all where a reverse proxy serves static files ahead of the
 			// web server. Only the files move; their stored paths are unchanged.
 			if ( ! $version || version_compare( $version, '1.8.3', '<' ) ) {
+
+				/*
+				 * The move needs the gallery component, and this file runs even when HivePress is
+				 * not there to provide it - WordPress before 6.5 ignores the `Requires Plugins`
+				 * header, so the gallery can be active alone. Calling `hivepress()` unguarded here
+				 * fataled EVERY request in that state, including the admin one that carries the
+				 * "requires HivePress" notice meant for exactly this situation. Stopping before the
+				 * version is recorded keeps the migration owed: every block above this point repeats
+				 * safely (which also keeps the 1.3.0 block's skipped protection sync owed, not
+				 * lost), and the whole routine simply runs again once HivePress is back, instead of
+				 * stamping a version that would skip the file move for good.
+				 */
+				if ( ! function_exists( 'hivepress' ) ) {
+					return;
+				}
+
 				$gallery = hivepress()->agl_gallery;
 
 				if ( $gallery ) {

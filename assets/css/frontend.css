@@ -5,8 +5,8 @@
 /* --- Sidebar link --- */
 
 /* Structure and appearance both come from core/theme classes
-   (hp-button hp-button--wide button button--primary); the only rule needed here
-   defends the text colour. HiveTheme ships a bare a:hover{color:#1db1fc} at
+   (button button--large button--primary alt, the same set HivePress puts on the Send Message
+   button); the only rule needed here defends the text colour. HiveTheme ships a bare a:hover{color:#1db1fc} at
    specificity (0,1,1), which outranks .button--primary{color:#fff} at (0,1,0),
    so a link styled as a button turns blue on hover without this. */
 a.hp-agl-link__button.button--primary:hover,
@@ -216,6 +216,18 @@ a.hp-agl-link__button.button--primary:focus {
 }
 
 .hp-agl-gallery__folder-unlock .button .hp-icon {
+	margin-right: 0.5rem;
+}
+
+/* The padlock in a "Members only" pill sits apart from its label, matching the
+   unlock buttons above it. The markup already carries a literal space after the
+   icon, and that is enough everywhere else the plugin uses this pattern (the
+   "Back to ..." link, for one), but HivePress lays a status pill out with flex,
+   which drops the whitespace text node between the two children. So the gap has
+   to be a margin. Scoped to this plugin's own badges rather than every
+   `.hp-status` on the site, which would restyle core pills too. */
+.hp-agl-gallery__folder-title-badge .hp-status .hp-icon,
+.hp-agl-gallery__folder-title .hp-status .hp-icon {
 	margin-right: 0.5rem;
 }
 
@@ -679,11 +691,44 @@ a.hp-agl-unlock__upgrade.button--primary:focus {
 	margin-top: 1rem;
 }
 
+/* The cover control sits with the delete control as a pair of folder-level actions, so it is
+   centred and spaced the same way. */
+.hp-agl-photo-manage__cover {
+	margin-top: 1.5rem;
+	padding-top: 1rem;
+	border-top: 1px solid rgba(0, 0, 0, 0.1);
+	font-size: 87.5%;
+	text-align: center;
+}
+
+.hp-agl-photo-manage__cover [data-agl-photo-cover],
+.hp-agl-photo-manage__cover-state {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.375rem;
+	margin: 0;
+}
+
+.hp-agl-photo-manage__cover .hp-meta {
+	margin: 0.375rem 0 0;
+}
+
 .hp-agl-photo-manage__delete {
 	margin-top: 1.5rem;
 	padding-top: 1rem;
 	border-top: 1px solid rgba(0, 0, 0, 0.1);
 	font-size: 87.5%;
+	text-align: center;
+}
+
+/* The control is an icon beside a word, so it is centred as one unit rather than as two lines of
+   inline text - text-align alone leaves the icon and the label centred separately. */
+.hp-agl-photo-manage__delete [data-agl-photo-delete] {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.375rem;
 }
 
 .hp-agl-photo-manage__delete .hp-meta {
@@ -734,51 +779,75 @@ a.hp-agl-unlock__upgrade.button--primary:focus {
 	width: 100%;
 }
 
-/* The gallery link is a link styled as a button, so it inherits an anchor's line box rather than a
-   button's padding and came out visibly shorter than the Message button beside it. Matching the
-   vertical padding is enough; the horizontal padding and colours still come from the theme. */
-.hp-agl-link__button {
+/* Nothing is set here on purpose. The width, centring and the gap after the icon come from core's
+   `hp-button hp-button--wide`, and the height and padding from its `button--large`. An earlier
+   build set display:flex, a gap and its own padding here, which overrode all of that and left the
+   button both shorter and narrower than the Send Message button beside it. */
+
+/* The photo page sidebar is made sticky by HivePress's own `sticky` component, declared on the
+   container in class-agl-gallery-photo-view-page.php. There is deliberately no CSS for it here.
+   Core wraps the sidebar and hands it to theia-sticky-sidebar, which repositions the element and
+   never constrains its height (hivepress/assets/js/frontend.js:324-345). An earlier build also set
+   position:sticky with a max-height and overflow-y:auto, which fought the plugin and put a
+   scrollbar down the side of the sidebar - something no native HivePress sidebar has. */
+
+/* --- Per-length pricing --- */
+
+/* A row is one offer: how long it lasts, what it costs, and a way to drop it. It wraps to stacked
+   fields on a narrow screen rather than squeezing two fields and a button onto one line. */
+.hp-agl-account__tier {
 	display: flex;
+	align-items: flex-end;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	padding: 0.75rem 0;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.hp-agl-account__tier:last-child {
+	border-bottom: 0;
+}
+
+.hp-agl-account__tier .hp-form__field {
+	margin-bottom: 0;
+	flex: 1 1 8rem;
+	min-width: 8rem;
+}
+
+.hp-agl-account__tier .hp-field--number,
+.hp-agl-account__tier .hp-field--select {
+	width: 100%;
+}
+
+/* Sized and spaced like a control rather than a link, so it is comfortably tappable at 390px. */
+.hp-agl-account__tier-remove {
+	flex: 0 0 auto;
+	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	gap: 0.5rem;
-	padding-top: 0.75rem;
-	padding-bottom: 0.75rem;
+	width: 2.5rem;
+	height: 2.5rem;
+	margin-bottom: 0.15rem;
+	padding: 0;
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border-radius: 3px;
+	background: transparent;
+	color: inherit;
+	opacity: 0.6;
+	cursor: pointer;
 }
 
-/* The photo page sidebar follows the photo down, the way HivePress's own sidebars do. Only from the
-   width at which the sidebar is actually a column: below that it is stacked above or below the
-   content, where sticky would pin it over the thing somebody is trying to read. */
-@media (min-width: 992px) {
-	.hp-agl-photo__sidebar {
-		position: sticky;
-
-		/* Clear of the admin bar and of any theme header that pins itself. */
-		top: 2rem;
-
-		/* Sticky needs a scroll container it can escape; a column taller than the viewport would
-		   otherwise never move. Anything longer scrolls within itself. */
-		max-height: calc(100vh - 4rem);
-		overflow-y: auto;
-	}
+.hp-agl-account__tier-remove:hover,
+.hp-agl-account__tier-remove:focus-visible {
+	opacity: 1;
 }
 
-/* --- Per-length pricing (1.8.4) --- */
-
-/* One row per length of access the site offers, so the rows need separating from each other and
-   from the button that saves them all. */
-.hp-agl-account__price-form .hp-agl-account__price-row + .hp-agl-account__price-row {
-	margin-top: 0.75rem;
+.hp-agl-account__tier-add {
+	margin: 0.75rem 0 0;
 }
 
 .hp-agl-account__price-row--submit {
 	margin-top: 1rem;
-}
-
-/* Every price field lines up at the same width whatever the length labels above them say. */
-.hp-agl-account__price-row .hp-form__field--number {
-	flex: 0 0 auto;
-	min-width: 12rem;
 }
 
 /* More than one unlock price means more than one button, and side by side they read as a choice
@@ -788,3 +857,15 @@ a.hp-agl-unlock__upgrade.button--primary:focus {
 	flex-wrap: wrap;
 	gap: 0.5rem;
 }
+
+/*
+ * The comment somebody arrived AT - via a notification's #agl-comment-N link - announces itself
+ * with a soft tint, so a long thread does not leave them hunting for which comment the
+ * notification meant. Pure :target, so it costs nothing and needs no script.
+ */
+.hp-agl-comment:target {
+	background-color: rgba(114, 14, 236, 0.07);
+	border-radius: 10px;
+	transition: background-color 1.2s ease 1.8s;
+}
+

@@ -44,7 +44,11 @@ class Agl_Gallery_Folder_View extends Block {
 		$locked = 'members' === hivepress()->agl_gallery->get_effective_visibility( $folder ) && ! hivepress()->agl_gallery->user_can_view_member_folders( $vendor );
 
 		if ( $locked ) {
-			$output .= '<p class="hp-agl-gallery__folder-title-badge"><span class="hp-status hp-status--pending"><span><i class="hp-icon fas fa-lock"></i> ' . esc_html__( 'Members only', 'additional-gallery-for-hivepress' ) . '</span></p>';
+			// Two spans open here and both must close. The outer hp-status span
+			// was left unclosed until 1.8.15, so the browser repaired it at the
+			// closing </p>: nothing looked wrong, but the markup was invalid and
+			// anything appended after the badge inherited the pill's styling.
+			$output .= '<p class="hp-agl-gallery__folder-title-badge"><span class="hp-status hp-status--pending"><span><i class="hp-icon fas fa-lock"></i> ' . esc_html__( 'Members only', 'additional-gallery-for-hivepress' ) . '</span></span></p>';
 		}
 
 		if ( $folder->get_description() ) {

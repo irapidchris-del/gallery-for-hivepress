@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-3.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: Additional Gallery for HivePress 1.8.4\n"
+"Project-Id-Version: Additional Gallery for HivePress 1.8.15\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/additional-gallery-for-hivepress\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-21T14:19:52+00:00\n"
+"POT-Creation-Date: 2026-08-24T16:06:11+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: additional-gallery-for-hivepress\n"
@@ -84,18 +84,19 @@ msgstr ""
 msgid "Back to %s's gallery"
 msgstr ""
 
-#: includes/blocks/class-agl-gallery-folder-view.php:47
+#: includes/blocks/class-agl-gallery-folder-view.php:51
 #: includes/blocks/class-agl-gallery-folders.php:120
+#: includes/blocks/class-agl-gallery-section.php:126
 #: includes/blocks/class-agl-gallery-view.php:110
 #: includes/blocks/class-agl-gallery-view.php:195
-#: includes/components/class-agl-gallery.php:743
-#: includes/components/class-agl-gallery.php:1873
+#: includes/components/class-agl-gallery.php:781
+#: includes/components/class-agl-gallery.php:1995
 #: includes/models/class-gallery-folder.php:80
 msgid "Members only"
 msgstr ""
 
 #. translators: %s: human-readable time difference.
-#: includes/blocks/class-agl-gallery-folder-view.php:61
+#: includes/blocks/class-agl-gallery-folder-view.php:65
 #: includes/blocks/class-agl-gallery-view.php:76
 #, php-format
 msgid "Updated %s ago"
@@ -125,15 +126,15 @@ msgid "Drag folders to reorder them in your gallery."
 msgstr ""
 
 #: includes/blocks/class-agl-gallery-folders.php:119
-#: includes/components/class-agl-gallery.php:739
-#: includes/components/class-agl-gallery.php:1872
+#: includes/components/class-agl-gallery.php:777
+#: includes/components/class-agl-gallery.php:1994
 #: includes/models/class-gallery-folder.php:79
 msgid "Public"
 msgstr ""
 
 #: includes/blocks/class-agl-gallery-folders.php:121
-#: includes/components/class-agl-gallery.php:746
-#: includes/components/class-agl-gallery.php:1874
+#: includes/components/class-agl-gallery.php:784
+#: includes/components/class-agl-gallery.php:1996
 #: includes/models/class-gallery-folder.php:81
 msgid "Private"
 msgstr ""
@@ -162,59 +163,66 @@ msgstr[1] ""
 msgid "New Folder"
 msgstr ""
 
-#: includes/blocks/class-agl-gallery-folders.php:178
+#: includes/blocks/class-agl-gallery-folders.php:194
 msgid "Paid Access (optional)"
 msgstr ""
 
-#: includes/blocks/class-agl-gallery-folders.php:179
-msgid "If you want to, you can charge visitors a one-off price to unlock your members-only folders. Buyers pay through the normal checkout."
+#: includes/blocks/class-agl-gallery-folders.php:195
+msgid "If you want to, you can charge visitors to unlock your members-only folders. Choose how long the access lasts and what it costs. Buyers pay through the normal checkout."
 msgstr ""
 
-#: includes/blocks/class-agl-gallery-folders.php:182
-msgid "Price as many of the lengths below as you like, and leave the rest empty. Buyers pick from the ones you have priced."
-msgstr ""
-
-#: includes/blocks/class-agl-gallery-folders.php:185
-msgid "To stop selling a length of access, clear its price and save."
-msgstr ""
+#. translators: %s: number of lengths.
+#: includes/blocks/class-agl-gallery-folders.php:199
+#: includes/controllers/class-agl-gallery.php:1036
+#, php-format
+msgid "You can offer %s length at a time."
+msgid_plural "You can offer up to %s lengths at a time, and buyers pick between them."
+msgstr[0] ""
+msgstr[1] ""
 
 #. translators: 1: percentage, 2: amount.
-#: includes/blocks/class-agl-gallery-folders.php:197
+#: includes/blocks/class-agl-gallery-folders.php:213
 #, php-format
 msgid "Buyers also pay this site a fee of %1$s%% plus %2$s on top of your price. You receive the price you set."
 msgstr ""
 
 #. translators: %s: percentage.
-#: includes/blocks/class-agl-gallery-folders.php:206
+#: includes/blocks/class-agl-gallery-folders.php:220
 #, php-format
 msgid "Buyers also pay this site a fee of %s%% on top of your price. You receive the price you set."
 msgstr ""
 
 #. translators: %s: amount.
-#: includes/blocks/class-agl-gallery-folders.php:214
+#: includes/blocks/class-agl-gallery-folders.php:226
 #, php-format
 msgid "Buyers also pay this site a fee of %s on top of your price. You receive the price you set."
 msgstr ""
 
-#. translators: 1: number of days, 2: currency symbol.
-#: includes/blocks/class-agl-gallery-folders.php:232
-#, php-format
-msgid "Price for %1$s day (%2$s)"
-msgid_plural "Price for %1$s days (%2$s)"
-msgstr[0] ""
-msgstr[1] ""
-
-#. translators: %s: currency symbol.
-#: includes/blocks/class-agl-gallery-folders.php:238
-#, php-format
-msgid "Price for permanent access (%s)"
+#: includes/blocks/class-agl-gallery-folders.php:253
+msgid "+ Add another length"
 msgstr ""
 
-#: includes/blocks/class-agl-gallery-folders.php:250
-msgid "Save Price"
-msgid_plural "Save Prices"
-msgstr[0] ""
-msgstr[1] ""
+#: includes/blocks/class-agl-gallery-folders.php:254
+msgid "To stop selling a length, remove its row and save."
+msgstr ""
+
+#: includes/blocks/class-agl-gallery-folders.php:256
+msgid "Save Access Pricing"
+msgstr ""
+
+#: includes/blocks/class-agl-gallery-folders.php:284
+msgid "Access lasts"
+msgstr ""
+
+#. translators: %s: currency symbol.
+#: includes/blocks/class-agl-gallery-folders.php:305
+#, php-format
+msgid "Price (%s)"
+msgstr ""
+
+#: includes/blocks/class-agl-gallery-folders.php:309
+msgid "Remove this length"
+msgstr ""
 
 #. translators: %s: media counts, e.g. "12 photos".
 #: includes/blocks/class-agl-gallery-link.php:77
@@ -265,11 +273,23 @@ msgstr ""
 msgid "Save Changes"
 msgstr ""
 
-#: includes/blocks/class-agl-gallery-photo-manage.php:142
+#: includes/blocks/class-agl-gallery-photo-manage.php:150
+msgid "This is the folder cover"
+msgstr ""
+
+#: includes/blocks/class-agl-gallery-photo-manage.php:152
+msgid "Use as folder cover"
+msgstr ""
+
+#: includes/blocks/class-agl-gallery-photo-manage.php:155
+msgid "The cover is the picture shown for this folder on your gallery page. Without a choice, the first photo is used."
+msgstr ""
+
+#: includes/blocks/class-agl-gallery-photo-manage.php:161
 msgid "Delete this photo"
 msgstr ""
 
-#: includes/blocks/class-agl-gallery-photo-manage.php:143
+#: includes/blocks/class-agl-gallery-photo-manage.php:162
 msgid "Deleting a photo also removes its likes and comments. This cannot be undone."
 msgstr ""
 
@@ -313,70 +333,74 @@ msgstr ""
 msgid "This gallery has no photos yet. Check back soon!"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:393
-#: includes/components/class-agl-gallery.php:420
+#: includes/components/class-agl-gallery.php:431
+#: includes/components/class-agl-gallery.php:458
+#: includes/components/class-agl-gallery.php:4713
+#: includes/components/class-agl-gallery.php:4719
+#: includes/components/class-agl-gallery.php:4755
+#: includes/components/class-agl-gallery.php:4761
 #: includes/configs/settings.php:26
-#: includes/controllers/class-agl-gallery.php:134
+#: includes/controllers/class-agl-gallery.php:141
 msgid "Gallery"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:394
+#: includes/components/class-agl-gallery.php:432
 msgid "Allow using the photo gallery"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:395
+#: includes/components/class-agl-gallery.php:433
 msgid "Vendors on this plan get the Gallery page in their account. Leave this unticked on every plan to keep the gallery open to all vendors."
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:421
+#: includes/components/class-agl-gallery.php:459
 msgid "Allow viewing members-only gallery folders"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:422
+#: includes/components/class-agl-gallery.php:460
 msgid "Members on this plan can open folders that vendors marked as members-only. Leave this unticked on every plan to keep those folders locked for everyone but their owner."
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:428
+#: includes/components/class-agl-gallery.php:466
 msgid "Gallery Folder Limit"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:429
+#: includes/components/class-agl-gallery.php:467
 msgid "Set how many gallery folders a vendor on this plan may create. Leave empty to use the site-wide limit from the Gallery settings. A vendor on more than one plan gets the highest limit."
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:437
+#: includes/components/class-agl-gallery.php:475
 msgid "Gallery Photo Limit (per folder)"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:438
+#: includes/components/class-agl-gallery.php:476
 msgid "Set how many photos a vendor on this plan may put in each folder. Leave empty to use the site-wide limit from the Gallery settings. A vendor on more than one plan gets the highest limit."
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:446
+#: includes/components/class-agl-gallery.php:484
 msgid "Gallery Storage Limit (MB)"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:447
+#: includes/components/class-agl-gallery.php:485
 msgid "Cap the total disk space a vendor on this plan may use, counting every photo and its thumbnails. Leave empty to use the site-wide limit from the Gallery settings. A vendor on more than one plan gets the highest limit."
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:948
+#: includes/components/class-agl-gallery.php:986
 msgid "Photo Page (sidebar)"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:949
+#: includes/components/class-agl-gallery.php:987
 msgid "Shown in the sidebar of every gallery photo page."
 msgstr ""
 
 #. translators: 1: photos count phrase e.g. "3 photos", 2: videos count phrase e.g. "1 video".
-#: includes/components/class-agl-gallery.php:1134
+#: includes/components/class-agl-gallery.php:1234
 #, php-format
 msgid "%1$s, %2$s"
 msgstr ""
 
 #. translators: %s: photos number.
-#: includes/components/class-agl-gallery.php:1136
-#: includes/components/class-agl-gallery.php:1148
+#: includes/components/class-agl-gallery.php:1236
+#: includes/components/class-agl-gallery.php:1248
 #, php-format
 msgid "%s photo"
 msgid_plural "%s photos"
@@ -384,8 +408,8 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: videos number.
-#: includes/components/class-agl-gallery.php:1138
-#: includes/components/class-agl-gallery.php:1144
+#: includes/components/class-agl-gallery.php:1238
+#: includes/components/class-agl-gallery.php:1244
 #, php-format
 msgid "%s video"
 msgid_plural "%s videos"
@@ -393,158 +417,195 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: OpenAI sign-up URL.
-#: includes/components/class-agl-gallery.php:1315
+#: includes/components/class-agl-gallery.php:1415
 #, php-format
 msgid "Connects features that check content with OpenAI, such as gallery photo moderation. Moderation uses OpenAI's free Moderation endpoint: checks cost nothing and no paid credit is needed, though new accounts have modest rate limits. You only need an API key. <a href=\"%s\" target=\"_blank\">Sign up and create one here</a>."
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:1329
+#: includes/components/class-agl-gallery.php:1429
 msgid "API Key"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:1330
+#: includes/components/class-agl-gallery.php:1430
 msgid "Your OpenAI API key, shared by any installed extension that uses OpenAI's free Moderation endpoint. Checks are free and each folder save sends up to ten photos in a single request, so rate limits are rarely met."
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:1447
+#: includes/components/class-agl-gallery.php:1547
 msgid "Show"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:1448
+#: includes/components/class-agl-gallery.php:1548
 msgid "Hide"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:1837
+#: includes/components/class-agl-gallery.php:1959
 msgid "Vendor"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:1838
+#: includes/components/class-agl-gallery.php:1960
 #: includes/configs/meta-boxes.php:63
 #: includes/models/class-gallery-folder.php:118
 msgid "Visibility"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:1839
+#: includes/components/class-agl-gallery.php:1961
 #: includes/models/class-gallery-folder.php:164
 msgid "Images"
 msgstr ""
 
 #. translators: %s: size in megabytes.
-#: includes/components/class-agl-gallery.php:1908
+#: includes/components/class-agl-gallery.php:2030
 #, php-format
 msgid "Each file must be smaller than %s MB."
 msgstr ""
 
 #. translators: %s: size limit, e.g. "500 MB".
-#: includes/components/class-agl-gallery.php:1926
+#: includes/components/class-agl-gallery.php:2048
 #, php-format
 msgid "This upload would take your gallery over its %s storage limit. Remove some photos to make room, or upgrade your plan for more space."
 msgstr ""
 
 #. translators: %s: size limit, e.g. "500 MB".
-#: includes/components/class-agl-gallery.php:1929
+#: includes/components/class-agl-gallery.php:2051
 #, php-format
 msgid "This upload would take your gallery over its %s storage limit. Remove some photos to make room."
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:2879
+#: includes/components/class-agl-gallery.php:3001
 msgid "Protect Files is on, but this site could not move the files out of the folder your web server publishes, so they are guarded by a deny rule instead. That rule works on Apache on its own. It is ignored where another web server, usually Nginx, hands out files before Apache sees the request, which is common on shared hosting, and private photos can then be opened by anyone with the address."
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:2880
+#: includes/components/class-agl-gallery.php:3002
 msgid "Protect Files is on, but no protected folder could be created, so private and members-only files stay where they are and can be opened by anyone with the address."
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:2882
+#: includes/components/class-agl-gallery.php:3004
 msgid "To fix it, ask your host for a folder outside the published one that PHP can write to, then add a line to wp-config.php defining HP_AGL_PROTECTED_DIR as that path."
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:2886
+#: includes/components/class-agl-gallery.php:3008
 msgid "Additional Gallery:"
 msgstr ""
 
 #. translators: 1: photo number, 2: folder name.
-#: includes/components/class-agl-gallery.php:3832
+#: includes/components/class-agl-gallery.php:3954
 #, php-format
 msgid "Photo %1$s in %2$s"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:3855
-#: includes/components/class-agl-gallery.php:3920
+#: includes/components/class-agl-gallery.php:3977
+#: includes/components/class-agl-gallery.php:4048
 #: includes/configs/scripts.php:43
 msgid "Remove your like"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:3855
+#: includes/components/class-agl-gallery.php:3977
 #: includes/configs/scripts.php:42
 msgid "Like this photo"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:3871
+#: includes/components/class-agl-gallery.php:3993
 msgid "Comments on this photo"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:3920
+#: includes/components/class-agl-gallery.php:4048
 msgid "Like this comment"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:3929
+#: includes/components/class-agl-gallery.php:4057
 msgid "Reply"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:3933
+#: includes/components/class-agl-gallery.php:4061
 msgid "Delete"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:3956
+#: includes/components/class-agl-gallery.php:4084
 msgid "No comments yet. Be the first!"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:3990
+#: includes/components/class-agl-gallery.php:4118
 msgid "Sign in to join the conversation"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:3997
+#: includes/components/class-agl-gallery.php:4125
 msgid "Share your thoughts on this photo..."
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:4001
+#: includes/components/class-agl-gallery.php:4129
 msgid "Post Comment"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:4119
-msgid "Gallery Access Fee"
+#: includes/components/class-agl-gallery.php:4258
+msgid "Gallery access has to be bought on its own, because the payment goes to the person whose gallery it is. Please check out or empty your basket first, then add it again."
 msgstr ""
 
+#: includes/components/class-agl-gallery.php:4350
+msgid "Gallery access has to be bought while signed in, because it is added to your account. Please sign in or register first, then buy it again."
+msgstr ""
+
+#: includes/components/class-agl-gallery.php:4595
+msgid "Platform fee"
+msgstr ""
+
+#: includes/components/class-agl-gallery.php:4784
+msgid "1 day"
+msgstr ""
+
+#: includes/components/class-agl-gallery.php:4785
+msgid "7 days"
+msgstr ""
+
+#: includes/components/class-agl-gallery.php:4786
+msgid "30 days"
+msgstr ""
+
+#: includes/components/class-agl-gallery.php:4787
+msgid "90 days"
+msgstr ""
+
+#: includes/components/class-agl-gallery.php:4788
+#: includes/components/class-agl-gallery.php:4831
+msgid "Permanent"
+msgstr ""
+
+#. translators: %s: number of days.
+#: includes/components/class-agl-gallery.php:4835
+#, php-format
+msgid "%s day"
+msgid_plural "%s days"
+msgstr[0] ""
+msgstr[1] ""
+
 #. translators: %s: vendor name.
-#: includes/components/class-agl-gallery.php:4398
+#: includes/components/class-agl-gallery.php:5073
 #, php-format
 msgid "Gallery access: %s"
 msgstr ""
 
 #. translators: 1: vendor name, 2: number of days.
-#: includes/components/class-agl-gallery.php:4403
+#: includes/components/class-agl-gallery.php:5078
 #, php-format
 msgid "Gallery access: %1$s (%2$s day)"
 msgid_plural "Gallery access: %1$s (%2$s days)"
 msgstr[0] ""
 msgstr[1] ""
 
-#. translators: 1: price, 2: number of days.
-#: includes/components/class-agl-gallery.php:5239
+#. translators: 1: number of days, 2: price.
+#: includes/components/class-agl-gallery.php:5832
 #, php-format
-msgid "Unlock this gallery for %1$s (%2$s day)"
-msgid_plural "Unlock this gallery for %1$s (%2$s days)"
+msgid "Unlock for %1$s Day (%2$s)"
+msgid_plural "Unlock for %1$s Days (%2$s)"
 msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: price.
-#: includes/components/class-agl-gallery.php:5245
+#: includes/components/class-agl-gallery.php:5838
 #, php-format
-msgid "Unlock this gallery for %s"
+msgid "Unlock Permanently (%s)"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:5257
+#: includes/components/class-agl-gallery.php:5850
 msgid "Unlock Access"
 msgstr ""
 
@@ -613,26 +674,34 @@ msgid "Delete this photo? Its likes and comments go with it."
 msgstr ""
 
 #: includes/configs/scripts.php:50
-msgid "Move this photo to the selected folder?"
+msgid "This photo is now the folder cover."
 msgstr ""
 
 #: includes/configs/scripts.php:51
-msgid "Saved."
+msgid "The cover could not be changed."
 msgstr ""
 
 #: includes/configs/scripts.php:52
-msgid "Your changes could not be saved."
+msgid "Move this photo to the selected folder?"
 msgstr ""
 
 #: includes/configs/scripts.php:53
-msgid "The photo could not be moved."
+msgid "Saved."
 msgstr ""
 
 #: includes/configs/scripts.php:54
-msgid "Price saved."
+msgid "Your changes could not be saved."
 msgstr ""
 
 #: includes/configs/scripts.php:55
+msgid "The photo could not be moved."
+msgstr ""
+
+#: includes/configs/scripts.php:56
+msgid "Price saved."
+msgstr ""
+
+#: includes/configs/scripts.php:57
 msgid "The price could not be saved."
 msgstr ""
 
@@ -661,339 +730,347 @@ msgid "Hide the gallery link on listing pages"
 msgstr ""
 
 #: includes/configs/settings.php:62
-msgid "Gallery Button"
+msgid "Gallery on Vendor Profiles"
 msgstr ""
 
 #: includes/configs/settings.php:63
-msgid "Show the photo count on the View Gallery button"
+msgid "Show the gallery on vendor profiles"
 msgstr ""
 
 #: includes/configs/settings.php:64
-msgid "With this off, the sidebar button simply reads \"View Gallery\"."
+msgid "Adds a Gallery section to a vendor profile, below their listings, showing their folders in place rather than only linking to them. Vendors with no gallery get no section at all. This is separate from the sidebar button above, so you can have either, both or neither."
+msgstr ""
+
+#: includes/configs/settings.php:70
+msgid "Gallery on Listings"
 msgstr ""
 
 #: includes/configs/settings.php:71
-msgid "Gallery Layout"
+msgid "Show the gallery on listing pages"
 msgstr ""
 
 #: includes/configs/settings.php:72
-msgid "Choose how the public gallery page displays folders."
+msgid "Adds a Gallery section to the foot of every listing by that vendor, after the tags and before the reviews. Useful where the work itself is what sells the listing. Vendors with no gallery get no section at all."
 msgstr ""
 
 #: includes/configs/settings.php:78
-msgid "Folder covers"
+msgid "Gallery Button"
 msgstr ""
 
 #: includes/configs/settings.php:79
-msgid "Single page"
+msgid "Show the photo count on the View Gallery button"
 msgstr ""
 
-#: includes/configs/settings.php:84
-msgid "Lightbox"
+#: includes/configs/settings.php:80
+msgid "With this off, the sidebar button simply reads \"View Gallery\"."
 msgstr ""
 
-#: includes/configs/settings.php:85
-msgid "Let visitors enlarge the photo on its page"
+#: includes/configs/settings.php:87
+msgid "Gallery Layout"
 msgstr ""
 
-#: includes/configs/settings.php:86
-msgid "With this on, clicking the photo on its own page enlarges it in a pop-up viewer. Photos in the gallery always open their own page, where the comments live."
-msgstr ""
-
-#: includes/configs/settings.php:93
-msgid "Photo Page Sidebar"
+#: includes/configs/settings.php:88
+msgid "Choose how the public gallery page displays folders."
 msgstr ""
 
 #: includes/configs/settings.php:94
-msgid "Choose which side of the photo page the sidebar sits on. It shows the vendor's profile card and, for the photo's owner, the editing options, and you can add your own widgets to it in the \"Photo Page (sidebar)\" area under Appearance, then Widgets."
+msgid "Folder covers"
+msgstr ""
+
+#: includes/configs/settings.php:95
+msgid "Single page"
 msgstr ""
 
 #: includes/configs/settings.php:100
-msgid "Right"
+msgid "Lightbox"
 msgstr ""
 
 #: includes/configs/settings.php:101
+msgid "Let visitors enlarge the photo on its page"
+msgstr ""
+
+#: includes/configs/settings.php:102
+msgid "With this on, clicking the photo on its own page enlarges it in a pop-up viewer. Photos in the gallery always open their own page, where the comments live."
+msgstr ""
+
+#: includes/configs/settings.php:109
+msgid "Photo Page Sidebar"
+msgstr ""
+
+#: includes/configs/settings.php:110
+msgid "Choose which side of the photo page the sidebar sits on. It shows the vendor's profile card and, for the photo's owner, the editing options, and you can add your own widgets to it in the \"Photo Page (sidebar)\" area under Appearance, then Widgets."
+msgstr ""
+
+#: includes/configs/settings.php:116
+msgid "Right"
+msgstr ""
+
+#: includes/configs/settings.php:117
 msgid "Left"
 msgstr ""
 
-#: includes/configs/settings.php:106
+#: includes/configs/settings.php:122
 msgid "Maximum Folders"
 msgstr ""
 
-#: includes/configs/settings.php:107
+#: includes/configs/settings.php:123
 msgid "Set the maximum number of gallery folders per vendor. Leave empty for no limit. A membership plan can raise or lower this per plan."
 msgstr ""
 
-#: includes/configs/settings.php:114
+#: includes/configs/settings.php:130
 msgid "Maximum Images per Folder"
 msgstr ""
 
-#: includes/configs/settings.php:115
+#: includes/configs/settings.php:131
 msgid "Set the maximum number of images allowed in each folder. Leave empty for the default of 30. A membership plan can raise or lower this per plan."
 msgstr ""
 
-#: includes/configs/settings.php:122
+#: includes/configs/settings.php:138
 msgid "Videos"
 msgstr ""
 
-#: includes/configs/settings.php:123
+#: includes/configs/settings.php:139
 msgid "Allow uploading videos"
 msgstr ""
 
-#: includes/configs/settings.php:129
+#: includes/configs/settings.php:145
 msgid "Likes"
 msgstr ""
 
-#: includes/configs/settings.php:130
+#: includes/configs/settings.php:146
 msgid "Let visitors like individual photos"
 msgstr ""
 
-#: includes/configs/settings.php:131
+#: includes/configs/settings.php:147
 msgid "Adds a heart button to every photo, with a count everyone can see. Only signed-in visitors can like, and each person can like a photo once."
 msgstr ""
 
-#: includes/configs/settings.php:138
+#: includes/configs/settings.php:154
 msgid "AI Moderation"
 msgstr ""
 
-#: includes/configs/settings.php:139
+#: includes/configs/settings.php:155
 msgid "Review the first ten photos in each folder with AI"
 msgstr ""
 
-#: includes/configs/settings.php:140
+#: includes/configs/settings.php:156
 msgid "Checks a folder's photos with OpenAI when the vendor saves the folder, using the API key from the HivePress Integrations settings. The first ten photos in the folder are checked together in one free request; any beyond the tenth are not checked. OpenAI fetches each photo from your site, so this only covers public folders: photos in private and members-only folders are skipped while Protect Files is on, because their files are not served at a public address. Your site must also be publicly reachable, so on local or private sites, and whenever the service is unavailable, saving simply proceeds unchecked."
 msgstr ""
 
-#: includes/configs/settings.php:146
+#: includes/configs/settings.php:162
 msgid "Comments"
 msgstr ""
 
-#: includes/configs/settings.php:147
+#: includes/configs/settings.php:163
 msgid "Let visitors comment on individual photos"
 msgstr ""
 
-#: includes/configs/settings.php:148
+#: includes/configs/settings.php:164
 msgid "Every photo gets its own page with a comment thread beneath it, where signed-in visitors can comment, reply and like comments. People can delete their own comments, and the folder owner can delete any comment on their photos."
 msgstr ""
 
-#: includes/configs/settings.php:155
+#: includes/configs/settings.php:171
 msgid "Protect Files"
 msgstr ""
 
-#: includes/configs/settings.php:156
+#: includes/configs/settings.php:172
 msgid "Protect private and members-only image files"
 msgstr ""
 
-#: includes/configs/settings.php:157
+#: includes/configs/settings.php:173
 msgid "Moves the files in private and members-only folders out of the folder your web server publishes, and serves them through an access-checked link instead, so there is no direct address to open. New uploads also get unguessable file names, and gallery images are excluded from public media API results. Recommended. If the files cannot be moved out on your hosting, a notice above says so and explains what to do."
 msgstr ""
 
-#: includes/configs/settings.php:164
+#: includes/configs/settings.php:180
 msgid "Button Corner Rounding (px)"
 msgstr ""
 
-#: includes/configs/settings.php:165
+#: includes/configs/settings.php:181
 msgid "Rounds the corners of every button this plugin adds, so they match the rest of your site. Leave it empty and each button keeps whatever shape your theme gives it, which is right on most sites. Set 0 for square corners, or a larger number for rounder ones."
 msgstr ""
 
-#: includes/configs/settings.php:173
+#: includes/configs/settings.php:189
 msgid "Maximum File Size (MB)"
 msgstr ""
 
-#: includes/configs/settings.php:174
+#: includes/configs/settings.php:190
 msgid "Reject gallery uploads larger than this many megabytes. Leave empty for no gallery-specific limit (the server upload limit still applies)."
 msgstr ""
 
-#: includes/configs/settings.php:181
+#: includes/configs/settings.php:197
 msgid "Storage Limit (MB)"
 msgstr ""
 
-#: includes/configs/settings.php:182
+#: includes/configs/settings.php:198
 msgid "Cap the total disk space each vendor's gallery may use, counting every photo and its thumbnails. Vendors see their usage on their Gallery page. Leave empty for no cap. A membership plan can raise or lower this per plan."
 msgstr ""
 
-#: includes/configs/settings.php:189
+#: includes/configs/settings.php:205
 msgid "Allowed Image Formats"
 msgstr ""
 
-#: includes/configs/settings.php:190
+#: includes/configs/settings.php:206
 msgid "Choose which image formats vendors may upload. Leave empty to allow all supported formats."
 msgstr ""
 
-#: includes/configs/settings.php:204
+#: includes/configs/settings.php:220
 msgid "Maximum Image Dimensions (pixels)"
 msgstr ""
 
-#: includes/configs/settings.php:205
+#: includes/configs/settings.php:221
 msgid "Resize uploaded images so their width and height do not exceed this many pixels. Photos straight from a phone or camera are far bigger than any screen needs, so this is the single biggest saving; around 2000 suits most galleries. Leave empty to keep the original dimensions. For compression, WebP conversion and bulk work on images you already have, use a dedicated image plugin alongside this one."
 msgstr ""
 
-#: includes/configs/settings.php:214
+#: includes/configs/settings.php:230
 msgid "Gallery Monetisation"
 msgstr ""
 
-#: includes/configs/settings.php:215
+#: includes/configs/settings.php:231
 msgid "Members-only folders are how galleries make money: visitors must unlock them before seeing inside. <strong>To charge through memberships</strong>, add the gallery privileges to a paid HivePress Memberships plan, or add them to a free plan to simply require an account. <strong>To let vendors charge instead</strong>, enable paid access below: a locked folder then offers that vendor's one-off purchase, and only vendors who have not set a price fall back to your upgrade page link."
 msgstr ""
 
-#: includes/configs/settings.php:220
+#: includes/configs/settings.php:236
 msgid "Members-Only Folders"
 msgstr ""
 
-#: includes/configs/settings.php:221
+#: includes/configs/settings.php:237
 msgid "Let vendors mark folders as members-only"
 msgstr ""
 
-#: includes/configs/settings.php:222
+#: includes/configs/settings.php:238
 msgid "Members-only folders appear locked until a visitor gains access through a membership plan or a purchase. With this off, vendors only choose between public and private, and any existing members-only folders behave as private. Turn it off if your site has no plans to monetise galleries."
 msgstr ""
 
-#: includes/configs/settings.php:229
+#: includes/configs/settings.php:245
 msgid "Locked Folder Display"
 msgstr ""
 
-#: includes/configs/settings.php:230
+#: includes/configs/settings.php:246
 msgid "Choose how members-only folders appear to visitors without access."
 msgstr ""
 
-#: includes/configs/settings.php:236
+#: includes/configs/settings.php:252
 msgid "Show blurred previews"
 msgstr ""
 
-#: includes/configs/settings.php:237
+#: includes/configs/settings.php:253
 msgid "Show locked placeholders"
 msgstr ""
 
-#: includes/configs/settings.php:238
+#: includes/configs/settings.php:254
 msgid "Hide completely"
 msgstr ""
 
-#: includes/configs/settings.php:243
+#: includes/configs/settings.php:259
 msgid "Paid Access"
 msgstr ""
 
-#: includes/configs/settings.php:244
+#: includes/configs/settings.php:260
 msgid "Let vendors sell access to their members-only folders"
 msgstr ""
 
-#: includes/configs/settings.php:245
-msgid "Each vendor can set their own price on their Gallery page; setting one is optional. Buying access is a normal WooCommerce checkout, and the unlock applies to that one vendor's locked folders. While a vendor has a price set, their locked folders show the purchase button rather than the upgrade page link. Requires WooCommerce. With HivePress Marketplace active, these sales count towards vendor earnings and your usual commission applies."
-msgstr ""
-
-#: includes/configs/settings.php:251
-msgid "Access Period (days)"
-msgstr ""
-
-#: includes/configs/settings.php:252
-msgid "How long a purchased unlock lasts, counted from the day of purchase. Leave empty for lifetime access. Changing this only affects new purchases; access already bought keeps the period it was bought with."
-msgstr ""
-
-#: includes/configs/settings.php:259
-msgid "Second Access Period (days)"
-msgstr ""
-
-#: includes/configs/settings.php:260
-msgid "Optional. Fill this in to offer a second, differently priced length of access alongside the first, and vendors get a second price box to go with it. Leave it empty to offer one length only. Unlike the first period, empty here means \"not offered\" rather than lifetime."
+#: includes/configs/settings.php:261
+msgid "Each vendor sets their own lengths and prices on their Gallery page, choosing from a day, a week, a month, three months or permanent access, and may offer up to three of them at once. Setting any is optional. Buying is a normal WooCommerce checkout and the unlock applies to that one vendor's locked folders. While a vendor sells access, their locked folders show the purchase button rather than the upgrade page link. Requires WooCommerce. With HivePress Marketplace active, these sales count towards vendor earnings and your usual commission applies."
 msgstr ""
 
 #: includes/configs/settings.php:267
-msgid "Third Access Period (days)"
-msgstr ""
-
-#: includes/configs/settings.php:268
-msgid "Optional, and the last one. Three lengths is the most a vendor can offer, which keeps the choice in front of a buyer short enough to read."
-msgstr ""
-
-#: includes/configs/settings.php:275
 msgid "Commission Rate"
 msgstr ""
 
-#: includes/configs/settings.php:276
-msgid "Your percentage of a gallery access sale. Leave both commission boxes empty to take none. The amount is added on top at checkout and shown to the buyer as a separate line, so the vendor still receives the price they set."
+#: includes/configs/settings.php:268
+msgid "Your percentage of a gallery access sale. Leave both commission boxes empty to take none. The amount is added on top at checkout and shown to the buyer as a separate line called Platform fee, so the vendor still receives the price they set."
 msgstr ""
 
-#: includes/configs/settings.php:285
+#: includes/configs/settings.php:277
 msgid "Commission Fee"
 msgstr ""
 
-#: includes/configs/settings.php:286
+#: includes/configs/settings.php:278
 msgid "A flat amount on top of the rate, charged once per gallery access sale. Use either box on its own or both together."
 msgstr ""
 
-#: includes/configs/settings.php:293
+#: includes/configs/settings.php:285
 msgid "Upgrade Page"
 msgstr ""
 
-#: includes/configs/settings.php:294
+#: includes/configs/settings.php:286
 msgid "Choose the page locked visitors are sent to, e.g. your membership pricing page."
 msgstr ""
 
-#: includes/configs/settings.php:304
+#: includes/configs/settings.php:296
 msgid "Removing the Plugin"
 msgstr ""
 
-#: includes/configs/settings.php:305
+#: includes/configs/settings.php:297
 msgid "Your galleries are kept if you ever delete this plugin. WordPress shows its own warning saying that deleting a plugin also deletes its data, but that warning is generic: it appears for every plugin and does not describe what this one does. Nothing below is removed unless you tick the box first."
 msgstr ""
 
-#: includes/configs/settings.php:310
+#: includes/configs/settings.php:302
 msgid "Delete All Data"
 msgstr ""
 
-#: includes/configs/settings.php:311
+#: includes/configs/settings.php:303
 msgid "Delete folders, likes, comments and settings when this plugin is deleted (photos stay in your media library)"
 msgstr ""
 
-#: includes/configs/settings.php:312
+#: includes/configs/settings.php:304
 msgid "Leave this unticked, and deleting the plugin keeps every gallery folder, photo, like, comment, purchased access and setting, so reinstalling brings your galleries back exactly as they were. Tick it, and deleting the plugin permanently removes all of that. Photos themselves always stay in your media library either way. This cannot be undone, so only tick it if you are sure you are finished with the gallery."
 msgstr ""
 
-#: includes/controllers/class-agl-gallery.php:206
+#: includes/controllers/class-agl-gallery.php:213
 msgid "Only vendors can create gallery folders."
 msgstr ""
 
-#: includes/controllers/class-agl-gallery.php:211
-#: includes/controllers/class-agl-gallery.php:299
-#: includes/controllers/class-agl-gallery.php:380
-#: includes/controllers/class-agl-gallery.php:435
-#: includes/controllers/class-agl-gallery.php:872
+#: includes/controllers/class-agl-gallery.php:218
+#: includes/controllers/class-agl-gallery.php:306
+#: includes/controllers/class-agl-gallery.php:387
+#: includes/controllers/class-agl-gallery.php:442
+#: includes/controllers/class-agl-gallery.php:877
+#: includes/controllers/class-agl-gallery.php:932
 msgid "Your current membership does not include the gallery feature."
 msgstr ""
 
 #. translators: %s: folders number.
-#: includes/controllers/class-agl-gallery.php:227
+#: includes/controllers/class-agl-gallery.php:234
 #, php-format
 msgid "You can create up to %s folder."
 msgid_plural "You can create up to %s folders."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/controllers/class-agl-gallery.php:444
+#: includes/controllers/class-agl-gallery.php:451
 msgid "Image descriptions can be up to 500 characters long."
 msgstr ""
 
-#: includes/controllers/class-agl-gallery.php:459
+#: includes/controllers/class-agl-gallery.php:466
 msgid "Photo titles can be up to 128 characters long."
 msgstr ""
 
-#: includes/controllers/class-agl-gallery.php:879
+#: includes/controllers/class-agl-gallery.php:882
+msgid "Only a photo can be used as the folder cover."
+msgstr ""
+
+#: includes/controllers/class-agl-gallery.php:939
 msgid "Choose one of your own folders to move the photo to."
 msgstr ""
 
 #. translators: %s: images number.
-#: includes/controllers/class-agl-gallery.php:897
+#: includes/controllers/class-agl-gallery.php:957
 #, php-format
 msgid "That folder is full (up to %s photos)."
 msgstr ""
 
-#: includes/controllers/class-agl-gallery.php:973
-#: includes/controllers/class-agl-gallery.php:979
-#: includes/controllers/class-agl-gallery.php:986
-msgid "Enter a valid price, or leave it empty to stop selling access."
+#: includes/controllers/class-agl-gallery.php:1055
+#: includes/controllers/class-agl-gallery.php:1061
+msgid "Enter a valid price, or clear the row to stop selling that length."
+msgstr ""
+
+#: includes/controllers/class-agl-gallery.php:1067
+msgid "You have the same length listed twice. Each length can only have one price."
 msgstr ""
 
 #. translators: %s: vendor name.
-#: includes/controllers/class-agl-gallery.php:1206
+#: includes/controllers/class-agl-gallery.php:1308
 #, php-format
 msgid "Gallery: %s"
 msgstr ""

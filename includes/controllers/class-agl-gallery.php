@@ -121,6 +121,13 @@ final class Agl_Gallery extends Controller {
 						'rest'   => true,
 					],
 
+					'gallery_photo_cover_action'    => [
+						'path'   => '/gallery-images/(?P<attachment_id>\d+)/cover',
+						'method' => 'POST',
+						'action' => [ $this, 'set_photo_cover' ],
+						'rest'   => true,
+					],
+
 					// REST: set the vendor's paid access price.
 					'gallery_price_action'          => [
 						'path'   => '/gallery-price',
@@ -836,6 +843,59 @@ final class Agl_Gallery extends Controller {
 	}
 
 	/**
+	 * Makes a photo its folder's cover.
+	 *
+	 * @param \WP_REST_Request $request API request.
+	 * @return \WP_REST_Response
+	 */
+	public function set_photo_cover( $request ) {
+
+		// Check authentication.
+		if ( ! is_user_logged_in() ) {
+			return hp\rest_error( 401 );
+		}
+
+		// Get the photo and its folder.
+		$attachment = Models\Attachment::query()->get_by_id( $request->get_param( 'attachment_id' ) );
+
+		if ( empty( $attachment ) || 'gallery_folder' !== $attachment->get_parent_model() ) {
+			return hp\rest_error( 404 );
+		}
+
+		$folder = $attachment->get_parent();
+
+		if ( empty( $folder ) ) {
+			return hp\rest_error( 404 );
+		}
+
+		// Check permissions, matching the other photo actions.
+		if ( ! current_user_can( 'edit_others_posts' ) && get_current_user_id() !== $folder->get_user__id() ) {
+			return hp\rest_error( 403 );
+		}
+
+		if ( ! current_user_can( 'edit_others_posts' ) && ! hivepress()->agl_gallery->vendor_can_use_gallery( hivepress()->agl_gallery->get_current_vendor() ) ) {
+			return hp\rest_error( 403, esc_html__( 'Your current membership does not include the gallery feature.', 'additional-gallery-for-hivepress' ) );
+		}
+
+		// A video cannot be a cover, because the grid shows a still.
+		if ( 0 !== strpos( (string) get_post_mime_type( $attachment->get_id() ), 'image' ) ) {
+			return hp\rest_error( 400, esc_html__( 'Only a photo can be used as the folder cover.', 'additional-gallery-for-hivepress' ) );
+		}
+
+		if ( ! hivepress()->agl_gallery->set_folder_cover( $folder, $attachment->get_id() ) ) {
+			return hp\rest_error( 400 );
+		}
+
+		return hp\rest_response(
+			200,
+			[
+				'id'     => $attachment->get_id(),
+				'folder' => $folder->get_id(),
+			]
+		);
+	}
+
+	/**
 	 * Moves a photo to another folder of the same vendor.
 	 *
 	 * @param \WP_REST_Request $request API request.
@@ -955,39 +1015,82 @@ final class Agl_Gallery extends Controller {
 		}
 
 		/*
-		 * Validate every price before saving any of them. Saving as we go would leave a vendor who
-		 * mistyped one figure with some lengths priced and some not, and an error message that does
-		 * not say which.
+		 * Validate the whole set before saving any of it. Saving row by row would leave a vendor who
+		 * mistyped one figure with some lengths saved and some not, and an error that does not say
+		 * which.
 		 */
-		$prices = [];
+		$days   = (array) $request->get_param( 'days' );
+		$prices = (array) $request->get_param( 'price' );
+		$max    = hivepress()->agl_gallery::MAX_TIERS;
 
-		foreach ( array_keys( hivepress()->agl_gallery->get_access_tiers() ) as $tier ) {
-			$price = $request->get_param( 'price' . ( $tier > 1 ? '_' . $tier : '' ) );
+		if ( count( $days ) !== count( $prices ) ) {
+			return hp\rest_error( 400 );
+		}
 
-			// A length the form did not send is left exactly as it is.
-			if ( is_null( $price ) ) {
+		if ( count( $days ) > $max ) {
+			return hp\rest_error(
+				400,
+				esc_html(
+					sprintf(
+						/* translators: %s: number of lengths. */
+						_n( 'You can offer %s length at a time.', 'You can offer up to %s lengths at a time.', $max, 'additional-gallery-for-hivepress' ),
+						number_format_i18n( $max )
+					)
+				)
+			);
+		}
+
+		$rows = [];
+		$seen = [];
+
+		foreach ( $days as $index => $day ) {
+			$price = hp\get_array_value( $prices, $index );
+
+			// A row left blank is a row the vendor has not filled in, not an error.
+			if ( '' === $price || is_null( $price ) ) {
 				continue;
 			}
 
-			if ( '' !== $price && ! is_numeric( $price ) ) {
-				return hp\rest_error( 400, esc_html__( 'Enter a valid price, or leave it empty to stop selling access.', 'additional-gallery-for-hivepress' ) );
+			if ( ! is_numeric( $price ) ) {
+				return hp\rest_error( 400, esc_html__( 'Enter a valid price, or clear the row to stop selling that length.', 'additional-gallery-for-hivepress' ) );
 			}
 
 			$price = (float) $price;
 
-			if ( $price < 0 || $price > 100000 ) {
-				return hp\rest_error( 400, esc_html__( 'Enter a valid price, or leave it empty to stop selling access.', 'additional-gallery-for-hivepress' ) );
+			if ( $price <= 0 || $price > 100000 ) {
+				return hp\rest_error( 400, esc_html__( 'Enter a valid price, or clear the row to stop selling that length.', 'additional-gallery-for-hivepress' ) );
 			}
 
-			$prices[ $tier ] = $price;
+			$day = absint( $day );
+
+			if ( isset( $seen[ $day ] ) ) {
+				return hp\rest_error( 400, esc_html__( 'You have the same length listed twice. Each length can only have one price.', 'additional-gallery-for-hivepress' ) );
+			}
+
+			$seen[ $day ] = true;
+
+			$rows[] = [
+				'days'  => $day,
+				'price' => $price,
+			];
 		}
 
-		if ( ! $prices ) {
-			return hp\rest_error( 400, esc_html__( 'Enter a valid price, or leave it empty to stop selling access.', 'additional-gallery-for-hivepress' ) );
-		}
+		/*
+		 * Written to the slots in order, and every slot beyond what was sent is cleared, which is how
+		 * removing a row stops that length being sold. set_access_tier() drafts the product behind a
+		 * cleared slot rather than deleting it, so somebody's order history still resolves.
+		 */
+		for ( $tier = 1; $tier <= $max; $tier++ ) {
+			$row = hp\get_array_value( $rows, $tier - 1 );
 
-		foreach ( $prices as $tier => $price ) {
-			if ( ! hivepress()->agl_gallery->set_access_price( $vendor, $price, $tier ) ) {
+			$saved = hivepress()->agl_gallery->set_access_tier(
+				$vendor,
+				$tier,
+				$row ? $row['days'] : 0,
+				$row ? $row['price'] : 0
+			);
+
+			if ( ! $saved ) {
 				return hp\rest_error( 400 );
 			}
 		}
@@ -995,9 +1098,8 @@ final class Agl_Gallery extends Controller {
 		return hp\rest_response(
 			200,
 			[
-				'id'     => $vendor->get_id(),
-				'price'  => hp\get_first_array_value( $prices ),
-				'prices' => $prices,
+				'id'    => $vendor->get_id(),
+				'tiers' => $rows,
 			]
 		);
 	}

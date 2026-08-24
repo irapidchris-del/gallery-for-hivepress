@@ -47,6 +47,8 @@ return [
 			'replyPlaceholder'     => esc_html__( 'Write a reply...', 'additional-gallery-for-hivepress' ),
 			'postReply'            => esc_html__( 'Post Reply', 'additional-gallery-for-hivepress' ),
 			'photoDeleteConfirm'   => esc_html__( 'Delete this photo? Its likes and comments go with it.', 'additional-gallery-for-hivepress' ),
+			'coverSaved'           => esc_html__( 'This photo is now the folder cover.', 'additional-gallery-for-hivepress' ),
+			'coverFailed'          => esc_html__( 'The cover could not be changed.', 'additional-gallery-for-hivepress' ),
 			'moveConfirm'          => esc_html__( 'Move this photo to the selected folder?', 'additional-gallery-for-hivepress' ),
 			'saved'                => esc_html__( 'Saved.', 'additional-gallery-for-hivepress' ),
 			'saveFailed'           => esc_html__( 'Your changes could not be saved.', 'additional-gallery-for-hivepress' ),

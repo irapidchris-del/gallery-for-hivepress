@@ -653,17 +653,23 @@
 
 		var message = form.querySelector('[data-agl-price-message]');
 		var button = form.querySelector('button[type="submit"]');
-		// One input per length of access the site offers, so every one goes up together.
-		var inputs = form.querySelectorAll('input[name="price"], input[name^="price_"]');
+		// Every row goes up together, in the order shown. A row with no price is sent as an empty
+		// one and the endpoint treats it as unfilled rather than as an error.
+		var rows = form.querySelectorAll('[data-agl-tier]');
 
 		var body = new window.FormData();
 
-		for (var i = 0; i < inputs.length; i++) {
-			body.append(inputs[i].name, inputs[i].value);
+		for (var i = 0; i < rows.length; i++) {
+			var select = rows[i].querySelector('select[name="days[]"]');
+			var price = rows[i].querySelector('input[name="price[]"]');
+
+			body.append('days[]', select ? select.value : '0');
+			body.append('price[]', price ? price.value : '');
 		}
 
-		if (!inputs.length) {
-			body.append('price', '');
+		if (!rows.length) {
+			body.append('days[]', '0');
+			body.append('price[]', '');
 		}
 
 		if (button) {
@@ -694,4 +700,158 @@
 				}
 			});
 	});
+
+	/**
+	 * Adding and removing access lengths.
+	 *
+	 * Rows are cloned from a <template> the server rendered, so the option list and its wording come
+	 * from PHP and are translated once, rather than being rebuilt in JavaScript where they would
+	 * have to be passed through and escaped again.
+	 */
+	document.addEventListener('click', function (event) {
+		var add = event.target.closest ? event.target.closest('[data-agl-add-tier]') : null;
+
+		if (add) {
+			event.preventDefault();
+
+			var wrap = add.closest('.hp-agl-account__paid');
+			var list = wrap ? wrap.querySelector('[data-agl-tiers]') : null;
+			var template = wrap ? wrap.querySelector('[data-agl-tier-template]') : null;
+			var form = wrap ? wrap.querySelector('[data-agl-price-form]') : null;
+
+			if (!list || !template || !form) {
+				return;
+			}
+
+			var max = parseInt(form.getAttribute('data-agl-max'), 10) || 3;
+
+			if (list.querySelectorAll('[data-agl-tier]').length >= max) {
+				return;
+			}
+
+			list.appendChild(template.content.cloneNode(true));
+			updateTierControls(wrap);
+
+			var added = list.querySelector('[data-agl-tier]:last-child select');
+
+			if (added) {
+				added.focus();
+			}
+
+			return;
+		}
+
+		var remove = event.target.closest ? event.target.closest('[data-agl-remove-tier]') : null;
+
+		if (remove) {
+			event.preventDefault();
+
+			var row = remove.closest('[data-agl-tier]');
+			var holder = row ? row.parentNode : null;
+
+			if (!row || !holder) {
+				return;
+			}
+
+			// Never leave the vendor with nothing to type into: the last row is emptied rather than
+			// taken away, which is also how they stop selling altogether.
+			if (holder.querySelectorAll('[data-agl-tier]').length <= 1) {
+				var only = row.querySelector('input[name="price[]"]');
+
+				if (only) {
+					only.value = '';
+				}
+			} else {
+				holder.removeChild(row);
+			}
+
+			updateTierControls(row.closest ? holder.closest('.hp-agl-account__paid') : null);
+		}
+	});
+
+	/**
+	 * Hides the Add link once every length is in use, and the remove button when there is one row
+	 * holding no price, where it would do nothing visible.
+	 *
+	 * @param {Element} wrap Paid access panel.
+	 */
+	function updateTierControls(wrap) {
+		if (!wrap) {
+			return;
+		}
+
+		var form = wrap.querySelector('[data-agl-price-form]');
+		var list = wrap.querySelector('[data-agl-tiers]');
+		var add = wrap.querySelector('[data-agl-add-tier]');
+
+		if (!form || !list) {
+			return;
+		}
+
+		var max = parseInt(form.getAttribute('data-agl-max'), 10) || 3;
+		var count = list.querySelectorAll('[data-agl-tier]').length;
+
+		if (add) {
+			add.parentNode.style.display = count >= max ? 'none' : '';
+		}
+	}
+
+	document.addEventListener('DOMContentLoaded', function () {
+		var panels = document.querySelectorAll('.hp-agl-account__paid');
+
+		for (var i = 0; i < panels.length; i++) {
+			updateTierControls(panels[i]);
+		}
+	});
+
+
+	/**
+	 * Making a photo its folder's cover.
+	 *
+	 * The control swaps itself for the "this is the cover" line on success, so the page agrees with
+	 * the gallery grid without a reload.
+	 */
+	document.addEventListener('click', function (event) {
+		var button = event.target.closest ? event.target.closest('[data-agl-photo-cover]') : null;
+
+		if (!button) {
+			return;
+		}
+
+		event.preventDefault();
+
+		var id = button.getAttribute('data-agl-photo-cover');
+		var wrap = button.closest('.hp-agl-photo-manage__cover');
+
+		button.disabled = true;
+
+		apiFetch('/gallery-images/' + encodeURIComponent(id) + '/cover', { method: 'POST' })
+			.then(function (response) {
+				if (!response.ok) {
+					throw new Error('failed');
+				}
+
+				if (wrap) {
+					// Built from nodes rather than innerHTML: the wording is translatable, and a
+					// translation is not trusted markup.
+					var line = document.createElement('p');
+					line.className = 'hp-agl-photo-manage__cover-state';
+
+					var icon = document.createElement('i');
+					icon.className = 'hp-icon fas fa-star';
+					line.appendChild(icon);
+
+					var label = document.createElement('span');
+					label.textContent = data.coverSaved || 'This photo is now the folder cover.';
+					line.appendChild(label);
+
+					wrap.replaceChild(line, button);
+				}
+			})
+			.catch(function () {
+				button.disabled = false;
+				window.alert(data.coverFailed || 'The cover could not be changed.');
+			});
+	});
+
 })();

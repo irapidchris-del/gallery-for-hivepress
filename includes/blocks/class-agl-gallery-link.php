@@ -79,11 +79,22 @@ class Agl_Gallery_Link extends Block {
 			$label = __( 'View Gallery', 'additional-gallery-for-hivepress' );
 		}
 
-		// `hp-button hp-button--wide` is core's structural full-width button and
-		// `button--primary` is the appearance every official theme styles, so
-		// this inherits the theme's own button rather than defining one.
+		// The wrapper is a HivePress widget, so the sidebar spaces it like every other one.
 		$output .= '<div class="hp-agl-link widget hp-widget">';
-		$output .= '<a href="' . esc_url( $gallery_url ) . '" class="hp-agl-link__button hp-button hp-button--wide button button--primary"><i class="hp-icon fas fa-images"></i><span>' . esc_html( $label ) . '</span></a>';
+
+		/*
+		 * Two sets of classes, and both are needed.
+		 *
+		 * `hp-button hp-button--wide` is HivePress's own structure: width:100%, inline-flex centring
+		 * and a 0.5rem margin on a leading icon (hivepress/assets/css/frontend.min.css). Dropping
+		 * them left the button shrink-wrapped to its text with the icon almost touching the label.
+		 *
+		 * `button button--large button--primary alt` is the appearance, copied from the Send Message
+		 * button directly above this one
+		 * (hivepress-messages/templates/vendor/view/page/message-send-link.php). `button--large` is
+		 * the one that sets the height; without it this sat visibly shorter than that button.
+		 */
+		$output .= '<a href="' . esc_url( $gallery_url ) . '" class="hp-agl-link__button hp-button hp-button--wide button button--large button--primary alt"><i class="hp-icon fas fa-images"></i><span>' . esc_html( $label ) . '</span></a>';
 		$output .= '</div>';
 
 		return $output;

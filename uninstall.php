@@ -214,6 +214,10 @@ function hp_agl_uninstall_site( $delete_data ) {
 	delete_metadata( 'post', 0, 'hp_gallery_price_2', '', true );
 	delete_metadata( 'post', 0, 'hp_gallery_product_2', '', true );
 	delete_metadata( 'post', 0, 'hp_gallery_price_3', '', true );
+	delete_metadata( 'post', 0, 'hp_gallery_days', '', true );
+	delete_metadata( 'post', 0, 'hp_gallery_days_2', '', true );
+	delete_metadata( 'post', 0, 'hp_gallery_days_3', '', true );
+	delete_metadata( 'post', 0, 'hp_agl_cover', '', true );
 	delete_metadata( 'post', 0, 'hp_gallery_product_3', '', true );
 
 	// Markers on the access products themselves. The products are WooCommerce's, and someone's

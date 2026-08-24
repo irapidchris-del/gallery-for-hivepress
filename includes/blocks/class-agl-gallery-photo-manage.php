@@ -137,6 +137,25 @@ class Agl_Gallery_Photo_Manage extends Block {
 		$output .= '<div class="hp-form__messages" data-agl-photo-message></div>';
 		$output .= '</form>';
 
+		/*
+		 * The cover control, above deletion, because it is the one thing here somebody is likely to
+		 * come looking for. A video is never offered: the gallery grid shows a still.
+		 */
+		if ( 0 === strpos( (string) get_post_mime_type( $photo_id ), 'image' ) ) {
+			$is_cover = hivepress()->agl_gallery->is_folder_cover( $folder, $photo_id );
+
+			$output .= '<div class="hp-agl-photo-manage__cover">';
+
+			if ( $is_cover ) {
+				$output .= '<p class="hp-agl-photo-manage__cover-state"><i class="hp-icon fas fa-star"></i><span>' . esc_html__( 'This is the folder cover', 'additional-gallery-for-hivepress' ) . '</span></p>';
+			} else {
+				$output .= '<button type="button" class="hp-agl-action hp-link" data-agl-photo-cover="' . esc_attr( (string) $photo_id ) . '"><i class="hp-icon far fa-star"></i><span>' . esc_html__( 'Use as folder cover', 'additional-gallery-for-hivepress' ) . '</span></button>';
+			}
+
+			$output .= '<p class="hp-meta">' . esc_html__( 'The cover is the picture shown for this folder on your gallery page. Without a choice, the first photo is used.', 'additional-gallery-for-hivepress' ) . '</p>';
+			$output .= '</div>';
+		}
+
 		// Deletion, tucked under the form.
 		$output .= '<div class="hp-agl-photo-manage__delete">';
 		$output .= '<button type="button" class="hp-agl-action hp-link" data-agl-photo-delete="' . esc_attr( (string) $photo_id ) . '" data-agl-redirect="' . esc_url( $folder_url ) . '"><i class="hp-icon fas fa-times"></i><span>' . esc_html__( 'Delete this photo', 'additional-gallery-for-hivepress' ) . '</span></button>';

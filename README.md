@@ -3,7 +3,7 @@
 Gives HivePress vendors a front-end photo gallery with public, members-only and private folders, protected files, per-photo pages with likes and comments, and optional monetisation through Memberships or per-vendor paid access.
 
 **Author:** [ChrisB @ HivePress Community](https://community.hivepress.io/u/chrisb/summary)
-**Version:** 1.8.0 · **Requires:** WordPress 5.8+, PHP 7.4+, HivePress 1.x
+**Version:** 1.8.11 · **Requires:** WordPress 5.8+, PHP 7.4+, HivePress 1.x
 
 > **Installation folder:** the release zip installs as `additional-gallery-for-hivepress` in `wp-content/plugins/`, which is the recommended folder name. Since 1.4.0 the plugin registers itself with HivePress explicitly, so it also works from a differently named folder (for example the `-main` suffix a GitHub "Download ZIP" adds), where earlier versions would have loaded nothing at all.
 
@@ -85,7 +85,7 @@ The protected directory carries an Apache deny rule. **On Nginx, add a rule** so
 
 ### Per-vendor unlocks (roadmap)
 
-Selling access to a single vendor's gallery needs its own purchase flow (e.g. a WooCommerce product per vendor granting the buyer access), which is planned for a future version. The access check is already filterable today, so developers can grant per-vendor access from custom logic:
+Selling access to a single vendor's gallery shipped in 1.7.0: each vendor can offer up to three access lengths at their own prices, bought through the normal WooCommerce checkout. Who the money goes to under WooCommerce alone, HivePress Marketplace, or a Stripe Connect direct-charges gateway is set out plainly in readme.txt under "Who actually receives the money" - read it before setting a Platform fee The access check is already filterable today, so developers can grant per-vendor access from custom logic:
 
 ```php
 add_filter( 'hp_agl/user_can_view_member_folders', function( $can, $user_id, $vendor ) {

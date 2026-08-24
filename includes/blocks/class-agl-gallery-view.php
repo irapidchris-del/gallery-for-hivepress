@@ -107,7 +107,7 @@ class Agl_Gallery_View extends Block {
 					$output .= '<h2 class="hp-agl-gallery__folder-title">' . esc_html( $folder->get_title() );
 
 					if ( $locked ) {
-						$output .= ' <span class="hp-status hp-status--pending"><span><i class="hp-icon fas fa-lock"></i> ' . esc_html__( 'Members only', 'additional-gallery-for-hivepress' ) . '</span>';
+						$output .= ' <span class="hp-status hp-status--pending"><span><i class="hp-icon fas fa-lock"></i> ' . esc_html__( 'Members only', 'additional-gallery-for-hivepress' ) . '</span></span>';
 					}
 
 					$output .= ' <a href="' . esc_url( hivepress()->agl_gallery->get_folder_url( $folder ) ) . '" class="hp-agl-gallery__folder-link" title="' . esc_attr__( 'Folder link', 'additional-gallery-for-hivepress' ) . '"><i class="hp-icon fas fa-link"></i></a>';
@@ -192,7 +192,7 @@ class Agl_Gallery_View extends Block {
 					$output .= '<span class="hp-agl-cover__count hp-meta">' . esc_html( hivepress()->agl_gallery->get_media_count_label( hivepress()->agl_gallery->get_media_counts( $folder ) ) ) . '</span>';
 
 					if ( $locked ) {
-						$output .= '<span class="hp-status hp-status--pending"><span>' . esc_html__( 'Members only', 'additional-gallery-for-hivepress' ) . '</span>';
+						$output .= '<span class="hp-status hp-status--pending"><span>' . esc_html__( 'Members only', 'additional-gallery-for-hivepress' ) . '</span></span>';
 					}
 
 					$output .= '</a>';
