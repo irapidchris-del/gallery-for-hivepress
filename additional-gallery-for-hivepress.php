@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Additional Gallery for HivePress
  * Description: Gives vendors a front-end photo gallery with public, members-only and private folders, accessible from the account menu and linked from vendor profiles and listings.
- * Version: 1.8.15
+ * Version: 1.8.16
  * Author: ChrisB @ HivePress Community
  * Author URI: https://community.hivepress.io/u/chrisb/summary
  * Text Domain: additional-gallery-for-hivepress
@@ -22,7 +22,7 @@ defined( 'ABSPATH' ) || exit;
 
 // Plugin constants.
 if ( ! defined( 'HP_AGL_VERSION' ) ) {
-	define( 'HP_AGL_VERSION', '1.8.15' );
+	define( 'HP_AGL_VERSION', '1.8.16' );
 }
 
 if ( ! defined( 'HP_AGL_FILE' ) ) {
@@ -166,6 +166,17 @@ add_filter(
 
 					break;
 				}
+			}
+
+			// Set it even when nothing was found. Core's own probe (class-core.php:245-256) only runs
+			// while this key is unset, and it concatenates EVERY entry as a string, so on a site with
+			// no premium extension the array entry below would make it warn "Array to string
+			// conversion" on every single request. A path that does not exist is harmless: core's
+			// string branch drops it at its own file_exists() guard (:277), which is the same outcome
+			// as the probe finding nothing, minus the warning. Only ever reached on a renamed folder,
+			// where the array entry is the only way this plugin loads at all.
+			if ( ! isset( $extensions['updates'] ) ) {
+				$extensions['updates'] = HP_AGL_DIR . $package;
 			}
 		}
 
@@ -431,7 +442,6 @@ add_action(
 			// inside it is not read at all where a reverse proxy serves static files ahead of the
 			// web server. Only the files move; their stored paths are unchanged.
 			if ( ! $version || version_compare( $version, '1.8.3', '<' ) ) {
-
 				/*
 				 * The move needs the gallery component, and this file runs even when HivePress is
 				 * not there to provide it - WordPress before 6.5 ignores the `Requires Plugins`

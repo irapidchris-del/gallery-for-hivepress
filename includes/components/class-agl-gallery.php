@@ -3851,6 +3851,14 @@ final class Agl_Gallery extends Component {
 	 * @return void
 	 */
 	public function delete_photo_engagement( $attachment_id ) {
+		/*
+		 * 'status' => 'any' is DELIBERATE here and must stay. In WP_Comment_Query it drops the
+		 * status clause altogether (class-wp-comment-query.php:568-591), which is what makes a
+		 * trashed or spammed row visible - and a deletion sweep that cannot see the trash leaves
+		 * exactly the orphans this method exists to prevent. It is the opposite of the reading
+		 * bug fixed in Notifications 1.3.4, where 'any' let the trash into a LOOKUP. Rule of
+		 * thumb: deleting wants 'any', reading never does.
+		 */
 		$comments = get_comments(
 			[
 				'post_id'  => absint( $attachment_id ),
@@ -3877,6 +3885,9 @@ final class Agl_Gallery extends Component {
 	 * @return void
 	 */
 	public function delete_comment_children( $comment_id ) {
+
+		// 'status' => 'any' is deliberate, for the same reason as delete_photo_engagement()
+		// above: a deletion sweep has to see trashed rows or it leaves them orphaned.
 		$children = get_comments(
 			[
 				'type__in' => [ 'hp_agl_comment', 'hp_agl_clike' ],
@@ -4140,11 +4151,50 @@ final class Agl_Gallery extends Component {
 	 * Shaped like HivePress's own commission settings: a percentage, a flat amount, or both. Both
 	 * boxes empty means no commission, and this returns null so every caller can leave well alone.
 	 *
+	 * Every caller reads the commission through here, so the filter below is the one place a
+	 * payment gateway can switch it off. It has to exist because the whole feature rests on an
+	 * assumption the site owner cannot see: that the order is charged to the SITE's payment
+	 * account, which is what makes a "Platform fee" line the site's money. A gateway that charges
+	 * each vendor's own connected account directly reverses that. The buyer is charged the price
+	 * plus the fee, the whole amount is created on the vendor's account, and the site collects
+	 * nothing but whatever cut the gateway itself takes - so the fee is paid to the vendor while
+	 * the buyer is told it is the platform's. Measured on a 100.00 sale at 10%: buyer charged
+	 * 110.00, all 110.00 on the vendor's account. A gateway of that shape must return null here.
+	 *
 	 * @return array|null `rate` percentage and `fee` amount.
 	 */
 	public function get_commission() {
 		$rate = round( floatval( get_option( 'hp_gallery_commission_rate' ) ), 2 );
 		$fee  = round( floatval( get_option( 'hp_gallery_commission_fee' ) ), 2 );
+
+		$commission = null;
+
+		if ( $rate > 0 || $fee > 0 ) {
+			$commission = [
+				'rate' => min( 100, max( 0, $rate ) ),
+				'fee'  => max( 0, $fee ),
+			];
+		}
+
+		/**
+		 * Filters the site's cut of a gallery access sale.
+		 *
+		 * Return null to take no commission at all. A payment gateway that charges each vendor's
+		 * own account directly must do so: under that model the site never receives the fee it
+		 * would be charging the buyer for.
+		 *
+		 * @hook hp_agl/commission
+		 * @param {array|null} $commission Commission with `rate` percentage and `fee` amount, or null for none.
+		 * @return {array|null} Commission.
+		 */
+		$commission = apply_filters( 'hp_agl/commission', $commission );
+
+		if ( ! is_array( $commission ) ) {
+			return null;
+		}
+
+		$rate = round( floatval( hp\get_array_value( $commission, 'rate' ) ), 2 );
+		$fee  = round( floatval( hp\get_array_value( $commission, 'fee' ) ), 2 );
 
 		if ( $rate <= 0 && $fee <= 0 ) {
 			return null;

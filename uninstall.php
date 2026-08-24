@@ -48,8 +48,29 @@ function hp_agl_uninstall_site( $delete_data ) {
 
 	// 1. Regenerable caches go whatever the owner chose: they are junk the
 	// moment the plugin is gone, and both rebuild by themselves on a reinstall.
-	// (There are no scheduled actions to unschedule: this plugin queues none.)
+	// (The updater queues a background release refresh; it is unscheduled below.)
 	delete_site_transient( 'hp_agl_github_release' );
+
+	/*
+	 * The updater's background release refresh, which used to be left scheduled.
+	 *
+	 * It is a queued job whose callback stops existing the moment the plugin does, so it is worse
+	 * than debris: cron keeps firing a hook nothing answers. Unscheduled from both places it can
+	 * live, because the refresh is queued through HivePress's scheduler (Action Scheduler) when
+	 * HivePress is present and through WP-Cron when it is not.
+	 *
+	 * The updater's other site transients go the same way. Core's daily sweep clears expired site
+	 * transients within about a day on single-site, which is why leaving them read as harmless; on
+	 * multisite they live in wp_sitemeta and are only purged when something asks for them.
+	 */
+	delete_site_transient( 'hp_agl_github_release_rate_limit' );
+
+	if ( function_exists( 'as_unschedule_all_actions' ) ) {
+		as_unschedule_all_actions( 'hp_agl_github_release_refresh', [], 'hivepress' );
+		as_unschedule_all_actions( 'hp_agl_github_release_refresh' );
+	}
+
+	wp_clear_scheduled_hook( 'hp_agl_github_release_refresh' );
 	hp_agl_uninstall_rmdir( $basedir . '/hp-agl-teasers' );
 
 	// Retaining is the default and stops here, leaving every folder, photo,
@@ -97,6 +118,19 @@ function hp_agl_uninstall_site( $delete_data ) {
 		'hp_gallery_view_gated',
 		'hp_agl_version',
 		'hp_agl_flush_rewrite_rules',
+
+		/*
+		 * These four were written by the plugin and missing from this list, so "delete all gallery
+		 * data" left them behind. hp_agl_document_root is the worst of them: it is an absolute
+		 * server path sitting in wp_options for a plugin that no longer exists. Anything added to
+		 * the settings config has to be added here in the same commit, and the check is
+		 * mechanical - every hp_gallery_* / hp_agl_* name the plugin reads or writes should appear
+		 * in this list exactly once, bar hp_gallery_delete_data (see the note below).
+		 */
+		'hp_agl_document_root',
+		'hp_gallery_button_radius',
+		'hp_gallery_show_on_listings',
+		'hp_gallery_show_on_vendors',
 
 		// Retired in 1.3.0, deleted again in case an upgrade never ran.
 		'hp_gallery_manage_plans',
@@ -187,6 +221,12 @@ function hp_agl_uninstall_site( $delete_data ) {
 			// component from treating them as gallery images and deleting them.
 			delete_post_meta( $attachment_id, 'hp_parent_model' );
 			delete_post_meta( $attachment_id, 'hp_parent_field' );
+
+			// The AI moderation marker goes with them. The photo is deliberately kept, so
+			// leaving this behind meant a reinstall inherited "already checked" on pictures
+			// nobody had re-reviewed - the one leftover here that can actually hurt somebody,
+			// because it silently switches moderation off for exactly the images it once passed.
+			delete_post_meta( $attachment_id, '_hp_agl_ai_checked' );
 
 			wp_update_post(
 				[

@@ -786,7 +786,14 @@ final class Agl_Gallery extends Controller {
 		$user_id    = get_current_user_id();
 		$comment_id = absint( $comment->comment_ID );
 
-		// Find an existing like of this comment.
+		/*
+		 * Find an existing like of this comment.
+		 *
+		 * 'status' => 'any' is deliberate. A like that an administrator has trashed still occupies
+		 * the pair, so hiding it here would let a second row be created for the same person and
+		 * the same comment, leaving the trashed one orphaned for good. Seeing it means the toggle
+		 * force-deletes it and the next click creates a clean one.
+		 */
 		$existing = get_comments(
 			[
 				'type'    => 'hp_agl_clike',

@@ -47,6 +47,19 @@ class Agl_Gallery_Section extends Block {
 			return '';
 		}
 
+		/*
+		 * The entitlement check every other surface makes, and the one this block was missing.
+		 * The account menu item, the View Gallery button, the gallery pages and the file proxy all
+		 * ask vendor_can_use_gallery() first; this did not, so a vendor whose membership lapsed
+		 * kept showing folder titles, media counts and full-size cover images on the two
+		 * highest-traffic pages on the site - their profile and every one of their listings -
+		 * while every link out of them bounced the visitor to the home page. Gating is opt-in, so
+		 * on a site that has never gated anything this is always true and costs one option read.
+		 */
+		if ( ! hivepress()->agl_gallery->vendor_can_use_gallery( $vendor ) ) {
+			return '';
+		}
+
 		// A vendor who has nothing to show gets no empty section and no heading.
 		$folders = $this->get_folders( $vendor );
 

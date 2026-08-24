@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-3.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: Additional Gallery for HivePress 1.8.15\n"
+"Project-Id-Version: Additional Gallery for HivePress 1.8.16\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/additional-gallery-for-hivepress\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-24T16:06:11+00:00\n"
+"POT-Creation-Date: 2026-08-24T21:25:08+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: additional-gallery-for-hivepress\n"
@@ -86,7 +86,7 @@ msgstr ""
 
 #: includes/blocks/class-agl-gallery-folder-view.php:51
 #: includes/blocks/class-agl-gallery-folders.php:120
-#: includes/blocks/class-agl-gallery-section.php:126
+#: includes/blocks/class-agl-gallery-section.php:139
 #: includes/blocks/class-agl-gallery-view.php:110
 #: includes/blocks/class-agl-gallery-view.php:195
 #: includes/components/class-agl-gallery.php:781
@@ -335,10 +335,10 @@ msgstr ""
 
 #: includes/components/class-agl-gallery.php:431
 #: includes/components/class-agl-gallery.php:458
-#: includes/components/class-agl-gallery.php:4713
-#: includes/components/class-agl-gallery.php:4719
-#: includes/components/class-agl-gallery.php:4755
-#: includes/components/class-agl-gallery.php:4761
+#: includes/components/class-agl-gallery.php:4752
+#: includes/components/class-agl-gallery.php:4758
+#: includes/components/class-agl-gallery.php:4794
+#: includes/components/class-agl-gallery.php:4800
 #: includes/configs/settings.php:26
 #: includes/controllers/class-agl-gallery.php:141
 msgid "Gallery"
@@ -536,41 +536,41 @@ msgstr ""
 msgid "Post Comment"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:4258
+#: includes/components/class-agl-gallery.php:4297
 msgid "Gallery access has to be bought on its own, because the payment goes to the person whose gallery it is. Please check out or empty your basket first, then add it again."
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:4350
+#: includes/components/class-agl-gallery.php:4389
 msgid "Gallery access has to be bought while signed in, because it is added to your account. Please sign in or register first, then buy it again."
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:4595
+#: includes/components/class-agl-gallery.php:4634
 msgid "Platform fee"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:4784
+#: includes/components/class-agl-gallery.php:4823
 msgid "1 day"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:4785
+#: includes/components/class-agl-gallery.php:4824
 msgid "7 days"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:4786
+#: includes/components/class-agl-gallery.php:4825
 msgid "30 days"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:4787
+#: includes/components/class-agl-gallery.php:4826
 msgid "90 days"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:4788
-#: includes/components/class-agl-gallery.php:4831
+#: includes/components/class-agl-gallery.php:4827
+#: includes/components/class-agl-gallery.php:4870
 msgid "Permanent"
 msgstr ""
 
 #. translators: %s: number of days.
-#: includes/components/class-agl-gallery.php:4835
+#: includes/components/class-agl-gallery.php:4874
 #, php-format
 msgid "%s day"
 msgid_plural "%s days"
@@ -578,13 +578,13 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: vendor name.
-#: includes/components/class-agl-gallery.php:5073
+#: includes/components/class-agl-gallery.php:5112
 #, php-format
 msgid "Gallery access: %s"
 msgstr ""
 
 #. translators: 1: vendor name, 2: number of days.
-#: includes/components/class-agl-gallery.php:5078
+#: includes/components/class-agl-gallery.php:5117
 #, php-format
 msgid "Gallery access: %1$s (%2$s day)"
 msgid_plural "Gallery access: %1$s (%2$s days)"
@@ -592,7 +592,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: number of days, 2: price.
-#: includes/components/class-agl-gallery.php:5832
+#: includes/components/class-agl-gallery.php:5871
 #, php-format
 msgid "Unlock for %1$s Day (%2$s)"
 msgid_plural "Unlock for %1$s Days (%2$s)"
@@ -600,12 +600,12 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: price.
-#: includes/components/class-agl-gallery.php:5838
+#: includes/components/class-agl-gallery.php:5877
 #, php-format
 msgid "Unlock Permanently (%s)"
 msgstr ""
 
-#: includes/components/class-agl-gallery.php:5850
+#: includes/components/class-agl-gallery.php:5889
 msgid "Unlock Access"
 msgstr ""
 
@@ -978,7 +978,7 @@ msgid "Commission Rate"
 msgstr ""
 
 #: includes/configs/settings.php:268
-msgid "Your percentage of a gallery access sale. Leave both commission boxes empty to take none. The amount is added on top at checkout and shown to the buyer as a separate line called Platform fee, so the vendor still receives the price they set."
+msgid "Your percentage of a gallery access sale. Leave both commission boxes empty to take none. The amount is added on top at checkout and shown to the buyer as a separate line called Platform fee, so the vendor still receives the price they set. This only reaches you if your payment gateway settles gallery orders into the site's own payment account, which is the normal case. If you use a gateway that charges each vendor's connected account directly, the whole order including this fee is paid to the vendor and none of it reaches the site, so leave both boxes empty and take your cut through that gateway instead."
 msgstr ""
 
 #: includes/configs/settings.php:277

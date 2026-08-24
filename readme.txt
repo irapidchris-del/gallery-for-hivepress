@@ -5,7 +5,7 @@ Requires at least: 5.8
 Tested up to: 7.0
 Requires PHP: 7.4
 Requires Plugins: hivepress
-Stable tag: 1.8.15
+Stable tag: 1.8.16
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -279,6 +279,26 @@ back to its normal location first so it is still viewable without the plugin.
 Your OpenAI API key is left alone either way, because other extensions share it.
 
 == Changelog ==
+
+= 1.8.16 =
+* Fixed: no PHP warning left on a renamed install folder either. 1.4.0 fixed this for a normally
+  named folder; on a renamed one, which is what downloading the source as a zip produces,
+  HivePress still raised "Array to string conversion" once per request on sites with no paid
+  HivePress extension.
+* Fixed: gallery folders no longer appear on vendor profiles and listing pages for a vendor whose
+  gallery access has lapsed. Folder titles, media counts and full size cover images were all still
+  shown, and every link out of them sent the visitor to the home page. Every other part of the
+  plugin already checked.
+* Fixed: the Commission Rate description now explains that the fee only reaches you if your
+  payment gateway settles gallery orders into the site's own payment account. With a gateway that
+  charges each vendor's connected account directly, the whole order including the fee is paid to
+  the vendor, so both commission boxes should be left empty. A new `hp_agl/commission` filter lets
+  such a gateway switch the commission off by itself.
+* Fixed: "Delete all gallery data" now removes four settings it used to leave behind, including a
+  stored server path, and clears the AI review marks from photos it deliberately keeps, so a
+  reinstall no longer treats those photos as already reviewed.
+* Fixed: deleting the plugin now also clears the update check's own leftovers and cancels its
+  background update check.
 
 = 1.8.15 =
 * Fixed: the padlock on a locked folder's "Members only" label sat hard against the words, unlike

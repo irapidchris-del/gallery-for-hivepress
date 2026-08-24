@@ -265,7 +265,7 @@ return [
 
 					'gallery_commission_rate'    => [
 						'label'       => esc_html__( 'Commission Rate', 'additional-gallery-for-hivepress' ),
-						'description' => esc_html__( 'Your percentage of a gallery access sale. Leave both commission boxes empty to take none. The amount is added on top at checkout and shown to the buyer as a separate line called Platform fee, so the vendor still receives the price they set.', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Your percentage of a gallery access sale. Leave both commission boxes empty to take none. The amount is added on top at checkout and shown to the buyer as a separate line called Platform fee, so the vendor still receives the price they set. This only reaches you if your payment gateway settles gallery orders into the site\'s own payment account, which is the normal case. If you use a gateway that charges each vendor\'s connected account directly, the whole order including this fee is paid to the vendor and none of it reaches the site, so leave both boxes empty and take your cut through that gateway instead.', 'additional-gallery-for-hivepress' ),
 						'type'        => 'number',
 						'decimals'    => 2,
 						'min_value'   => 0,
