@@ -140,6 +140,10 @@ function hp_agl_uninstall_site( $delete_data ) {
 		'hp_gallery_folder_sidebar',
 		'hp_gallery_access_scope',
 
+		// Added in 1.9.1 and split per page type in 1.9.2.
+		'hp_gallery_button_position',
+		'hp_gallery_button_position_listings',
+
 		// Retired in 1.3.0, deleted again in case an upgrade never ran.
 		'hp_gallery_manage_plans',
 		'hp_gallery_view_plans',

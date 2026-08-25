@@ -995,25 +995,28 @@ final class Agl_Gallery extends Component {
 	 * @return array
 	 */
 	public function alter_vendor_view_page( $template ) {
-		return hivepress()->template->merge_blocks( $template, $this->get_gallery_link_blocks() );
+		return hivepress()->template->merge_blocks( $template, $this->get_gallery_link_blocks( 'vendor' ) );
 	}
 
 	/**
 	 * Builds the merge map that places the View Gallery button.
 	 *
-	 * Two placements, chosen by the Gallery Button Position setting, and the block is told which one
-	 * it is in because the markup differs: inside the actions container it must be a bare `__action`
-	 * so core's sibling spacing reaches it, while on its own it has to carry the widget classes that
-	 * container would otherwise have supplied.
+	 * Two placements, chosen by that page type's Gallery Button Position setting, and the block is
+	 * told which one it is in because the markup differs: inside the actions container it must be a
+	 * bare `__action` so core's sibling spacing reaches it, while on its own it has to carry the
+	 * widget classes that container would otherwise have supplied.
 	 *
-	 * The same map serves vendor profiles and listing pages. `merge_blocks()` walks the template and
-	 * merges whichever of these keys it finds, so naming both containers is harmless on a page that
-	 * has only one of them.
+	 * Built per model rather than once for both. The two sidebars number their blocks on different
+	 * scales, so a single map cannot place the button in the same relative spot on each: 24 clears
+	 * Social Links on a profile (25) but sits below both Social Links (15) and the action buttons
+	 * (20) on a listing. 1.9.1 shipped one shared map and had exactly that fault.
 	 *
+	 * @param string $model Either `vendor` or `listing`.
 	 * @return array
 	 */
-	protected function get_gallery_link_blocks() {
-		$position = $this->get_button_position();
+	protected function get_gallery_link_blocks( $model ) {
+		$model    = 'listing' === $model ? 'listing' : 'vendor';
+		$position = $this->get_button_position( $model );
 
 		if ( $position ) {
 			return [
@@ -1031,28 +1034,32 @@ final class Agl_Gallery extends Component {
 
 		// After Messages' Send Message link, which core's own extension places at 10, and before
 		// core's own Report link on a listing, which it places at 1000.
-		$block = [
-			'blocks' => [
-				'gallery_link' => [
-					'type'   => 'agl_gallery_link',
-					'_order' => 15,
+		return [
+			$model . '_actions_primary' => [
+				'blocks' => [
+					'gallery_link' => [
+						'type'   => 'agl_gallery_link',
+						'_order' => 15,
+					],
 				],
 			],
-		];
-
-		return [
-			'vendor_actions_primary'  => $block,
-			'listing_actions_primary' => $block,
 		];
 	}
 
 	/**
-	 * Gets the sidebar position of the View Gallery button.
+	 * Gets the sidebar position of the View Gallery button for one page type.
 	 *
+	 * The vendor setting keeps the option name it was given in 1.9.1, when there was only one, so a
+	 * site that had already set a position keeps its vendor profiles exactly as they were. Listing
+	 * pages fall back to the default placement until their own box is filled in.
+	 *
+	 * @param string $model Either `vendor` or `listing`.
 	 * @return int Zero to sit with the other action buttons.
 	 */
-	public function get_button_position() {
-		$position = get_option( 'hp_gallery_button_position' );
+	public function get_button_position( $model = 'vendor' ) {
+		$model    = 'listing' === $model ? 'listing' : 'vendor';
+		$option   = 'listing' === $model ? 'hp_gallery_button_position_listings' : 'hp_gallery_button_position';
+		$position = get_option( $option );
 
 		$position = is_numeric( $position ) ? absint( $position ) : 0;
 
@@ -1061,9 +1068,10 @@ final class Agl_Gallery extends Component {
 		 *
 		 * @hook hp_agl/button_position
 		 * @param {int} $position Sidebar order, 0 to sit inside the primary actions container.
+		 * @param {string} $model Page type, either `vendor` or `listing`.
 		 * @return {int} Sidebar order.
 		 */
-		return absint( apply_filters( 'hp_agl/button_position', $position ) );
+		return absint( apply_filters( 'hp_agl/button_position', $position, $model ) );
 	}
 
 	/**
@@ -1073,7 +1081,7 @@ final class Agl_Gallery extends Component {
 	 * @return array
 	 */
 	public function alter_listing_view_page( $template ) {
-		return hivepress()->template->merge_blocks( $template, $this->get_gallery_link_blocks() );
+		return hivepress()->template->merge_blocks( $template, $this->get_gallery_link_blocks( 'listing' ) );
 	}
 
 	/**

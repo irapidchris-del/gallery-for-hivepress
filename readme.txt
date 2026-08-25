@@ -5,7 +5,7 @@ Requires at least: 5.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: hivepress
-Stable tag: 1.9.1
+Stable tag: 1.9.2
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -286,6 +286,14 @@ Your OpenAI API key is left alone either way, because other extensions share it.
 Older entries are in changelog.txt, which ships with the plugin. WordPress truncates this
 section at 5,000 characters, so only the most recent releases are repeated here.
 
+= 1.9.2 =
+* Fixed: the Gallery Button Position setting added in 1.9.1 was a single box governing both vendor
+  profiles and listing pages, and the two sidebars number their blocks differently, so one figure
+  could not hold the same place on each. 24 clears social links on a profile but sits below both
+  social links and the action buttons on a listing. There are now two boxes, one per page type, each
+  listing that page's own landmarks. A position already set stays with vendor profiles; listing pages
+  return to the default placement until their box is filled in.
+
 = 1.9.1 =
 * Fixed: switching "What Access Buys" between the whole gallery and each folder left the other
   choice's products on sale. They are catalogue-hidden but their checkout links keep working, so a
@@ -300,41 +308,4 @@ section at 5,000 characters, so only the most recent releases are repeated here.
   that puts itself above the action buttons and pushed the gallery button below them.
 * Fixed: the changelog and short description in this readme were being silently truncated, because
   WordPress caps them at 5,000 and 150 characters. Older entries have moved to changelog.txt.
-
-= 1.9.0 =
-* Added: gallery and folder pages can now have a sidebar of their own, on either side, each with its
-  own widget area under Appearance, then Widgets. Both are off until you switch them on.
-* Added: a folder grid you control. Choose how many columns of folder covers a full-width screen
-  shows, whether covers are cropped horizontal, vertical or square, and how many rows to show where a
-  gallery is embedded in a vendor profile or a listing (with a link to the full gallery for the rest).
-  Narrow screens always show fewer columns, so a phone is never asked to draw six.
-* Added: an option for what one paid unlock buys. It can be the vendor's whole gallery, as before, or
-  each folder separately, so a vendor can price individual folders and a buyer pays only for the one
-  they want. Prices set under one choice are kept if you switch to the other and back, and nobody
-  loses access they have already paid for.
-* Added: a "Gallery Settings" link in the top right of a gallery page, and a "Folder Settings" link on
-  a folder page, shown to the vendor who owns it and to the site owner. Visitors see nothing.
-* Added: vendors and site owners now see private folders on the public gallery page, marked Private,
-  with a note saying visitors do not see them. Everybody else sees exactly what they saw before. The
-  folders were already reachable by their own URL, but nothing linked to them.
-* Changed: the View Gallery button now sits inside HivePress's own actions box on vendor profiles and
-  listings, beside Send Message, instead of floating below it with a gap of its own.
-* Changed: gallery folders moved in wp-admin from under HivePress to Vendors, where they belong.
-* Changed: the folder edit screen has one owner control instead of two. WordPress's Author box is
-  gone, the Vendor field is no longer marked optional, and the post author follows the vendor on save.
-  Any folder whose author and vendor already disagreed is put right on upgrade.
-* Changed: the folder edit screen's Settings box is now called Gallery Settings.
-* Changed: the left-or-right sidebar settings are radio buttons, so the empty "-" choice that read as
-  a third position is gone.
-* Changed: layout, lightbox and sidebar settings moved out of General into a new Gallery Pages
-  section. No option name or stored value changes.
-* Changed: names and avatars on photo comments now link to that person's profile, where the site
-  publishes one.
-* Changed: the Manage Photo description box no longer mentions alt text in its placeholder.
-* Fixed: every "Members only" badge now carries a padlock. Folder covers and the vendor's own folder
-  list showed the words alone while the folder page and the single-page layout showed a padlock, so
-  the same state looked like two different states on one site.
-* Fixed: the "New Folder" heading on the account gallery page, and the "Paid Access" and "Delete
-  Folder" headings, now use HivePress's own section heading, so they get the accent rule above them
-  that every other heading on the page has.
 

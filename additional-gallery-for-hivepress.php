@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Additional Gallery for HivePress
  * Description: Gives vendors a front-end photo gallery with public, members-only and private folders, accessible from the account menu and linked from vendor profiles and listings.
- * Version: 1.9.1
+ * Version: 1.9.2
  * Author: ChrisB @ HivePress Community
  * Author URI: https://community.hivepress.io/u/chrisb/summary
  * Text Domain: additional-gallery-for-hivepress
@@ -22,7 +22,7 @@ defined( 'ABSPATH' ) || exit;
 
 // Plugin constants.
 if ( ! defined( 'HP_AGL_VERSION' ) ) {
-	define( 'HP_AGL_VERSION', '1.9.1' );
+	define( 'HP_AGL_VERSION', '1.9.2' );
 }
 
 if ( ! defined( 'HP_AGL_FILE' ) ) {

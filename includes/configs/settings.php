@@ -44,21 +44,21 @@ return [
 				'_order'      => 100,
 
 				'fields'      => [
-					'gallery_hide_vendor_link'  => [
+					'gallery_hide_vendor_link'         => [
 						'label'   => esc_html__( 'Vendor Pages', 'additional-gallery-for-hivepress' ),
 						'caption' => esc_html__( 'Hide the gallery link on vendor profiles', 'additional-gallery-for-hivepress' ),
 						'type'    => 'checkbox',
 						'_order'  => 10,
 					],
 
-					'gallery_hide_listing_link' => [
+					'gallery_hide_listing_link'        => [
 						'label'   => esc_html__( 'Listing Pages', 'additional-gallery-for-hivepress' ),
 						'caption' => esc_html__( 'Hide the gallery link on listing pages', 'additional-gallery-for-hivepress' ),
 						'type'    => 'checkbox',
 						'_order'  => 20,
 					],
 
-					'gallery_show_on_vendors'   => [
+					'gallery_show_on_vendors'          => [
 						'label'       => esc_html__( 'Gallery on Vendor Profiles', 'additional-gallery-for-hivepress' ),
 						'caption'     => esc_html__( 'Show the gallery on vendor profiles', 'additional-gallery-for-hivepress' ),
 						'description' => esc_html__( 'Adds a Gallery section to a vendor profile, below their listings, showing their folders in place rather than only linking to them. Vendors with no gallery get no section at all. This is separate from the sidebar button above, so you can have either, both or neither.', 'additional-gallery-for-hivepress' ),
@@ -66,7 +66,7 @@ return [
 						'_order'      => 26,
 					],
 
-					'gallery_show_on_listings'  => [
+					'gallery_show_on_listings'         => [
 						'label'       => esc_html__( 'Gallery on Listings', 'additional-gallery-for-hivepress' ),
 						'caption'     => esc_html__( 'Show the gallery on listing pages', 'additional-gallery-for-hivepress' ),
 						'description' => esc_html__( 'Adds a Gallery section to the foot of every listing by that vendor, after the tags and before the reviews. Useful where the work itself is what sells the listing. Vendors with no gallery get no section at all.', 'additional-gallery-for-hivepress' ),
@@ -74,7 +74,7 @@ return [
 						'_order'      => 27,
 					],
 
-					'gallery_show_button_count' => [
+					'gallery_show_button_count'        => [
 						'label'       => esc_html__( 'Gallery Button', 'additional-gallery-for-hivepress' ),
 						'caption'     => esc_html__( 'Show the photo count on the View Gallery button', 'additional-gallery-for-hivepress' ),
 						'description' => esc_html__( 'With this off, the sidebar button simply reads "View Gallery".', 'additional-gallery-for-hivepress' ),
@@ -84,28 +84,42 @@ return [
 					],
 
 					/*
-					 * One number rather than a placement choice plus a position box, because a
-					 * second box that only applies to one of the choices is a box that does nothing
-					 * on most screens, and the settings notes are explicit that a setting which
-					 * silently does nothing is the shape of bug to avoid. Empty has a stated meaning
-					 * here and is the default, so every state of this field is live.
+					 * One box per page type, not one shared box, because the two sidebars are
+					 * numbered on different scales and the same figure lands somewhere different in
+					 * each. On a vendor profile: summary 10, details 20, social links 25, action
+					 * buttons 30. On a listing: details 10, social links 15, action buttons 20,
+					 * vendor card 30. So 24 clears social links on a profile and lands BELOW both
+					 * social links and the action buttons on a listing. 1.9.1 shipped a single box
+					 * for both and could not express the same relative position on the two pages.
 					 *
-					 * It exists because where the button belongs genuinely depends on the site. Sat
-					 * with the other actions it inherits their spacing, which is what it is for; but
-					 * HivePress Social Links puts itself at 25 on a profile and 15 on a listing,
-					 * both ABOVE the action buttons, so on a site using it the button lands lower
-					 * than its owner may want and no amount of spacing work fixes that.
+					 * A number rather than a placement choice plus a position box: a second box that
+					 * applies to only one of the choices is a box that does nothing on most screens,
+					 * and the settings notes are explicit that a setting which silently does nothing
+					 * is the shape of bug to avoid. Empty has a stated meaning here and is the
+					 * default, so every state of both fields is live.
+					 *
+					 * The vendor box keeps the option name 1.9.1 gave it, so a site that had already
+					 * set one keeps its profiles exactly as they were.
 					 */
-					'gallery_button_position'   => [
-						'label'       => esc_html__( 'Gallery Button Position', 'additional-gallery-for-hivepress' ),
-						'description' => esc_html__( 'Where the View Gallery button sits in the sidebar of vendor profiles and listing pages. Leave empty and it sits with the other action buttons beside Send Message, sharing their spacing, which suits most sites. Enter a number to give it a place of its own instead, where a lower number sits higher up. On a vendor profile the summary card is 10, the details are 20, social links are 25 and the action buttons are 30, so 24 places the button just above social links. On a listing page social links are 15 and the action buttons are 20.', 'additional-gallery-for-hivepress' ),
+					'gallery_button_position'          => [
+						'label'       => esc_html__( 'Gallery Button Position (Vendor Pages)', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Where the View Gallery button sits in the sidebar of a vendor profile. Leave empty and it sits with the other action buttons beside Send Message, sharing their spacing, which suits most sites. Enter a number to give it a place of its own instead, where a lower number sits higher up. On a vendor profile the summary card is 10, the details are 20, social links are 25 and the action buttons are 30, so 24 places the button just above social links.', 'additional-gallery-for-hivepress' ),
 						'type'        => 'number',
 						'min_value'   => 1,
 						'max_value'   => 1000,
 						'_order'      => 23,
 					],
 
-					'gallery_max_folders'       => [
+					'gallery_button_position_listings' => [
+						'label'       => esc_html__( 'Gallery Button Position (Listing Pages)', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'The same choice for a listing page, which is numbered differently, so it gets a box of its own. Leave empty and the button sits with the other action buttons. Enter a number to give it a place of its own, where a lower number sits higher up. On a listing page the details are 10, social links are 15, the action buttons are 20 and the vendor card is 30, so 14 places the button just above social links.', 'additional-gallery-for-hivepress' ),
+						'type'        => 'number',
+						'min_value'   => 1,
+						'max_value'   => 1000,
+						'_order'      => 24,
+					],
+
+					'gallery_max_folders'              => [
 						'label'       => esc_html__( 'Maximum Folders', 'additional-gallery-for-hivepress' ),
 						'description' => esc_html__( 'Set the maximum number of gallery folders per vendor. Leave empty for no limit. A membership plan can raise or lower this per plan.', 'additional-gallery-for-hivepress' ),
 						'type'        => 'number',
@@ -113,7 +127,7 @@ return [
 						'_order'      => 30,
 					],
 
-					'gallery_max_images'        => [
+					'gallery_max_images'               => [
 						'label'       => esc_html__( 'Maximum Images per Folder', 'additional-gallery-for-hivepress' ),
 						'description' => esc_html__( 'Set the maximum number of images allowed in each folder. Leave empty for the default of 30. A membership plan can raise or lower this per plan.', 'additional-gallery-for-hivepress' ),
 						'type'        => 'number',
@@ -121,14 +135,14 @@ return [
 						'_order'      => 40,
 					],
 
-					'gallery_allow_video'       => [
+					'gallery_allow_video'              => [
 						'label'   => esc_html__( 'Videos', 'additional-gallery-for-hivepress' ),
 						'caption' => esc_html__( 'Allow uploading videos', 'additional-gallery-for-hivepress' ),
 						'type'    => 'checkbox',
 						'_order'  => 45,
 					],
 
-					'gallery_enable_likes'      => [
+					'gallery_enable_likes'             => [
 						'label'       => esc_html__( 'Likes', 'additional-gallery-for-hivepress' ),
 						'caption'     => esc_html__( 'Let visitors like individual photos', 'additional-gallery-for-hivepress' ),
 						'description' => esc_html__( 'Adds a heart button to every photo, with a count everyone can see. Only signed-in visitors can like, and each person can like a photo once.', 'additional-gallery-for-hivepress' ),
@@ -137,7 +151,7 @@ return [
 						'_order'      => 46,
 					],
 
-					'gallery_ai_moderation'     => [
+					'gallery_ai_moderation'            => [
 						'label'       => esc_html__( 'AI Moderation', 'additional-gallery-for-hivepress' ),
 						'caption'     => esc_html__( 'Review the first ten photos in each folder with AI', 'additional-gallery-for-hivepress' ),
 						'description' => esc_html__( 'Checks a folder\'s photos with OpenAI when the vendor saves the folder, using the API key from the HivePress Integrations settings. The first ten photos in the folder are checked together in one free request; any beyond the tenth are not checked. OpenAI fetches each photo from your site, so this only covers public folders: photos in private and members-only folders are skipped while Protect Files is on, because their files are not served at a public address. Your site must also be publicly reachable, so on local or private sites, and whenever the service is unavailable, saving simply proceeds unchecked.', 'additional-gallery-for-hivepress' ),
@@ -145,7 +159,7 @@ return [
 						'_order'      => 47,
 					],
 
-					'gallery_enable_comments'   => [
+					'gallery_enable_comments'          => [
 						'label'       => esc_html__( 'Comments', 'additional-gallery-for-hivepress' ),
 						'caption'     => esc_html__( 'Let visitors comment on individual photos', 'additional-gallery-for-hivepress' ),
 						'description' => esc_html__( 'Every photo gets its own page with a comment thread beneath it, where signed-in visitors can comment, reply and like comments. People can delete their own comments, and the folder owner can delete any comment on their photos.', 'additional-gallery-for-hivepress' ),
@@ -154,7 +168,7 @@ return [
 						'_order'      => 48,
 					],
 
-					'gallery_protect_files'     => [
+					'gallery_protect_files'            => [
 						'label'       => esc_html__( 'Protect Files', 'additional-gallery-for-hivepress' ),
 						'caption'     => esc_html__( 'Protect private and members-only image files', 'additional-gallery-for-hivepress' ),
 						'description' => esc_html__( 'Moves the files in private and members-only folders out of the folder your web server publishes, and serves them through an access-checked link instead, so there is no direct address to open. New uploads also get unguessable file names, and gallery images are excluded from public media API results. Recommended. If the files cannot be moved out on your hosting, a notice above says so and explains what to do.', 'additional-gallery-for-hivepress' ),
@@ -163,7 +177,7 @@ return [
 						'_order'      => 90,
 					],
 
-					'gallery_button_radius'     => [
+					'gallery_button_radius'            => [
 						'label'       => esc_html__( 'Button Corner Rounding (px)', 'additional-gallery-for-hivepress' ),
 						'description' => esc_html__( 'Rounds the corners of every button this plugin adds, so they match the rest of your site. Leave it empty and each button keeps whatever shape your theme gives it, which is right on most sites. Set 0 for square corners, or a larger number for rounder ones.', 'additional-gallery-for-hivepress' ),
 						'type'        => 'number',
@@ -172,7 +186,7 @@ return [
 						'_order'      => 46,
 					],
 
-					'gallery_max_filesize'      => [
+					'gallery_max_filesize'             => [
 						'label'       => esc_html__( 'Maximum File Size (MB)', 'additional-gallery-for-hivepress' ),
 						'description' => esc_html__( 'Reject gallery uploads larger than this many megabytes. Leave empty for no gallery-specific limit (the server upload limit still applies).', 'additional-gallery-for-hivepress' ),
 						'type'        => 'number',
@@ -180,7 +194,7 @@ return [
 						'_order'      => 100,
 					],
 
-					'gallery_storage_limit'     => [
+					'gallery_storage_limit'            => [
 						'label'       => esc_html__( 'Storage Limit (MB)', 'additional-gallery-for-hivepress' ),
 						'description' => esc_html__( 'Cap the total disk space each vendor\'s gallery may use, counting every photo and its thumbnails. Vendors see their usage on their Gallery page. Leave empty for no cap. A membership plan can raise or lower this per plan.', 'additional-gallery-for-hivepress' ),
 						'type'        => 'number',
@@ -188,7 +202,7 @@ return [
 						'_order'      => 105,
 					],
 
-					'gallery_image_formats'     => [
+					'gallery_image_formats'            => [
 						'label'       => esc_html__( 'Allowed Image Formats', 'additional-gallery-for-hivepress' ),
 						'description' => esc_html__( 'Choose which image formats vendors may upload. Leave empty to allow all supported formats.', 'additional-gallery-for-hivepress' ),
 						'type'        => 'select',
@@ -203,7 +217,7 @@ return [
 						],
 					],
 
-					'gallery_max_dimensions'    => [
+					'gallery_max_dimensions'           => [
 						'label'       => esc_html__( 'Maximum Image Dimensions (pixels)', 'additional-gallery-for-hivepress' ),
 						'description' => esc_html__( 'Resize uploaded images so their width and height do not exceed this many pixels. Photos straight from a phone or camera are far bigger than any screen needs, so this is the single biggest saving; around 2000 suits most galleries. Leave empty to keep the original dimensions. For compression, WebP conversion and bulk work on images you already have, use a dedicated image plugin alongside this one.', 'additional-gallery-for-hivepress' ),
 						'type'        => 'number',
