@@ -19,6 +19,17 @@ defined( 'ABSPATH' ) || exit;
 class Agl_Gallery_Link extends Block {
 
 	/**
+	 * Whether the button stands on its own in the sidebar.
+	 *
+	 * Set from the template merge map (see Agl_Gallery::get_gallery_link_blocks()), which decides it
+	 * from the Gallery Button Position setting. Standalone means the button has to bring the widget
+	 * wrapper and spacing that core's actions container would otherwise have given it.
+	 *
+	 * @var bool
+	 */
+	protected $standalone = false;
+
+	/**
 	 * Renders block HTML.
 	 *
 	 * @return string
@@ -101,7 +112,10 @@ class Agl_Gallery_Link extends Block {
 		 * Three sets of classes, and all three are needed.
 		 *
 		 * `{model}__action` is the position: sibling spacing inside the actions container, plus
-		 * whatever the active theme does to the actions on that page.
+		 * whatever the active theme does to the actions on that page. It is dropped when the button
+		 * stands alone, because those rules are written as
+		 * `--view-page &__actions--primary &__action` (hivepress/assets/css/frontend.less:856-860,
+		 * :1124-1128) and match nothing outside that container anyway.
 		 *
 		 * `hp-button hp-button--wide` is HivePress's own structure: width:100%, inline-flex centring
 		 * and a 0.5rem margin on a leading icon (hivepress/assets/css/frontend.min.css). Dropping
@@ -114,8 +128,25 @@ class Agl_Gallery_Link extends Block {
 		 * (hivepress-messages/templates/vendor/view/page/message-send-link.php). `button--large` is
 		 * the one that sets the height; without it this sat visibly shorter than that button.
 		 */
-		$output .= '<a href="' . esc_url( $gallery_url ) . '" class="' . esc_attr( $prefix . '__action ' . $prefix . '__action--gallery' ) . ' hp-agl-link__button hp-button hp-button--wide button button--large button--primary alt"><i class="hp-icon fas fa-images"></i><span>' . esc_html( $label ) . '</span></a>';
+		$classes = 'hp-agl-link__button hp-button hp-button--wide button button--large button--primary alt';
 
-		return $output;
+		if ( ! $this->standalone ) {
+			$classes = $prefix . '__action ' . $prefix . '__action--gallery ' . $classes;
+		}
+
+		$button = '<a href="' . esc_url( $gallery_url ) . '" class="' . esc_attr( $classes ) . '"><i class="hp-icon fas fa-images"></i><span>' . esc_html( $label ) . '</span></a>';
+
+		/*
+		 * Standing on its own it needs the widget wrapper, which is what gives it the 2rem gap every
+		 * other sidebar block has (`hp-widget:not(:last-child)`, frontend.less:547-551). Inside the
+		 * actions container that wrapper is exactly what must NOT be there: the container is already
+		 * the widget, and nesting one inside another is what produced the disconnected gap Kseniia
+		 * reported.
+		 */
+		if ( $this->standalone ) {
+			return '<div class="hp-agl-link hp-widget widget">' . $button . '</div>';
+		}
+
+		return $button;
 	}
 }

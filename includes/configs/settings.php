@@ -83,6 +83,28 @@ return [
 						'_order'      => 22,
 					],
 
+					/*
+					 * One number rather than a placement choice plus a position box, because a
+					 * second box that only applies to one of the choices is a box that does nothing
+					 * on most screens, and the settings notes are explicit that a setting which
+					 * silently does nothing is the shape of bug to avoid. Empty has a stated meaning
+					 * here and is the default, so every state of this field is live.
+					 *
+					 * It exists because where the button belongs genuinely depends on the site. Sat
+					 * with the other actions it inherits their spacing, which is what it is for; but
+					 * HivePress Social Links puts itself at 25 on a profile and 15 on a listing,
+					 * both ABOVE the action buttons, so on a site using it the button lands lower
+					 * than its owner may want and no amount of spacing work fixes that.
+					 */
+					'gallery_button_position'   => [
+						'label'       => esc_html__( 'Gallery Button Position', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Where the View Gallery button sits in the sidebar of vendor profiles and listing pages. Leave empty and it sits with the other action buttons beside Send Message, sharing their spacing, which suits most sites. Enter a number to give it a place of its own instead, where a lower number sits higher up. On a vendor profile the summary card is 10, the details are 20, social links are 25 and the action buttons are 30, so 24 places the button just above social links. On a listing page social links are 15 and the action buttons are 20.', 'additional-gallery-for-hivepress' ),
+						'type'        => 'number',
+						'min_value'   => 1,
+						'max_value'   => 1000,
+						'_order'      => 23,
+					],
+
 					'gallery_max_folders'       => [
 						'label'       => esc_html__( 'Maximum Folders', 'additional-gallery-for-hivepress' ),
 						'description' => esc_html__( 'Set the maximum number of gallery folders per vendor. Leave empty for no limit. A membership plan can raise or lower this per plan.', 'additional-gallery-for-hivepress' ),

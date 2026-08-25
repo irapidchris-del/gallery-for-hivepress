@@ -170,6 +170,26 @@ final class Agl_Gallery extends Component {
 		add_filter( 'woocommerce_add_to_cart_redirect', [ $this, 'redirect_access_purchase_to_checkout' ], 10, 2 );
 
 		/*
+		 * Take an access product off sale the moment the site stops offering what it sells.
+		 *
+		 * Every one of these products is a real, published, catalogue-hidden WooCommerce product with
+		 * a working add-to-cart URL, and nothing about the gallery pages controls that URL. So when an
+		 * owner switches "What Access Buys" from the whole gallery to each folder, the whole-gallery
+		 * products carry on being purchasable at the price they last had, while no page on the site
+		 * offers them any more. Measured on staging 2026-08-25 after exactly that switch: three
+		 * products still answered `is_purchasable: true` at 5.00, 12.00 and 20.00, and buying one
+		 * would have granted access to the vendor's entire gallery, which is not what the site was
+		 * selling. It also looks precisely like stale pricing to whoever finds it, because the figures
+		 * are the ones from before the switch.
+		 *
+		 * `woocommerce_is_purchasable` is one hook rather than three because WC_Product::is_purchasable()
+		 * is what the classic cart, the Store API and the checkout all consult, so a single filter
+		 * covers every route in. Nothing is deleted and no price is touched: switch the setting back
+		 * and the same products are on sale again, unchanged.
+		 */
+		add_filter( 'woocommerce_is_purchasable', [ $this, 'filter_access_product_purchasable' ], 10, 2 );
+
+		/*
 		 * The site's cut of a gallery access sale. `woocommerce_cart_calculate_fees` is the one hook
 		 * the Store API honours as well as the classic cart, so the block checkout and the old one
 		 * show the same total; adding the fee anywhere else makes the two disagree.
@@ -975,21 +995,75 @@ final class Agl_Gallery extends Component {
 	 * @return array
 	 */
 	public function alter_vendor_view_page( $template ) {
-		return hivepress()->template->merge_blocks(
-			$template,
-			[
-				'vendor_actions_primary' => [
-					'blocks' => [
+		return hivepress()->template->merge_blocks( $template, $this->get_gallery_link_blocks() );
+	}
 
-						// After Messages' Send Message link, which core's own extension places at 10.
+	/**
+	 * Builds the merge map that places the View Gallery button.
+	 *
+	 * Two placements, chosen by the Gallery Button Position setting, and the block is told which one
+	 * it is in because the markup differs: inside the actions container it must be a bare `__action`
+	 * so core's sibling spacing reaches it, while on its own it has to carry the widget classes that
+	 * container would otherwise have supplied.
+	 *
+	 * The same map serves vendor profiles and listing pages. `merge_blocks()` walks the template and
+	 * merges whichever of these keys it finds, so naming both containers is harmless on a page that
+	 * has only one of them.
+	 *
+	 * @return array
+	 */
+	protected function get_gallery_link_blocks() {
+		$position = $this->get_button_position();
+
+		if ( $position ) {
+			return [
+				'page_sidebar' => [
+					'blocks' => [
 						'gallery_link' => [
-							'type'   => 'agl_gallery_link',
-							'_order' => 15,
+							'type'       => 'agl_gallery_link',
+							'standalone' => true,
+							'_order'     => $position,
 						],
 					],
 				],
-			]
-		);
+			];
+		}
+
+		// After Messages' Send Message link, which core's own extension places at 10, and before
+		// core's own Report link on a listing, which it places at 1000.
+		$block = [
+			'blocks' => [
+				'gallery_link' => [
+					'type'   => 'agl_gallery_link',
+					'_order' => 15,
+				],
+			],
+		];
+
+		return [
+			'vendor_actions_primary'  => $block,
+			'listing_actions_primary' => $block,
+		];
+	}
+
+	/**
+	 * Gets the sidebar position of the View Gallery button.
+	 *
+	 * @return int Zero to sit with the other action buttons.
+	 */
+	public function get_button_position() {
+		$position = get_option( 'hp_gallery_button_position' );
+
+		$position = is_numeric( $position ) ? absint( $position ) : 0;
+
+		/**
+		 * Filters where the View Gallery button sits in a vendor or listing sidebar.
+		 *
+		 * @hook hp_agl/button_position
+		 * @param {int} $position Sidebar order, 0 to sit inside the primary actions container.
+		 * @return {int} Sidebar order.
+		 */
+		return absint( apply_filters( 'hp_agl/button_position', $position ) );
 	}
 
 	/**
@@ -999,26 +1073,7 @@ final class Agl_Gallery extends Component {
 	 * @return array
 	 */
 	public function alter_listing_view_page( $template ) {
-		return hivepress()->template->merge_blocks(
-			$template,
-			[
-				'listing_actions_primary' => [
-					'blocks' => [
-
-						/*
-						 * Between Messages' Send Message link at 10 and core's own Report link at
-						 * 1000 (hivepress/includes/templates/class-listing-view-page.php:216-220),
-						 * so the gallery button sits with the things a visitor might want to do and
-						 * the report stays last.
-						 */
-						'gallery_link' => [
-							'type'   => 'agl_gallery_link',
-							'_order' => 15,
-						],
-					],
-				],
-			]
-		);
+		return hivepress()->template->merge_blocks( $template, $this->get_gallery_link_blocks() );
 	}
 
 	/**
@@ -5173,6 +5228,50 @@ final class Agl_Gallery extends Component {
 	 */
 	public function is_paid_access_enabled() {
 		return (bool) get_option( 'hp_gallery_enable_paid_access' ) && class_exists( 'WooCommerce' );
+	}
+
+	/**
+	 * Takes a gallery access product off sale when the site no longer offers what it sells.
+	 *
+	 * Three states end a sale, and each one leaves the product itself in place so that reversing the
+	 * setting reverses this with no data to rebuild:
+	 *
+	 * 1. Paid access switched off altogether. Every access product stops selling.
+	 * 2. The site sells per folder, and this product sells a whole gallery.
+	 * 3. The site sells whole galleries, and this product sells one folder.
+	 *
+	 * A product with no `hp_agl_vendor` marker is not ours and is returned untouched, which is the
+	 * first thing checked because this filter runs for every product on the site.
+	 *
+	 * Note this deliberately does NOT reach orders already placed. `grant_paid_access()` reads what
+	 * the buyer paid for off the order line, so a purchase made while the offer stood is still
+	 * honoured in full even after the setting changes, which is the same rule the stamped period
+	 * already follows.
+	 *
+	 * @param bool        $purchasable Whether WooCommerce considers the product purchasable so far.
+	 * @param \WC_Product $product Product object.
+	 * @return bool
+	 */
+	public function filter_access_product_purchasable( $purchasable, $product ) {
+		if ( ! $purchasable || ! $product instanceof \WC_Product ) {
+			return $purchasable;
+		}
+
+		$product_id = absint( $product->get_id() );
+
+		if ( ! $product_id || ! get_post_meta( $product_id, 'hp_agl_vendor', true ) ) {
+			return $purchasable;
+		}
+
+		if ( ! $this->is_paid_access_enabled() ) {
+			return false;
+		}
+
+		// An absent folder marker means the product sells the vendor's whole gallery, which is also
+		// what every product created before per-folder pricing existed looks like.
+		$sells_one_folder = (bool) absint( get_post_meta( $product_id, 'hp_agl_folder', true ) );
+
+		return $sells_one_folder === $this->is_folder_access_scope();
 	}
 
 	/**
