@@ -672,6 +672,15 @@
 			body.append('price[]', '');
 		}
 
+		// Which folder these prices belong to, where the site prices folders separately. Absent on
+		// the account page, where the prices are the vendor's whole gallery and the endpoint expects
+		// no folder at all.
+		var priceFolder = form.getAttribute('data-agl-price-folder');
+
+		if (priceFolder) {
+			body.append('folder', priceFolder);
+		}
+
 		if (button) {
 			button.disabled = true;
 		}

@@ -43,8 +43,9 @@ class Agl_Gallery_View extends Block {
 		}
 
 		// Get access details.
-		$member_view    = hivepress()->agl_gallery->user_can_view_member_folders( $vendor );
-		$locked_display = hivepress()->agl_gallery->get_locked_display();
+		$gallery        = hivepress()->agl_gallery;
+		$manages        = $gallery->can_manage_gallery( $vendor );
+		$locked_display = $gallery->get_locked_display();
 
 		$output .= '<div class="hp-agl-gallery">';
 
@@ -53,7 +54,15 @@ class Agl_Gallery_View extends Block {
 			$profile_url = get_permalink( $vendor->get_id() );
 
 			if ( $profile_url ) {
-				/* translators: %s: vendor name. */
+				/*
+				 * The comment below says "person" rather than "vendor" because the identical string is
+				 * also used for a comment author (components/class-agl-gallery.php). Gettext keys on
+				 * the string, so the two share one entry whatever each site calls them, and two
+				 * disagreeing translator comments only make `wp i18n make-pot` warn and pick one.
+				 * This rationale is a separate comment so it stays out of the translator note itself.
+				 */
+
+				/* translators: %s: person's name. */
 				$output .= '<p class="hp-agl-gallery__profile"><a href="' . esc_url( $profile_url ) . '"><i class="hp-icon fas fa-arrow-left"></i> ' . esc_html( sprintf( __( 'View %s\'s profile', 'additional-gallery-for-hivepress' ), $vendor->get_name() ) ) . '</a></p>';
 			}
 		}
@@ -69,18 +78,26 @@ class Agl_Gallery_View extends Block {
 			}
 		}
 
-		$updated_time = hivepress()->agl_gallery->get_updated_time( $folder_ids );
+		$updated_time = $gallery->get_updated_time( $folder_ids );
 
 		if ( $updated_time ) {
 			/* translators: %s: human-readable time difference. */
 			$output .= '<p class="hp-agl-gallery__updated hp-meta"><i class="hp-icon fas fa-clock"></i> ' . esc_html( sprintf( __( 'Updated %s ago', 'additional-gallery-for-hivepress' ), human_time_diff( $updated_time ) ) ) . '</p>';
 		}
 
+		/*
+		 * Whether any private folder is on show, which only ever happens for the vendor themselves or
+		 * a site owner. It is said out loud below the grid, because a private folder looks exactly
+		 * like a public one here and a vendor checking how their gallery reads to a stranger has no
+		 * other way of knowing that what they are looking at is not what a stranger sees.
+		 */
+		$showed_private = false;
+
 		// Render folders.
 		$rendered = 0;
 
 		if ( $folders ) {
-			if ( 'single' === hivepress()->agl_gallery->get_layout() ) {
+			if ( 'single' === $gallery->get_layout() ) {
 
 				// Single page: every folder expanded.
 				foreach ( $folders as $folder ) {
@@ -92,11 +109,17 @@ class Agl_Gallery_View extends Block {
 						continue;
 					}
 
+					$visibility = $gallery->get_effective_visibility( $folder );
+
 					// Check folder access.
-					$locked = 'members' === hivepress()->agl_gallery->get_effective_visibility( $folder ) && ! $member_view;
+					$locked = 'members' === $visibility && ! $gallery->user_can_view_folder( $folder, $vendor );
 
 					if ( $locked && 'hide' === $locked_display ) {
 						continue;
+					}
+
+					if ( 'private' === $visibility ) {
+						$showed_private = true;
 					}
 
 					++$rendered;
@@ -107,10 +130,12 @@ class Agl_Gallery_View extends Block {
 					$output .= '<h2 class="hp-agl-gallery__folder-title">' . esc_html( $folder->get_title() );
 
 					if ( $locked ) {
-						$output .= ' <span class="hp-status hp-status--pending"><span><i class="hp-icon fas fa-lock"></i> ' . esc_html__( 'Members only', 'additional-gallery-for-hivepress' ) . '</span></span>';
+						$output .= ' ' . $gallery->render_members_badge();
+					} elseif ( 'private' === $visibility ) {
+						$output .= ' ' . $gallery->render_private_badge();
 					}
 
-					$output .= ' <a href="' . esc_url( hivepress()->agl_gallery->get_folder_url( $folder ) ) . '" class="hp-agl-gallery__folder-link" title="' . esc_attr__( 'Folder link', 'additional-gallery-for-hivepress' ) . '"><i class="hp-icon fas fa-link"></i></a>';
+					$output .= ' <a href="' . esc_url( $gallery->get_folder_url( $folder ) ) . '" class="hp-agl-gallery__folder-link" title="' . esc_attr__( 'Folder link', 'additional-gallery-for-hivepress' ) . '"><i class="hp-icon fas fa-link"></i></a>';
 					$output .= '</h2>';
 
 					if ( $folder->get_description() ) {
@@ -119,14 +144,14 @@ class Agl_Gallery_View extends Block {
 
 					if ( $locked ) {
 						/* translators: %s: media counts. */
-						$output .= '<p class="hp-agl-gallery__folder-locked-note">' . esc_html( sprintf( __( 'This folder contains %s.', 'additional-gallery-for-hivepress' ), hivepress()->agl_gallery->get_media_count_label( hivepress()->agl_gallery->get_media_counts( $folder ) ) ) ) . '</p>';
+						$output .= '<p class="hp-agl-gallery__folder-locked-note">' . esc_html( sprintf( __( 'This folder contains %s.', 'additional-gallery-for-hivepress' ), $gallery->get_media_count_label( $gallery->get_media_counts( $folder ) ) ) ) . '</p>';
 					}
 
-					$output .= hivepress()->agl_gallery->render_folder_media( $folder, $locked );
+					$output .= $gallery->render_folder_media( $folder, $locked );
 
 					// Unlock actions: buy access and/or upgrade a membership.
 					if ( $locked ) {
-						$output .= hivepress()->agl_gallery->render_unlock_actions( $vendor );
+						$output .= $gallery->render_unlock_actions( $vendor, $folder );
 					}
 
 					$output .= '</section>';
@@ -134,7 +159,7 @@ class Agl_Gallery_View extends Block {
 			} else {
 
 				// Folder covers linking to folder pages.
-				$output .= '<div class="hp-agl-covers">';
+				$covers = '';
 
 				foreach ( $folders as $folder ) {
 					if ( ! $folder instanceof \HivePress\Models\Gallery_Folder ) {
@@ -145,66 +170,37 @@ class Agl_Gallery_View extends Block {
 						continue;
 					}
 
+					$visibility = $gallery->get_effective_visibility( $folder );
+
 					// Check folder access.
-					$locked = 'members' === hivepress()->agl_gallery->get_effective_visibility( $folder ) && ! $member_view;
+					$locked = 'members' === $visibility && ! $gallery->user_can_view_folder( $folder, $vendor );
 
 					if ( $locked && 'hide' === $locked_display ) {
 						continue;
 					}
 
+					if ( 'private' === $visibility ) {
+						$showed_private = true;
+					}
+
 					++$rendered;
 
-					// Get the cover image.
-					$cover    = '';
-					$cover_id = hivepress()->agl_gallery->get_folder_cover_id( $folder );
-
-					if ( $locked ) {
-						$teaser_url = null;
-
-						if ( 'blur' === $locked_display && $cover_id ) {
-							$teaser_url = hivepress()->agl_gallery->get_teaser_url( $cover_id );
-						}
-
-						if ( $teaser_url ) {
-							$cover = '<img src="' . esc_url( $teaser_url ) . '" alt="" loading="lazy">';
-						}
-					} elseif ( $cover_id ) {
-						$cover = wp_get_attachment_image(
-							$cover_id,
-							'medium_large',
-							false,
-							[
-								'loading' => 'lazy',
-								'alt'     => $folder->get_title(),
-							]
-						);
-					}
-
-					$output .= '<a href="' . esc_url( hivepress()->agl_gallery->get_folder_url( $folder ) ) . '" class="hp-agl-cover' . ( $locked ? ' hp-agl-cover--locked' : '' ) . '">';
-					$output .= '<span class="hp-agl-cover__image' . ( $cover ? '' : ' hp-agl-cover__image--placeholder' ) . '">' . $cover;
-
-					if ( $locked ) {
-						$output .= '<i class="hp-icon fas fa-lock"></i>';
-					}
-
-					$output .= '</span>';
-					$output .= '<span class="hp-agl-cover__title">' . esc_html( $folder->get_title() ) . '</span>';
-					$output .= '<span class="hp-agl-cover__count hp-meta">' . esc_html( hivepress()->agl_gallery->get_media_count_label( hivepress()->agl_gallery->get_media_counts( $folder ) ) ) . '</span>';
-
-					if ( $locked ) {
-						$output .= '<span class="hp-status hp-status--pending"><span>' . esc_html__( 'Members only', 'additional-gallery-for-hivepress' ) . '</span></span>';
-					}
-
-					$output .= '</a>';
+					$covers .= $gallery->render_folder_cover( $folder, $locked, $visibility );
 				}
 
-				$output .= '</div>';
+				if ( $covers ) {
+					$output .= '<div' . $gallery->get_covers_attributes() . '>' . $covers . '</div>';
+				}
 			}
 		}
 
 		// Empty state.
 		if ( ! $rendered ) {
 			$output .= '<p class="hp-agl-gallery__empty">' . esc_html__( 'This gallery has no photos yet. Check back soon!', 'additional-gallery-for-hivepress' ) . '</p>';
+		}
+
+		if ( $showed_private && $manages ) {
+			$output .= '<p class="hp-agl-gallery__private-note hp-meta"><i class="hp-icon fas fa-lock"></i> ' . esc_html__( 'Folders marked Private are shown here because this is your own gallery. Visitors do not see them at all.', 'additional-gallery-for-hivepress' ) . '</p>';
 		}
 
 		$output .= '</div>';

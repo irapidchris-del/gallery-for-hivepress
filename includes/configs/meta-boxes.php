@@ -44,7 +44,10 @@ return [
 	],
 
 	'gallery_folder_settings' => [
-		'title'  => hivepress()->translator->get_string( 'settings' ),
+
+		// Named rather than borrowing core's bare "Settings", which sat above a Vendor box and a
+		// Visibility box with nothing on screen saying what it was the settings of.
+		'title'  => esc_html__( 'Gallery Settings', 'additional-gallery-for-hivepress' ),
 		'screen' => 'gallery_folder',
 		'model'  => 'gallery_folder',
 
@@ -55,6 +58,15 @@ return [
 				'options'     => 'posts',
 				'option_args' => [ 'post_type' => 'hp_vendor' ],
 				'source'      => hivepress()->router->get_url( 'vendors_resource' ),
+
+				/*
+				 * Required, so the label reads "Vendor" and not "Vendor (optional)". HivePress adds
+				 * that suffix to every field that is not required (fields/class-field.php:228-230),
+				 * and it was wrong here twice over: a folder with no vendor appears in nobody's
+				 * gallery, and since the Author box went (see post-types.php) this is the only place
+				 * a folder's owner is set at all.
+				 */
+				'required'    => true,
 				'_alias'      => 'post_parent',
 				'_order'      => 10,
 			],

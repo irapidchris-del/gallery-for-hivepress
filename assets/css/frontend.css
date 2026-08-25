@@ -225,10 +225,71 @@ a.hp-agl-link__button.button--primary:focus {
    "Back to ..." link, for one), but HivePress lays a status pill out with flex,
    which drops the whitespace text node between the two children. So the gap has
    to be a margin. Scoped to this plugin's own badges rather than every
-   `.hp-status` on the site, which would restyle core pills too. */
+   `.hp-status` on the site, which would restyle core pills too.
+
+   Every place a pill can appear is listed, because the pill itself is now
+   rendered from one method and these four are where it lands: the folder page
+   badge, the single-page folder heading, a cover tile and a row of the vendor's
+   own folder list. Leaving one out is how the padlock came to show in some
+   pills and not others in the first place. */
 .hp-agl-gallery__folder-title-badge .hp-status .hp-icon,
-.hp-agl-gallery__folder-title .hp-status .hp-icon {
+.hp-agl-gallery__folder-title .hp-status .hp-icon,
+.hp-agl-cover .hp-status .hp-icon,
+.hp-agl-folder .hp-status .hp-icon {
 	margin-right: 0.5rem;
+}
+
+/* Said once, under a gallery that is showing folders only its owner can see. */
+.hp-agl-gallery__private-note {
+	margin-top: 1.5rem;
+	opacity: 0.85;
+}
+
+.hp-agl-gallery__private-note .hp-icon {
+	margin-right: 0.25rem;
+}
+
+/* --- Gallery settings quick link --- */
+
+/* Pushed to the trailing edge of the page header, above the title, which is
+   where a profile puts its own edit link. `flex-end` rather than `text-align`
+   so it works whichever direction the site reads in. */
+.hp-agl-settings-link {
+	display: flex;
+	justify-content: flex-end;
+}
+
+.hp-agl-settings-link__link {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	opacity: 0.7;
+	transition: opacity 0.15s ease;
+}
+
+.hp-agl-settings-link__link:hover,
+.hp-agl-settings-link__link:focus {
+	opacity: 1;
+}
+
+/* The header's own gap is 4rem (hivepress frontend.less:463-467), which is
+   right for a search form and far too much for one small link. Scoped to this
+   plugin's own pages through the template body class HivePress adds
+   (components/class-template.php:223-226), so no other page header moves. */
+body.hp-template--agl-gallery-view-page .hp-page__header:not(:last-child),
+body.hp-template--agl-gallery-folder-view-page .hp-page__header:not(:last-child) {
+	margin-bottom: 1rem;
+}
+
+/* --- Optional gallery and folder page sidebars --- */
+
+/* With the sidebar switched off, the content column keeps the grid classes core
+   put on it, because a template merge can only add classes and never remove
+   them. Two classes beat one, so this wins over `.hp-col-sm-8` on specificity
+   alone and needs neither !important nor a matching media query. */
+.hp-page__content.hp-agl-page--full {
+	flex-basis: 100%;
+	max-width: 100%;
 }
 
 /* --- Public gallery: single-page layout --- */
@@ -275,6 +336,40 @@ a.hp-agl-link__button.button--primary:focus {
 	gap: 1.5rem;
 }
 
+/* A fixed column count, when the owner has set one. The number arrives as a
+   custom property on the element rather than as a class per number, because the
+   two breakpoints below have to read the same figure.
+
+   Small screens are never given the owner's number. Six columns on a phone is
+   six unreadable thumbnails, and the point of the setting is how a gallery looks
+   on a full-width screen. The breakpoints are HivePress's own (48em and 64em,
+   the only ones grid.min.css defines), so the grid changes shape where every
+   other grid on the page does. */
+.hp-agl-covers--fixed {
+	grid-template-columns: repeat(var(--hp-agl-cols, 3), minmax(0, 1fr));
+}
+
+@media only screen and (max-width: 63.99em) {
+	.hp-agl-covers--fixed {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@media only screen and (max-width: 47.99em) {
+	.hp-agl-covers--fixed {
+		grid-template-columns: repeat(1, minmax(0, 1fr));
+	}
+}
+
+/* Whatever does not fit under a row cap is reached from here. */
+.hp-agl-section__more {
+	margin-top: 1rem;
+}
+
+.hp-agl-section__more .hp-icon {
+	margin-left: 0.375rem;
+}
+
 .hp-agl-cover {
 	display: flex;
 	flex-direction: column;
@@ -283,13 +378,29 @@ a.hp-agl-link__button.button--primary:focus {
 	color: inherit;
 }
 
+/* The cover's shape is the owner's choice, expressed as a ratio the tile reads.
+   The declaration stays here with the horizontal default in it, so a cover still
+   has a shape on a page rendered before the setting was saved, and on any markup
+   that does not carry a shape class. */
 .hp-agl-cover__image {
 	position: relative;
 	display: block;
 	overflow: hidden;
 	border-radius: 6px;
-	aspect-ratio: 4 / 3;
+	aspect-ratio: var(--hp-agl-cover-ratio, 4 / 3);
 	background: #f2f2f2;
+}
+
+.hp-agl-covers--horizontal {
+	--hp-agl-cover-ratio: 4 / 3;
+}
+
+.hp-agl-covers--vertical {
+	--hp-agl-cover-ratio: 3 / 4;
+}
+
+.hp-agl-covers--square {
+	--hp-agl-cover-ratio: 1 / 1;
 }
 
 .hp-agl-cover__image img {

@@ -69,9 +69,24 @@ class Agl_Gallery_Folder_Edit extends Block {
 		$output .= ( new Forms\Agl_Gallery_Folder_Update( [ 'model' => $folder ] ) )->render();
 		$output .= '<p class="hp-meta hp-agl-folder-edit__hint-edit">' . esc_html__( 'To edit a photo\'s title and description, move it to another folder, or delete it, open the photo\'s own page from your gallery and use the Manage Photo options.', 'additional-gallery-for-hivepress' ) . '</p>';
 
+		/*
+		 * This folder's own prices, where the site sells access folder by folder. Only a members-only
+		 * folder is ever locked, so only a members-only folder has anything to charge for; on any
+		 * other folder the panel would be a price nobody could ever be asked to pay.
+		 * render_price_panel() itself returns nothing under the whole-gallery scope, where these
+		 * prices live on the account gallery page instead.
+		 */
+		if ( 'members' === $folder->get_visibility() ) {
+			$vendor = \HivePress\Models\Vendor::query()->get_by_id( $folder->get_vendor__id() );
+
+			if ( $vendor ) {
+				$output .= hivepress()->agl_gallery->render_price_panel( $vendor, $folder );
+			}
+		}
+
 		// Delete section.
 		$output .= '<div class="hp-agl-folder-edit__delete">';
-		$output .= '<h3>' . esc_html__( 'Delete Folder', 'additional-gallery-for-hivepress' ) . '</h3>';
+		$output .= '<h3 class="hp-section__title">' . esc_html__( 'Delete Folder', 'additional-gallery-for-hivepress' ) . '</h3>';
 		$output .= ( new Forms\Agl_Gallery_Folder_Delete( [ 'model' => $folder ] ) )->render();
 		$output .= '</div>';
 

@@ -15,9 +15,27 @@ return [
 	'gallery_folder' => [
 		'public'           => false,
 		'show_ui'          => true,
-		'show_in_menu'     => 'hp_settings',
+
+		/*
+		 * Listed under Vendors rather than HivePress. A gallery folder belongs to exactly one vendor
+		 * and is only ever reached by way of one, so it sits beside the vendors themselves rather
+		 * than in the settings menu, where it was one unrelated entry among emails and templates.
+		 * The value is the parent menu's own slug, which for a post type menu is its edit screen.
+		 */
+		'show_in_menu'     => 'edit.php?post_type=hp_vendor',
 		'delete_with_user' => false,
-		'supports'         => [ 'title', 'editor', 'author' ],
+
+		/*
+		 * No `author` support, deliberately, and matching how core declares `hp_listing` and
+		 * `hp_vendor` (hivepress/includes/configs/post-types.php:60, :86). WordPress's Author box and
+		 * the Vendor field beside it are two controls for one thing, and an admin who set them to
+		 * different people got a folder whose owner and whose vendor disagreed: the front-end owner
+		 * checks read the post author, while every listing and count reads the vendor. The vendor is
+		 * the single control now, and Agl_Gallery::sync_folder_author() writes the post author to
+		 * match it on save, which is the same rule core applies to a listing
+		 * (components/class-listing.php:122-128).
+		 */
+		'supports'         => [ 'title', 'editor' ],
 
 		'labels'           => [
 			'name'               => esc_html__( 'Gallery Folders', 'additional-gallery-for-hivepress' ),

@@ -121,13 +121,21 @@ class Agl_Gallery_Folders extends Block {
 					'private' => [ 'fa-lock', esc_html__( 'Private', 'additional-gallery-for-hivepress' ), 'draft' ],
 				];
 
-				$output     .= '<div class="hp-agl-folder" data-url="' . esc_url( $sort_url ) . '">';
-				$output     .= '<i class="hp-icon fas fa-grip-lines hp-agl-folder__handle" title="' . esc_attr__( 'Drag to reorder', 'additional-gallery-for-hivepress' ) . '"></i>';
-				$output     .= '<a href="' . esc_url( $edit_url ) . '" class="hp-agl-folder__link">';
-				$output     .= '<i class="hp-icon fas ' . esc_attr( $badges[ $visibility ][0] ) . '"></i>';
-				$output     .= '<span class="hp-agl-folder__title">' . esc_html( $folder->get_title() ) . '</span>';
-				$output     .= '</a>';
-				$output     .= '<span class="hp-status hp-status--' . esc_attr( $badges[ $visibility ][2] ) . '"><span>' . $badges[ $visibility ][1] . '</span></span>';
+				$output .= '<div class="hp-agl-folder" data-url="' . esc_url( $sort_url ) . '">';
+				$output .= '<i class="hp-icon fas fa-grip-lines hp-agl-folder__handle" title="' . esc_attr__( 'Drag to reorder', 'additional-gallery-for-hivepress' ) . '"></i>';
+				$output .= '<a href="' . esc_url( $edit_url ) . '" class="hp-agl-folder__link">';
+				$output .= '<i class="hp-icon fas ' . esc_attr( $badges[ $visibility ][0] ) . '"></i>';
+				$output .= '<span class="hp-agl-folder__title">' . esc_html( $folder->get_title() ) . '</span>';
+				$output .= '</a>';
+
+				// The members-only pill comes from the one place that renders it, so this row's badge
+				// carries the same padlock as the badge on the public gallery and the folder page.
+				if ( 'members' === $visibility ) {
+					$output .= hivepress()->agl_gallery->render_members_badge();
+				} else {
+					$output .= '<span class="hp-status hp-status--' . esc_attr( $badges[ $visibility ][2] ) . '"><span>' . $badges[ $visibility ][1] . '</span></span>';
+				}
+
 				$count_label = hivepress()->agl_gallery->get_media_count_label( hivepress()->agl_gallery->get_media_counts( $folder ) );
 
 				// Per-folder sizes only matter under a quota.
@@ -164,149 +172,27 @@ class Agl_Gallery_Folders extends Block {
 			$output .= '<p class="hp-agl-account__limit">' . esc_html( sprintf( _n( 'You have reached the limit of %s folder.', 'You have reached the limit of %s folders.', $max_folders, 'additional-gallery-for-hivepress' ), number_format_i18n( $max_folders ) ) ) . '</p>';
 		} else {
 			$output .= '<div class="hp-agl-account__create">';
-			$output .= '<h3>' . esc_html__( 'New Folder', 'additional-gallery-for-hivepress' ) . '</h3>';
+
+			/*
+			 * `hp-section__title` is core's own heading class, and it is what gives a heading the
+			 * accent rule above it that every theme draws in its own colour
+			 * (listinghive/style.css:681-698 draws it as a 45px bar). Without it this heading was the
+			 * only one on the account pages with nothing above it, which read as an unstyled leftover
+			 * rather than as a section of its own.
+			 */
+			$output .= '<h3 class="hp-section__title">' . esc_html__( 'New Folder', 'additional-gallery-for-hivepress' ) . '</h3>';
 			$output .= ( new Forms\Agl_Gallery_Folder_Create() )->render();
 			$output .= '</div>';
 		}
 
-		// Paid access pricing, when the site sells it.
-		if ( hivepress()->agl_gallery->is_paid_access_enabled() && hivepress()->agl_gallery->are_members_folders_enabled() ) {
-			$gallery    = hivepress()->agl_gallery;
-			$durations  = $gallery->get_access_durations();
-			$commission = $gallery->get_commission();
-			$max        = $gallery::MAX_TIERS;
-
-			// Every slot the vendor is already selling, in the order they will be shown.
-			$rows = [];
-
-			for ( $tier = 1; $tier <= $max; $tier++ ) {
-				$price = $gallery->get_access_price( $vendor->get_id(), $tier );
-
-				if ( $price ) {
-					$rows[] = [
-						'days'  => $gallery->get_tier_days( $vendor->get_id(), $tier ),
-						'price' => $price,
-					];
-				}
-			}
-
-			$output .= '<div class="hp-agl-account__paid">';
-			$output .= '<h3>' . esc_html__( 'Paid Access (optional)', 'additional-gallery-for-hivepress' ) . '</h3>';
-			$output .= '<p class="hp-meta">' . esc_html__( 'If you want to, you can charge visitors to unlock your members-only folders. Choose how long the access lasts and what it costs. Buyers pay through the normal checkout.', 'additional-gallery-for-hivepress' ) . '</p>';
-			$output .= '<p class="hp-meta">' . esc_html(
-				sprintf(
-					/* translators: %s: number of lengths. */
-					_n( 'You can offer %s length at a time.', 'You can offer up to %s lengths at a time, and buyers pick between them.', $max, 'additional-gallery-for-hivepress' ),
-					number_format_i18n( $max )
-				)
-			) . '</p>';
-
-			/*
-			 * The site's cut is stated here rather than left for the vendor to find in their
-			 * earnings. It is added to what the buyer pays, so the vendor still receives the figure
-			 * they type in, and saying so plainly stops it reading as a deduction.
-			 */
-			if ( $commission ) {
-				if ( $commission['rate'] && $commission['fee'] ) {
-					$note = sprintf(
-						/* translators: 1: percentage, 2: amount. */
-						__( 'Buyers also pay this site a fee of %1$s%% plus %2$s on top of your price. You receive the price you set.', 'additional-gallery-for-hivepress' ),
-						number_format_i18n( $commission['rate'], 2 ),
-						wp_strip_all_tags( wc_price( $commission['fee'] ) )
-					);
-				} elseif ( $commission['rate'] ) {
-					$note = sprintf(
-						/* translators: %s: percentage. */
-						__( 'Buyers also pay this site a fee of %s%% on top of your price. You receive the price you set.', 'additional-gallery-for-hivepress' ),
-						number_format_i18n( $commission['rate'], 2 )
-					);
-				} else {
-					$note = sprintf(
-						/* translators: %s: amount. */
-						__( 'Buyers also pay this site a fee of %s on top of your price. You receive the price you set.', 'additional-gallery-for-hivepress' ),
-						wp_strip_all_tags( wc_price( $commission['fee'] ) )
-					);
-				}
-
-				$output .= '<p class="hp-meta">' . esc_html( $note ) . '</p>';
-			}
-
-			$symbol = function_exists( 'get_woocommerce_currency_symbol' ) ? html_entity_decode( get_woocommerce_currency_symbol(), ENT_QUOTES, 'UTF-8' ) : '';
-
-			$output .= '<form class="hp-form hp-agl-account__price-form" data-agl-price-form data-agl-max="' . esc_attr( $max ) . '">';
-			$output .= '<div class="hp-agl-account__tiers" data-agl-tiers>';
-
-			// One row per length being sold, and an empty one to start from when none is.
-			$initial = $rows ? $rows : [
-				[
-					'days'  => null,
-					'price' => '',
-				],
-			];
-
-			foreach ( $initial as $row ) {
-				$output .= $this->render_price_row( $durations, $symbol, $row['days'], $row['price'] );
-			}
-
-			$output .= '</div>';
-
-			$output .= '<p class="hp-agl-account__tier-add"><a href="#" class="hp-agl-account__add-tier" data-agl-add-tier>' . esc_html__( '+ Add another length', 'additional-gallery-for-hivepress' ) . '</a></p>';
-			$output .= '<p class="hp-meta">' . esc_html__( 'To stop selling a length, remove its row and save.', 'additional-gallery-for-hivepress' ) . '</p>';
-			$output .= '<div class="hp-agl-account__price-row hp-agl-account__price-row--submit">';
-			$output .= '<button type="submit" class="hp-form__button button button--primary alt"><span>' . esc_html__( 'Save Access Pricing', 'additional-gallery-for-hivepress' ) . '</span></button>';
-			$output .= '</div>';
-			$output .= '<div class="hp-form__messages" data-agl-price-message></div>';
-			$output .= '</form>';
-
-			// The template the Add button clones. Kept out of the form so it is never submitted.
-			$output .= '<template data-agl-tier-template>' . $this->render_price_row( $durations, $symbol, null, '' ) . '</template>';
-			$output .= '</div>';
-		}
-
-		$output .= '</div>';
-
-		return $output;
-	}
-
-	/**
-	 * Renders one length-and-price row.
-	 *
-	 * @param array        $durations Lengths a vendor may choose from.
-	 * @param string       $symbol Currency symbol.
-	 * @param int|null     $days Chosen length, null for a blank row.
-	 * @param float|string $price Price, empty for a blank row.
-	 * @return string
-	 */
-	protected function render_price_row( $durations, $symbol, $days, $price ) {
-		$output = '<div class="hp-agl-account__tier" data-agl-tier>';
-
-		$output .= '<div class="hp-form__field hp-form__field--select">';
-		$output .= '<label class="hp-field__label">' . esc_html__( 'Access lasts', 'additional-gallery-for-hivepress' ) . '</label>';
-		$output .= '<select name="days[]" class="hp-field hp-field--select">';
-
-		foreach ( $durations as $value => $label ) {
-			$output .= '<option value="' . esc_attr( $value ) . '"' . selected( (string) $value, is_null( $days ) ? '' : (string) absint( $days ), false ) . '>' . esc_html( $label ) . '</option>';
-		}
-
 		/*
-		 * A length the owner has filtered away since this vendor chose it is added back for this
-		 * vendor only, and only while they are still selling it. Dropping it from the list would
-		 * silently change what they are selling the moment they saved anything at all.
+		 * Paid access pricing, when the site sells it AND sells it per vendor. Under "each folder
+		 * separately" the panel belongs on each folder's own edit page instead, and render_price_panel()
+		 * is what decides which of the two it is - passing no folder here is what asks it for the
+		 * whole-gallery prices.
 		 */
-		if ( ! is_null( $days ) && ! isset( $durations[ absint( $days ) ] ) ) {
-			$output .= '<option value="' . esc_attr( absint( $days ) ) . '" selected>' . esc_html( hivepress()->agl_gallery->get_duration_label( $days ) ) . '</option>';
-		}
+		$output .= hivepress()->agl_gallery->render_price_panel( $vendor );
 
-		$output .= '</select>';
-		$output .= '</div>';
-
-		$output .= '<div class="hp-form__field hp-form__field--number">';
-		/* translators: %s: currency symbol. */
-		$output .= '<label class="hp-field__label">' . esc_html( sprintf( __( 'Price (%s)', 'additional-gallery-for-hivepress' ), $symbol ) ) . '</label>';
-		$output .= '<input type="number" name="price[]" class="hp-field hp-field--number" min="0" step="0.01" value="' . esc_attr( '' === $price ? '' : (string) $price ) . '" placeholder="0.00">';
-		$output .= '</div>';
-
-		$output .= '<button type="button" class="hp-agl-account__tier-remove" data-agl-remove-tier aria-label="' . esc_attr__( 'Remove this length', 'additional-gallery-for-hivepress' ) . '"><i class="hp-icon fas fa-times"></i></button>';
 		$output .= '</div>';
 
 		return $output;

@@ -98,7 +98,15 @@ class Agl_Gallery_Photo_Manage extends Block {
 
 		$output .= '<div class="hp-form__field hp-form__field--textarea">';
 		$output .= '<label class="hp-field__label">' . esc_html__( 'Description', 'additional-gallery-for-hivepress' ) . ' <small>' . esc_html__( '(optional)', 'additional-gallery-for-hivepress' ) . '</small></label>';
-		$output .= '<textarea name="caption" class="hp-field hp-field--textarea" rows="4" maxlength="500" placeholder="' . esc_attr__( 'Describe this photo... The description shows here and under the thumbnail, and doubles as the image alt text.', 'additional-gallery-for-hivepress' ) . '">' . esc_textarea( $caption ) . '</textarea>';
+
+		/*
+		 * No mention of alt text. It is still what the description becomes, but "alt text" means
+		 * nothing to most of the people typing into this box, and a placeholder is read at the moment
+		 * somebody is deciding what to write - a sentence of jargon there is a sentence they have to
+		 * get past first. What it does for screen readers and search engines belongs in the
+		 * documentation, not in the box.
+		 */
+		$output .= '<textarea name="caption" class="hp-field hp-field--textarea" rows="4" maxlength="500" placeholder="' . esc_attr__( 'Describe this photo... It shows here and under the thumbnail.', 'additional-gallery-for-hivepress' ) . '">' . esc_textarea( $caption ) . '</textarea>';
 		$output .= '</div>';
 
 		// Move to another folder.

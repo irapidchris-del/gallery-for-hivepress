@@ -132,6 +132,14 @@ function hp_agl_uninstall_site( $delete_data ) {
 		'hp_gallery_show_on_listings',
 		'hp_gallery_show_on_vendors',
 
+		// Added in 1.9.0 with the gallery page display settings and the pricing scope.
+		'hp_gallery_columns',
+		'hp_gallery_rows',
+		'hp_gallery_cover_ratio',
+		'hp_gallery_page_sidebar',
+		'hp_gallery_folder_sidebar',
+		'hp_gallery_access_scope',
+
 		// Retired in 1.3.0, deleted again in case an upgrade never ran.
 		'hp_gallery_manage_plans',
 		'hp_gallery_view_plans',
@@ -265,12 +273,20 @@ function hp_agl_uninstall_site( $delete_data ) {
 	delete_metadata( 'post', 0, 'hp_agl_vendor', '', true );
 	delete_metadata( 'post', 0, 'hp_agl_period', '', true );
 	delete_metadata( 'post', 0, 'hp_agl_tier', '', true );
+	delete_metadata( 'post', 0, 'hp_agl_folder', '', true );
 
-	// 8. Remove purchased-access grants. The meta key embeds the vendor ID,
-	// so wildcard keys need SQL (with the underscores escaped).
+	/*
+	 * 8. Remove purchased-access grants. The meta key embeds the vendor ID, or the folder ID where
+	 * folders were priced separately, so wildcard keys need SQL (with the underscores escaped).
+	 *
+	 * Both prefixes are matched, and they have to be two separate patterns: the vendor pattern does
+	 * NOT match a folder key, because "faccess" is not "access". With only the first, a site that
+	 * had ever sold a single folder pass kept one row per buyer per folder after a delete that said
+	 * it was removing everything.
+	 */
 	global $wpdb;
 
-	$wpdb->query( "DELETE FROM {$wpdb->usermeta} WHERE meta_key LIKE 'hp\\_agl\\_access\\_%'" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- wildcard meta keys cannot be removed with the meta API.
+	$wpdb->query( "DELETE FROM {$wpdb->usermeta} WHERE meta_key LIKE 'hp\\_agl\\_access\\_%' OR meta_key LIKE 'hp\\_agl\\_faccess\\_%'" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- wildcard meta keys cannot be removed with the meta API.
 
 	// 9. Trash the gallery-access products this plugin created. Trashed, not
 	// deleted: order history may still reference them, and an admin can decide.

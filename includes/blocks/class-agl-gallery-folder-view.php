@@ -41,14 +41,18 @@ class Agl_Gallery_Folder_View extends Block {
 		$output .= '<p class="hp-agl-gallery__profile"><a href="' . esc_url( hivepress()->router->get_url( 'gallery_view_page', [ 'vendor_id' => $vendor->get_id() ] ) ) . '"><i class="hp-icon fas fa-arrow-left"></i> ' . esc_html( sprintf( __( 'Back to %s\'s gallery', 'additional-gallery-for-hivepress' ), $vendor->get_name() ) ) . '</a></p>';
 
 		// Folder details.
-		$locked = 'members' === hivepress()->agl_gallery->get_effective_visibility( $folder ) && ! hivepress()->agl_gallery->user_can_view_member_folders( $vendor );
+		$visibility = hivepress()->agl_gallery->get_effective_visibility( $folder );
+		$locked     = 'members' === $visibility && ! hivepress()->agl_gallery->user_can_view_folder( $folder, $vendor );
 
 		if ( $locked ) {
-			// Two spans open here and both must close. The outer hp-status span
-			// was left unclosed until 1.8.15, so the browser repaired it at the
-			// closing </p>: nothing looked wrong, but the markup was invalid and
-			// anything appended after the badge inherited the pill's styling.
-			$output .= '<p class="hp-agl-gallery__folder-title-badge"><span class="hp-status hp-status--pending"><span><i class="hp-icon fas fa-lock"></i> ' . esc_html__( 'Members only', 'additional-gallery-for-hivepress' ) . '</span></span></p>';
+			$output .= '<p class="hp-agl-gallery__folder-title-badge">' . hivepress()->agl_gallery->render_members_badge() . '</p>';
+		} elseif ( 'private' === $visibility ) {
+
+			// Only the owner and a site owner ever reach a private folder page; the redirect turns
+			// everybody else away (see redirect_gallery_folder_view_page). Saying so on the page
+			// stops a vendor mistaking their own view of it for what a visitor gets.
+			$output .= '<p class="hp-agl-gallery__folder-title-badge">' . hivepress()->agl_gallery->render_private_badge() . '</p>';
+			$output .= '<p class="hp-agl-gallery__private-note hp-meta">' . esc_html__( 'This folder is private, so only you can open this page. Visitors are sent back to the gallery.', 'additional-gallery-for-hivepress' ) . '</p>';
 		}
 
 		if ( $folder->get_description() ) {
@@ -72,7 +76,7 @@ class Agl_Gallery_Folder_View extends Block {
 
 		// Unlock actions: buy access and/or upgrade a membership.
 		if ( $locked ) {
-			$output .= hivepress()->agl_gallery->render_unlock_actions( $vendor );
+			$output .= hivepress()->agl_gallery->render_unlock_actions( $vendor, $folder );
 		}
 
 		$output .= '</div>';

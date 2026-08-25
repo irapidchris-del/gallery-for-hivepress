@@ -2,10 +2,10 @@
 Contributors: chrisb
 Tags: hivepress, gallery, vendors, portfolio, marketplace
 Requires at least: 5.8
-Tested up to: 7.0
+Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: hivepress
-Stable tag: 1.8.16
+Stable tag: 1.9.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -25,7 +25,7 @@ Vendors can:
 
 Visitors see a gallery of folder covers with an "Updated 2 days ago" line, and click into each folder (every folder has its own shareable URL). A setting can switch this to the classic all-photos-expanded layout. Clicking any photo opens that photo's own page, with its description, likes, previous and next buttons and the comment thread; a Lightbox setting additionally lets visitors click the photo there to enlarge it. Members-only folders appear locked, with heavily blurred previews (or lock placeholders) that tease the content until the visitor unlocks access, and the original image URLs are never present in the page for locked folders.
 
-Site owners can control everything from HivePress > Settings > Vendors > Gallery:
+Site owners can control everything from HivePress > Settings > Gallery:
 
 * Hide the gallery link on vendor profiles and/or listing pages
 * Limit the number of folders per vendor, and images per folder (default 30)
@@ -37,8 +37,11 @@ Site owners can control everything from HivePress > Settings > Vendors > Gallery
 * Set a storage quota per vendor (site-wide or per membership plan); vendors then see "X used of X allowed" on their Gallery page
 * Let signed-in visitors like and comment on individual photos, or switch either feature off
 * Choose which side of the photo pages the sidebar sits on, and fill its "Photo Page (sidebar)" widget area from Appearance > Widgets
+* Add a sidebar to the gallery page and to folder pages too, on either side, each with a widget area of its own
+* Lay the folder covers out as a grid: choose how many columns, cap the rows where a gallery is embedded in a profile or listing, and pick horizontal, vertical or square covers
+* Choose what one paid unlock buys: the vendor's whole gallery, or each folder separately, so vendors can price individual folders
 
-In wp-admin, each Gallery Folder has an Images meta box with the same drag-and-drop manager used for listings, plus a Settings meta box for visibility, and the folders list shows the vendor, visibility, image count and size. Photo comments appear on the usual WordPress Comments screen.
+In wp-admin, gallery folders live under Vendors > Gallery Folders. Each one has an Images meta box with the same drag-and-drop manager used for listings, plus a Gallery Settings meta box holding the vendor and the visibility, and the folders list shows the vendor, visibility, image count and size. A folder's owner is its vendor, and nothing else: the post author follows the vendor automatically. Photo comments appear on the usual WordPress Comments screen.
 
 = How it works =
 
@@ -242,7 +245,7 @@ applies to public folders.
 1. Install and activate HivePress.
 2. Upload the `additional-gallery-for-hivepress` folder to `/wp-content/plugins/`.
 3. Activate the plugin through the Plugins screen.
-4. Vendors will find "Gallery" in their account menu; settings live under HivePress > Settings > Vendors > Gallery.
+4. Vendors will find "Gallery" in their account menu; settings live under HivePress > Settings > Gallery, and the folders themselves under Vendors > Gallery Folders in wp-admin.
 
 == Frequently Asked Questions ==
 
@@ -270,7 +273,7 @@ data". That warning is generic and appears for every plugin; it does not
 describe this one. Only the regenerable cache of blurred previews is cleared.
 
 If you really do want everything gone, tick "Delete all gallery data when this
-plugin is deleted" under HivePress > Settings > Vendors > Removing the Plugin
+plugin is deleted" under HivePress > Settings > Gallery > Removing the Plugin
 first. With that ticked, deleting the plugin removes its settings, folders,
 likes, comments, purchased access and private directories, and cannot be
 undone. Even then the vendors' photos are kept: they stay in your media library
@@ -279,6 +282,43 @@ back to its normal location first so it is still viewable without the plugin.
 Your OpenAI API key is left alone either way, because other extensions share it.
 
 == Changelog ==
+
+= 1.9.0 =
+* Added: gallery and folder pages can now have a sidebar of their own, on either side, each with its
+  own widget area under Appearance, then Widgets. Both are off until you switch them on.
+* Added: a folder grid you control. Choose how many columns of folder covers a full-width screen
+  shows, whether covers are cropped horizontal, vertical or square, and how many rows to show where a
+  gallery is embedded in a vendor profile or a listing (with a link to the full gallery for the rest).
+  Narrow screens always show fewer columns, so a phone is never asked to draw six.
+* Added: an option for what one paid unlock buys. It can be the vendor's whole gallery, as before, or
+  each folder separately, so a vendor can price individual folders and a buyer pays only for the one
+  they want. Prices set under one choice are kept if you switch to the other and back, and nobody
+  loses access they have already paid for.
+* Added: a "Gallery Settings" link in the top right of a gallery page, and a "Folder Settings" link on
+  a folder page, shown to the vendor who owns it and to the site owner. Visitors see nothing.
+* Added: vendors and site owners now see private folders on the public gallery page, marked Private,
+  with a note saying visitors do not see them. Everybody else sees exactly what they saw before. The
+  folders were already reachable by their own URL, but nothing linked to them.
+* Changed: the View Gallery button now sits inside HivePress's own actions box on vendor profiles and
+  listings, beside Send Message, instead of floating below it with a gap of its own.
+* Changed: gallery folders moved in wp-admin from under HivePress to Vendors, where they belong.
+* Changed: the folder edit screen has one owner control instead of two. WordPress's Author box is
+  gone, the Vendor field is no longer marked optional, and the post author follows the vendor on save.
+  Any folder whose author and vendor already disagreed is put right on upgrade.
+* Changed: the folder edit screen's Settings box is now called Gallery Settings.
+* Changed: the left-or-right sidebar settings are radio buttons, so the empty "-" choice that read as
+  a third position is gone.
+* Changed: layout, lightbox and sidebar settings moved out of General into a new Gallery Pages
+  section. No option name or stored value changes.
+* Changed: names and avatars on photo comments now link to that person's profile, where the site
+  publishes one.
+* Changed: the Manage Photo description box no longer mentions alt text in its placeholder.
+* Fixed: every "Members only" badge now carries a padlock. Folder covers and the vendor's own folder
+  list showed the words alone while the folder page and the single-page layout showed a padlock, so
+  the same state looked like two different states on one site.
+* Fixed: the "New Folder" heading on the account gallery page, and the "Paid Access" and "Delete
+  Folder" headings, now use HivePress's own section heading, so they get the accent rule above them
+  that every other heading on the page has.
 
 = 1.8.16 =
 * Fixed: no PHP warning left on a renamed install folder either. 1.4.0 fixed this for a normally

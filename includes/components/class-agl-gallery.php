@@ -59,10 +59,21 @@ final class Agl_Gallery extends Component {
 		// Add the account menu item.
 		add_filter( 'hivepress/v1/menus/user_account', [ $this, 'alter_account_menu' ] );
 
-		// Register the photo page widget area. Registered from the plugin, not
-		// a theme config, so it exists on any theme and appears under
+		// Register the gallery page widget areas. Registered from the plugin, not
+		// a theme config, so they exist on any theme and appear under
 		// Appearance > Widgets.
 		add_action( 'widgets_init', [ $this, 'register_widget_area' ] );
+
+		/*
+		 * The vendor is a folder's only owner, so the post author follows it.
+		 *
+		 * Priority 20 on `save_post`, not on `save_post_hp_gallery_folder`: WordPress fires the
+		 * post-type-specific action BEFORE the generic one whatever priority each carries
+		 * (wp-includes/post.php, wp_insert_post), and HivePress writes the Vendor field from the
+		 * generic `save_post` at priority 10 (components/class-admin.php:80). Hooking the specific
+		 * action would therefore read the vendor from before the admin's edit.
+		 */
+		add_action( 'save_post', [ $this, 'sync_folder_author' ], 20, 2 );
 
 		// Add gallery links to vendor and listing pages.
 		add_filter( 'hivepress/v1/templates/vendor_view_page', [ $this, 'alter_vendor_view_page' ] );
@@ -825,27 +836,66 @@ final class Agl_Gallery extends Component {
 	 * Gets a vendor's publicly listed gallery folders (public and
 	 * members-only; private folders are never listed).
 	 *
-	 * @param int $vendor_id Vendor ID.
+	 * `$include_private` widens that to every folder the vendor has, and is only ever passed by a
+	 * caller that has already asked can_manage_gallery(). It is not a default, and it must not
+	 * become one: this query feeds the public gallery page.
+	 *
+	 * @param int  $vendor_id Vendor ID.
+	 * @param bool $include_private Whether to include private folders as well.
 	 * @return \HivePress\Queries\Post Folder query results (iterable of `Gallery_Folder` models).
 	 */
-	public function get_listed_folders( $vendor_id ) {
+	public function get_listed_folders( $vendor_id, $include_private = false ) {
 
 		// With members-only folders disabled site-wide, existing members
 		// folders drop out of every public listing (they behave as private).
 		$visibilities = $this->are_members_folders_enabled() ? [ 'public', 'members' ] : [ 'public' ];
 
-		return Models\Gallery_Folder::query()->filter(
-			[
-				'status'         => 'publish',
-				'vendor'         => absint( $vendor_id ),
-				'visibility__in' => $visibilities,
-			]
-		)->order(
+		$filter = [
+			'status' => 'publish',
+			'vendor' => absint( $vendor_id ),
+		];
+
+		/*
+		 * No visibility filter at all when private folders are wanted, rather than adding 'private'
+		 * to the list. A folder saved before the visibility field existed, or one an import left
+		 * alone, has no `hp_visibility` meta row and so matches no `IN` clause however many values
+		 * it holds; get_effective_visibility() already treats such a folder as private, and the
+		 * owner should see it here for exactly that reason.
+		 */
+		if ( ! $include_private ) {
+			$filter['visibility__in'] = $visibilities;
+		}
+
+		return Models\Gallery_Folder::query()->filter( $filter )->order(
 			[
 				'sort_order'   => 'asc',
 				'created_date' => 'asc',
 			]
 		)->get();
+	}
+
+	/**
+	 * Checks whether the current user may see inside one members-only folder.
+	 *
+	 * Wraps user_can_view_member_folders(), which answers for a vendor's gallery as a whole, with
+	 * the per-folder purchase that the "each folder separately" pricing scope creates. Every place
+	 * that decides whether a folder is locked calls this rather than the vendor-wide method, so the
+	 * two scopes cannot disagree about the same folder.
+	 *
+	 * @param \HivePress\Models\Gallery_Folder $folder Folder object.
+	 * @param \HivePress\Models\Vendor|null    $vendor Vendor object.
+	 * @return bool
+	 */
+	public function user_can_view_folder( $folder, $vendor ) {
+		if ( $this->user_can_view_member_folders( $vendor ) ) {
+			return true;
+		}
+
+		if ( ! $this->is_folder_access_scope() || ! $vendor ) {
+			return false;
+		}
+
+		return $this->has_paid_access( get_current_user_id(), $vendor->get_id(), $folder->get_id() );
 	}
 
 	/**
@@ -866,15 +916,14 @@ final class Agl_Gallery extends Component {
 			return $counts;
 		}
 
-		$member_view = $this->user_can_view_member_folders( $vendor );
-		$display     = $this->get_locked_display();
+		$display = $this->get_locked_display();
 
 		foreach ( $this->get_listed_folders( $vendor->get_id() ) as $folder ) {
 			if ( ! $folder instanceof \HivePress\Models\Gallery_Folder ) {
 				continue;
 			}
 
-			if ( 'members' === $this->get_effective_visibility( $folder ) && ! $member_view && 'hide' === $display ) {
+			if ( 'members' === $this->get_effective_visibility( $folder ) && 'hide' === $display && ! $this->user_can_view_folder( $folder, $vendor ) ) {
 				continue;
 			}
 
@@ -909,6 +958,14 @@ final class Agl_Gallery extends Component {
 	/**
 	 * Adds the gallery link to vendor pages.
 	 *
+	 * The button goes INSIDE core's primary actions container rather than loose in the sidebar
+	 * beside it. Loose, it was its own widget with its own 2rem gap above and below
+	 * (`hp-widget:not(:last-child)`, hivepress/assets/css/frontend.less:547-551), so it floated
+	 * clear of the Send Message button it belongs beside while every other action sat tight
+	 * together. Inside the container it inherits the same spacing as those, which is what
+	 * HivePress Messages does with its own link
+	 * (hivepress-messages/includes/components/class-message.php:664-693).
+	 *
 	 * Uses `merge_blocks()` rather than `merge_trees()`: it takes a flat map and
 	 * finds the target block wherever a theme has moved it, which matters here
 	 * because the six official themes restructure these sidebars. It is also
@@ -921,8 +978,10 @@ final class Agl_Gallery extends Component {
 		return hivepress()->template->merge_blocks(
 			$template,
 			[
-				'page_sidebar' => [
+				'vendor_actions_primary' => [
 					'blocks' => [
+
+						// After Messages' Send Message link, which core's own extension places at 10.
 						'gallery_link' => [
 							'type'   => 'agl_gallery_link',
 							'_order' => 15,
@@ -943,11 +1002,18 @@ final class Agl_Gallery extends Component {
 		return hivepress()->template->merge_blocks(
 			$template,
 			[
-				'page_sidebar' => [
+				'listing_actions_primary' => [
 					'blocks' => [
+
+						/*
+						 * Between Messages' Send Message link at 10 and core's own Report link at
+						 * 1000 (hivepress/includes/templates/class-listing-view-page.php:216-220),
+						 * so the gallery button sits with the things a visitor might want to do and
+						 * the report stays last.
+						 */
 						'gallery_link' => [
 							'type'   => 'agl_gallery_link',
-							'_order' => 35,
+							'_order' => 15,
 						],
 					],
 				],
@@ -971,38 +1037,337 @@ final class Agl_Gallery extends Component {
 	}
 
 	/**
-	 * Registers the photo page widget area.
+	 * Registers the gallery widget areas.
 	 *
 	 * The wrapper markup matches what the official HivePress themes register
 	 * for their own sidebars (see hivetheme's widget-areas config), so widgets
 	 * dropped in here pick up the theme's sidebar-widget styling.
 	 *
+	 * All three are registered whatever the sidebar settings say. A widget area
+	 * that disappears when a setting is switched off loses the widgets in it,
+	 * and WordPress does not give them back when it is switched on again.
+	 *
 	 * @return void
 	 */
 	public function register_widget_area() {
-		register_sidebar(
-			[
-				'id'            => 'hp_agl_photo_sidebar',
-				'name'          => esc_html__( 'Photo Page (sidebar)', 'additional-gallery-for-hivepress' ),
-				'description'   => esc_html__( 'Shown in the sidebar of every gallery photo page.', 'additional-gallery-for-hivepress' ),
-				'before_widget' => '<div id="%1$s" class="hp-widget widget widget--sidebar %2$s">',
-				'after_widget'  => '</div>',
-				'before_title'  => '<h3 class="widget__title">',
-				'after_title'   => '</h3>',
-			]
-		);
+		$areas = [
+			'hp_agl_gallery_sidebar' => [
+				esc_html__( 'Gallery Page (sidebar)', 'additional-gallery-for-hivepress' ),
+				esc_html__( 'Shown in the sidebar of every vendor gallery page, when that sidebar is switched on under HivePress, then Settings, then Gallery.', 'additional-gallery-for-hivepress' ),
+			],
+
+			'hp_agl_folder_sidebar'  => [
+				esc_html__( 'Folder Page (sidebar)', 'additional-gallery-for-hivepress' ),
+				esc_html__( 'Shown in the sidebar of every gallery folder page, when that sidebar is switched on under HivePress, then Settings, then Gallery.', 'additional-gallery-for-hivepress' ),
+			],
+
+			'hp_agl_photo_sidebar'   => [
+				esc_html__( 'Photo Page (sidebar)', 'additional-gallery-for-hivepress' ),
+				esc_html__( 'Shown in the sidebar of every gallery photo page.', 'additional-gallery-for-hivepress' ),
+			],
+		];
+
+		foreach ( $areas as $id => $labels ) {
+			register_sidebar(
+				[
+					'id'            => $id,
+					'name'          => $labels[0],
+					'description'   => $labels[1],
+					'before_widget' => '<div id="%1$s" class="hp-widget widget widget--sidebar %2$s">',
+					'after_widget'  => '</div>',
+					'before_title'  => '<h3 class="widget__title">',
+					'after_title'   => '</h3>',
+				]
+			);
+		}
 	}
 
 	/**
 	 * Gets the photo page sidebar position.
 	 *
 	 * Unset and legacy-empty values fall back to the right, matching the core
-	 * sidebar pages.
+	 * sidebar pages. The photo page has no "off" state, because its sidebar
+	 * holds the owner's only route to editing, moving or deleting a photo.
 	 *
 	 * @return string Either `left` or `right`.
 	 */
 	public function get_photo_sidebar_position() {
 		return 'left' === get_option( 'hp_gallery_photo_sidebar' ) ? 'left' : 'right';
+	}
+
+	/**
+	 * Gets the gallery page sidebar position.
+	 *
+	 * @return string One of `none`, `left` or `right`.
+	 */
+	public function get_page_sidebar_position() {
+		return $this->read_sidebar_position( 'hp_gallery_page_sidebar' );
+	}
+
+	/**
+	 * Gets the folder page sidebar position.
+	 *
+	 * @return string One of `none`, `left` or `right`.
+	 */
+	public function get_folder_sidebar_position() {
+		return $this->read_sidebar_position( 'hp_gallery_folder_sidebar' );
+	}
+
+	/**
+	 * Reads an optional sidebar position setting.
+	 *
+	 * Anything that is not one of the three known values means no sidebar,
+	 * which covers both a site that has never saved the setting and one where
+	 * it stored empty (see the stored-empty trap in the settings notes).
+	 *
+	 * @param string $option Option name.
+	 * @return string One of `none`, `left` or `right`.
+	 */
+	protected function read_sidebar_position( $option ) {
+		$position = get_option( $option );
+
+		return in_array( $position, [ 'left', 'right' ], true ) ? $position : 'none';
+	}
+
+	/**
+	 * Writes a gallery folder's post author from its vendor.
+	 *
+	 * A folder has one owner, and it is the vendor's user. Two controls used to set that owner on
+	 * the admin screen - WordPress's own Author box and the Vendor field - and nothing kept them in
+	 * step, so an admin could quite reasonably leave a folder whose author says one person and whose
+	 * vendor says another. The consequences were invisible until somebody hit them: the front-end
+	 * "is this yours?" checks read the author (`get_user__id()`), while the gallery listing, the
+	 * counts and every public URL read the vendor, so the folder appeared in one person's gallery
+	 * while only the other could open it from their account.
+	 *
+	 * The Author box is gone (see the post type config) and this is what replaces it, following the
+	 * rule core applies to a listing: the vendor's user is authoritative, and the post author is
+	 * rewritten to match on save (hivepress/includes/components/class-listing.php:122-128).
+	 *
+	 * @param int      $post_id Post ID.
+	 * @param \WP_Post $post Post object.
+	 * @return void
+	 */
+	public function sync_folder_author( $post_id, $post = null ) {
+		if ( ! $post instanceof \WP_Post || 'hp_gallery_folder' !== $post->post_type ) {
+			return;
+		}
+
+		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
+			return;
+		}
+
+		$vendor_id = absint( $post->post_parent );
+
+		if ( ! $vendor_id || 'hp_vendor' !== get_post_type( $vendor_id ) ) {
+			return;
+		}
+
+		$user_id = absint( get_post_field( 'post_author', $vendor_id ) );
+
+		if ( ! $user_id || absint( $post->post_author ) === $user_id ) {
+			return;
+		}
+
+		// Unhooked around the write, because this runs on `save_post` and
+		// wp_update_post() fires it again.
+		remove_action( 'save_post', [ $this, 'sync_folder_author' ], 20 );
+
+		wp_update_post(
+			[
+				'ID'          => $post_id,
+				'post_author' => $user_id,
+			]
+		);
+
+		add_action( 'save_post', [ $this, 'sync_folder_author' ], 20, 2 );
+	}
+
+	/**
+	 * Gets the number of folder covers shown side by side.
+	 *
+	 * @return int Zero when the grid should fit as many as the screen allows.
+	 */
+	public function get_grid_columns() {
+		$columns = get_option( 'hp_gallery_columns' );
+
+		$columns = is_numeric( $columns ) ? absint( $columns ) : 0;
+
+		/**
+		 * Filters how many folder covers sit side by side on a full-width screen.
+		 *
+		 * @hook hp_agl/grid_columns
+		 * @param {int} $columns Columns, 0 to fit as many as the screen allows.
+		 * @return {int} Columns.
+		 */
+		$columns = absint( apply_filters( 'hp_agl/grid_columns', $columns ) );
+
+		return min( 6, $columns );
+	}
+
+	/**
+	 * Gets the maximum number of cover rows shown in an embedded gallery section.
+	 *
+	 * Deliberately not applied to the gallery page itself: that page is the only route to a folder,
+	 * so a cap there would leave folders with no way of being opened at all.
+	 *
+	 * @return int Zero for no cap.
+	 */
+	public function get_grid_rows() {
+		$rows = get_option( 'hp_gallery_rows' );
+
+		$rows = is_numeric( $rows ) ? absint( $rows ) : 0;
+
+		/**
+		 * Filters the maximum number of folder rows shown where a gallery is embedded in another
+		 * page.
+		 *
+		 * @hook hp_agl/grid_rows
+		 * @param {int} $rows Rows, 0 for no cap.
+		 * @return {int} Rows.
+		 */
+		return absint( apply_filters( 'hp_agl/grid_rows', $rows ) );
+	}
+
+	/**
+	 * Gets the shape folder covers are cropped to.
+	 *
+	 * @return string One of `horizontal`, `vertical` or `square`.
+	 */
+	public function get_cover_ratio() {
+		$ratio = get_option( 'hp_gallery_cover_ratio' );
+
+		return in_array( $ratio, [ 'vertical', 'square' ], true ) ? $ratio : 'horizontal';
+	}
+
+	/**
+	 * Builds the class and style attributes of a folder cover grid.
+	 *
+	 * One place decides how a grid of covers is dressed, so the gallery page, a folder page and the
+	 * sections on vendor profiles and listings cannot drift apart. The column count travels as a
+	 * custom property rather than a class per number, because the breakpoints below it have to read
+	 * the same number.
+	 *
+	 * @return string Ready-escaped HTML attributes.
+	 */
+	public function get_covers_attributes() {
+		$classes = [ 'hp-agl-covers', 'hp-agl-covers--' . $this->get_cover_ratio() ];
+		$columns = $this->get_grid_columns();
+		$style   = '';
+
+		if ( $columns ) {
+			$classes[] = 'hp-agl-covers--fixed';
+			$style     = ' style="--hp-agl-cols:' . esc_attr( (string) $columns ) . '"';
+		}
+
+		return ' class="' . esc_attr( implode( ' ', $classes ) ) . '"' . $style;
+	}
+
+	/**
+	 * Renders the "Members only" pill.
+	 *
+	 * Every one of these used to be written out where it was needed, and they had drifted: the
+	 * folder page and the single-page layout carried a padlock, while the folder covers and the
+	 * account folder list did not, so the same state looked like two different states on one site.
+	 * One method, one pill.
+	 *
+	 * @return string
+	 */
+	public function render_members_badge() {
+		return '<span class="hp-status hp-status--pending"><span><i class="hp-icon fas fa-lock"></i> ' . esc_html__( 'Members only', 'additional-gallery-for-hivepress' ) . '</span></span>';
+	}
+
+	/**
+	 * Renders the "Private" pill.
+	 *
+	 * Only ever shown to somebody who manages the gallery, on a folder nobody else can see.
+	 *
+	 * @return string
+	 */
+	public function render_private_badge() {
+		return '<span class="hp-status hp-status--draft"><span><i class="hp-icon fas fa-eye-slash"></i> ' . esc_html__( 'Private', 'additional-gallery-for-hivepress' ) . '</span></span>';
+	}
+
+	/**
+	 * Renders one folder cover tile.
+	 *
+	 * Written once and shared by the gallery page and by the sections on vendor profiles and listing
+	 * pages. Those two had a copy each, and the copies had already drifted - the same locked folder
+	 * carried a padlock in its pill in one layout and not in the other, on the same site, which is
+	 * what this consolidation was reported for.
+	 *
+	 * @param \HivePress\Models\Gallery_Folder $folder Folder object.
+	 * @param bool                             $locked Whether the folder is locked for this reader.
+	 * @param string                           $visibility Effective visibility, so a private folder
+	 *                                                     shown to its owner is marked as such.
+	 * @return string
+	 */
+	public function render_folder_cover( $folder, $locked, $visibility = 'public' ) {
+		$cover    = '';
+		$cover_id = $this->get_folder_cover_id( $folder );
+
+		if ( $locked ) {
+			$teaser_url = null;
+
+			if ( 'blur' === $this->get_locked_display() && $cover_id ) {
+				$teaser_url = $this->get_teaser_url( $cover_id );
+			}
+
+			if ( $teaser_url ) {
+				$cover = '<img src="' . esc_url( $teaser_url ) . '" alt="" loading="lazy">';
+			}
+		} elseif ( $cover_id ) {
+			$cover = wp_get_attachment_image(
+				$cover_id,
+				'medium_large',
+				false,
+				[
+					'loading' => 'lazy',
+					'alt'     => $folder->get_title(),
+				]
+			);
+		}
+
+		$output = '<a href="' . esc_url( $this->get_folder_url( $folder ) ) . '" class="hp-agl-cover' . ( $locked ? ' hp-agl-cover--locked' : '' ) . '">';
+
+		$output .= '<span class="hp-agl-cover__image' . ( $cover ? '' : ' hp-agl-cover__image--placeholder' ) . '">' . $cover;
+
+		if ( $locked ) {
+			$output .= '<i class="hp-icon fas fa-lock"></i>';
+		}
+
+		$output .= '</span>';
+		$output .= '<span class="hp-agl-cover__title">' . esc_html( $folder->get_title() ) . '</span>';
+		$output .= '<span class="hp-agl-cover__count hp-meta">' . esc_html( $this->get_media_count_label( $this->get_media_counts( $folder ) ) ) . '</span>';
+
+		if ( $locked ) {
+			$output .= $this->render_members_badge();
+		} elseif ( 'private' === $visibility ) {
+			$output .= $this->render_private_badge();
+		}
+
+		$output .= '</a>';
+
+		return $output;
+	}
+
+	/**
+	 * Checks whether the current user manages a vendor's gallery.
+	 *
+	 * The vendor's own user and anybody who can edit others' posts, which is the capability the rest
+	 * of the plugin already treats as "site owner".
+	 *
+	 * @param \HivePress\Models\Vendor|null $vendor Vendor object.
+	 * @return bool
+	 */
+	public function can_manage_gallery( $vendor ) {
+		if ( current_user_can( 'edit_others_posts' ) ) {
+			return true;
+		}
+
+		$user_id = get_current_user_id();
+
+		return (bool) ( $user_id && $vendor && $user_id === $vendor->get_user__id() );
 	}
 
 	/**
@@ -3312,7 +3677,8 @@ final class Agl_Gallery extends Component {
 				return true;
 			}
 
-			return $this->user_can_view_member_folders( $vendor );
+			// Per folder, so a pass bought for one folder does not open another one's files.
+			return $this->user_can_view_folder( $folder, $vendor );
 		}
 
 		return false;
@@ -3578,7 +3944,7 @@ final class Agl_Gallery extends Component {
 		if ( 'public' === $visibility ) {
 			$allowed = true;
 		} elseif ( 'members' === $visibility ) {
-			$allowed = $this->user_can_view_member_folders( $vendor );
+			$allowed = $owner || $this->user_can_view_folder( $folder, $vendor );
 		} else {
 			$allowed = $owner;
 		}
@@ -4040,11 +4406,30 @@ final class Agl_Gallery extends Component {
 		 */
 		$output = '<article id="agl-comment-' . esc_attr( (string) $comment_id ) . '" class="hp-agl-comment' . ( $is_reply ? ' hp-agl-comment--reply' : '' ) . '" data-agl-comment-id="' . esc_attr( (string) $comment_id ) . '">';
 
-		$output .= '<div class="hp-agl-comment__image">' . get_avatar( absint( $comment->user_id ), 48 ) . '</div>';
+		/*
+		 * Avatar and name both link to whoever left the comment, which is what everything else on a
+		 * HivePress site does and what a reader expects: a comment praising a photograph is the most
+		 * natural route there is from one vendor's gallery to another's. Both are one link rather
+		 * than two, so a mis-aim still lands somewhere sensible. get_profile_url() returns null where
+		 * there is no page to send them to, and then this is plain text exactly as before.
+		 */
+		$avatar      = get_avatar( absint( $comment->user_id ), 48 );
+		$author      = esc_html( $comment->comment_author );
+		$profile_url = $this->get_profile_url( absint( $comment->user_id ) );
+		$link_open   = '';
+		$link_close  = '';
+
+		if ( $profile_url ) {
+			/* translators: %s: person's name. */
+			$link_open  = '<a href="' . esc_url( $profile_url ) . '" class="hp-link hp-agl-comment__profile" title="' . esc_attr( sprintf( __( 'View %s\'s profile', 'additional-gallery-for-hivepress' ), $comment->comment_author ) ) . '">';
+			$link_close = '</a>';
+		}
+
+		$output .= '<div class="hp-agl-comment__image">' . $link_open . $avatar . $link_close . '</div>';
 
 		$output .= '<div class="hp-agl-comment__body">';
 		$output .= '<div class="hp-agl-comment__header">';
-		$output .= '<strong class="hp-agl-comment__author">' . esc_html( $comment->comment_author ) . '</strong>';
+		$output .= '<strong class="hp-agl-comment__author">' . $link_open . $author . $link_close . '</strong>';
 
 		// date_i18n(), not wp_date(): the stored date is already on the site's
 		// clock, so wp_date() would add the offset a second time.
@@ -4077,6 +4462,65 @@ final class Agl_Gallery extends Component {
 		$output .= '</article>';
 
 		return $output;
+	}
+
+	/**
+	 * Gets the public profile URL of a user, if the site publishes one.
+	 *
+	 * Two pages can answer, and which one exists is the site owner's choice, so both are tried in
+	 * the order HivePress itself prefers. Core's own user page redirects to the vendor page whenever
+	 * the user has one (hivepress/includes/controllers/class-user.php:1045-1053), so going straight
+	 * to the vendor page saves a redirect and gives the reader the richer page.
+	 *
+	 * Returns null where neither page is switched on, where the user is a guest, or where the
+	 * username is missing - a link to nowhere is worse than no link, and a comment from a deleted
+	 * account still has to render.
+	 *
+	 * The result is cached for the request. A photo page can carry dozens of comments from a handful
+	 * of people, and without this each one costs its own vendor query.
+	 *
+	 * @param int $user_id User ID.
+	 * @return string|null
+	 */
+	public function get_profile_url( $user_id ) {
+		static $cache = [];
+
+		$user_id = absint( $user_id );
+
+		if ( ! $user_id ) {
+			return null;
+		}
+
+		if ( ! isset( $cache[ $user_id ] ) ) {
+			$url = null;
+
+			if ( get_option( 'hp_vendor_enable_display' ) ) {
+				$vendor_id = Models\Vendor::query()->filter(
+					[
+						'status' => 'publish',
+						'user'   => $user_id,
+					]
+				)->get_first_id();
+
+				if ( $vendor_id ) {
+					$url = hivepress()->router->get_url( 'vendor_view_page', [ 'vendor_id' => $vendor_id ] );
+				}
+			}
+
+			if ( ! $url && get_option( 'hp_user_enable_display' ) ) {
+				$user = get_userdata( $user_id );
+
+				// The route matches on the login name (controllers/class-user.php:222, :1004-1007),
+				// which is not always the display name shown beside the comment.
+				if ( $user && $user->user_login ) {
+					$url = hivepress()->router->get_url( 'user_view_page', [ 'username' => $user->user_login ] );
+				}
+			}
+
+			$cache[ $user_id ] = $url ? $url : false;
+		}
+
+		return $cache[ $user_id ] ? $cache[ $user_id ] : null;
 	}
 
 	/**
@@ -4732,6 +5176,70 @@ final class Agl_Gallery extends Component {
 	}
 
 	/**
+	 * Gets what one paid access purchase buys.
+	 *
+	 * `vendor` is the original behaviour and the default, so a site that upgrades sells exactly what
+	 * it sold yesterday. Anything unrecognised, including the empty string a never-saved radio
+	 * leaves behind, means the same.
+	 *
+	 * @return string Either `vendor` or `folder`.
+	 */
+	public function get_access_scope() {
+		return 'folder' === get_option( 'hp_gallery_access_scope' ) ? 'folder' : 'vendor';
+	}
+
+	/**
+	 * Checks whether vendors price each folder separately.
+	 *
+	 * @return bool
+	 */
+	public function is_folder_access_scope() {
+		return 'folder' === $this->get_access_scope();
+	}
+
+	/**
+	 * Gets the post whose meta holds a set of prices.
+	 *
+	 * Prices, lengths and products are stored as meta on one post, and which post that is, is the
+	 * only difference between the two scopes: the vendor under "the vendor's whole gallery", the
+	 * folder under "each folder separately". Keeping them on separate posts is what lets an owner
+	 * switch scope and switch back without anybody's prices being rewritten or lost.
+	 *
+	 * @param \HivePress\Models\Vendor              $vendor Vendor object.
+	 * @param \HivePress\Models\Gallery_Folder|null $folder Folder object, under the folder scope.
+	 * @return int
+	 */
+	public function get_pricing_subject_id( $vendor, $folder = null ) {
+		if ( $this->is_folder_access_scope() && $folder instanceof \HivePress\Models\Gallery_Folder ) {
+			return absint( $folder->get_id() );
+		}
+
+		return $vendor ? absint( $vendor->get_id() ) : 0;
+	}
+
+	/**
+	 * Gets the user meta key holding one access grant.
+	 *
+	 * Vendor-wide grants keep the key they have always had, so nothing anybody has bought needs
+	 * migrating. Per-folder grants take a key of their own rather than reusing the vendor one with a
+	 * folder ID, because a vendor post and a folder post can perfectly well share an ID and the two
+	 * grants would then be the same row.
+	 *
+	 * @param int $vendor_id Vendor ID.
+	 * @param int $folder_id Folder ID, or 0 for a vendor-wide grant.
+	 * @return string
+	 */
+	public function get_access_meta_key( $vendor_id, $folder_id = 0 ) {
+		$folder_id = absint( $folder_id );
+
+		if ( $folder_id ) {
+			return 'hp_agl_faccess_' . $folder_id;
+		}
+
+		return 'hp_agl_access_' . absint( $vendor_id );
+	}
+
+	/**
 	 * How many lengths one vendor may sell at once.
 	 *
 	 * @var int
@@ -5022,27 +5530,34 @@ final class Agl_Gallery extends Component {
 	 * Each access length is sold by its own product, so the length a buyer paid for is recorded on
 	 * the thing they bought rather than read back from a site setting that may since have changed.
 	 *
-	 * @param \HivePress\Models\Vendor $vendor Vendor object.
-	 * @param int                      $tier Slot number, 1 to MAX_TIERS.
-	 * @param int                      $days Length in days, 0 for permanent.
-	 * @param float                    $price Price, 0 to stop selling this length.
+	 * @param \HivePress\Models\Vendor              $vendor Vendor object.
+	 * @param int                                   $tier Slot number, 1 to MAX_TIERS.
+	 * @param int                                   $days Length in days, 0 for permanent.
+	 * @param float                                 $price Price, 0 to stop selling this length.
+	 * @param \HivePress\Models\Gallery_Folder|null $folder Folder being priced, under the folder scope.
 	 * @return bool
 	 */
-	public function set_access_tier( $vendor, $tier, $days, $price ) {
+	public function set_access_tier( $vendor, $tier, $days, $price, $folder = null ) {
 		if ( ! class_exists( 'WC_Product_Simple' ) ) {
 			return false;
 		}
 
 		$vendor_id = $vendor->get_id();
-		$price     = max( 0, (float) $price );
-		$tier      = max( 1, absint( $tier ) );
-		$period    = absint( $days );
+		$folder_id = $folder instanceof \HivePress\Models\Gallery_Folder ? absint( $folder->get_id() ) : 0;
 
-		update_post_meta( $vendor_id, $this->get_price_meta_key( $tier ), $price ? wc_format_decimal( $price ) : '' );
-		update_post_meta( $vendor_id, $this->get_days_meta_key( $tier ), $period );
+		// Prices hang off the folder under the folder scope and off the vendor otherwise, which is
+		// the whole of the difference between the two.
+		$subject_id = $folder_id ? $folder_id : absint( $vendor_id );
+
+		$price  = max( 0, (float) $price );
+		$tier   = max( 1, absint( $tier ) );
+		$period = absint( $days );
+
+		update_post_meta( $subject_id, $this->get_price_meta_key( $tier ), $price ? wc_format_decimal( $price ) : '' );
+		update_post_meta( $subject_id, $this->get_days_meta_key( $tier ), $period );
 
 		// Get or create the product.
-		$product_id = absint( get_post_meta( $vendor_id, $this->get_product_meta_key( $tier ), true ) );
+		$product_id = absint( get_post_meta( $subject_id, $this->get_product_meta_key( $tier ), true ) );
 		$product    = $product_id ? wc_get_product( $product_id ) : null;
 
 		if ( ! $product && ! $price ) {
@@ -5053,7 +5568,7 @@ final class Agl_Gallery extends Component {
 			$product = new \WC_Product_Simple();
 		}
 
-		$product->set_name( $this->get_access_product_name( $vendor, $period ) );
+		$product->set_name( $this->get_access_product_name( $vendor, $period, $folder ) );
 		$product->set_regular_price( (string) $price );
 		$product->set_virtual( true );
 		$product->set_sold_individually( true );
@@ -5099,7 +5614,21 @@ final class Agl_Gallery extends Component {
 		update_post_meta( $product_id, 'hp_agl_period', $period );
 		update_post_meta( $product_id, 'hp_agl_tier', $tier );
 
-		update_post_meta( $vendor_id, $this->get_product_meta_key( $tier ), $product_id );
+		/*
+		 * Which folder this product unlocks, stamped on the product rather than worked out when the
+		 * order is paid. An owner who switches the scope back to whole-gallery between somebody
+		 * adding a folder pass to their basket and their payment clearing must not have that pass
+		 * quietly turn into something else, in either direction. A vendor-wide product carries a
+		 * deleted key rather than a zero, so a product predating this stamp reads identically to one
+		 * deliberately sold vendor-wide.
+		 */
+		if ( $folder_id ) {
+			update_post_meta( $product_id, 'hp_agl_folder', $folder_id );
+		} else {
+			delete_post_meta( $product_id, 'hp_agl_folder' );
+		}
+
+		update_post_meta( $subject_id, $this->get_product_meta_key( $tier ), $product_id );
 
 		$this->tag_access_product( $product_id );
 
@@ -5113,20 +5642,38 @@ final class Agl_Gallery extends Component {
 	 * product list and every report, and "Gallery access: Ada" three times over tells nobody which
 	 * was bought.
 	 *
-	 * @param \HivePress\Models\Vendor $vendor Vendor object.
-	 * @param int                      $period Access period in days, 0 for lifetime.
+	 * @param \HivePress\Models\Vendor              $vendor Vendor object.
+	 * @param int                                   $period Access period in days, 0 for lifetime.
+	 * @param \HivePress\Models\Gallery_Folder|null $folder Folder being priced, under the folder scope.
 	 * @return string
 	 */
-	protected function get_access_product_name( $vendor, $period ) {
+	protected function get_access_product_name( $vendor, $period, $folder = null ) {
+		/*
+		 * The folder is named as well as the vendor when only that folder is being sold. One vendor
+		 * can have several folders on sale at once and they sit side by side in the buyer's order,
+		 * the vendor's product list and every report, where three lines all reading "Gallery access:
+		 * Ada (30 days)" say nothing about what was bought.
+		 */
+		$subject = $vendor->get_name();
+
+		if ( $folder instanceof \HivePress\Models\Gallery_Folder ) {
+			$subject = sprintf(
+				/* translators: 1: vendor name, 2: folder name. */
+				esc_html_x( '%1$s / %2$s', 'gallery access product name', 'additional-gallery-for-hivepress' ),
+				$vendor->get_name(),
+				$folder->get_title()
+			);
+		}
+
 		if ( ! $period ) {
-			/* translators: %s: vendor name. */
-			return sprintf( esc_html__( 'Gallery access: %s', 'additional-gallery-for-hivepress' ), $vendor->get_name() );
+			/* translators: %s: vendor name, or vendor and folder name. */
+			return sprintf( esc_html__( 'Gallery access: %s', 'additional-gallery-for-hivepress' ), $subject );
 		}
 
 		return sprintf(
-			/* translators: 1: vendor name, 2: number of days. */
+			/* translators: 1: vendor name, or vendor and folder name, 2: number of days. */
 			_n( 'Gallery access: %1$s (%2$s day)', 'Gallery access: %1$s (%2$s days)', $period, 'additional-gallery-for-hivepress' ),
-			$vendor->get_name(),
+			$subject,
 			number_format_i18n( $period )
 		);
 	}
@@ -5154,6 +5701,14 @@ final class Agl_Gallery extends Component {
 
 		if ( '' !== $period ) {
 			$item->update_meta_data( '_hp_agl_period', hp_agl_int( $period ) );
+		}
+
+		// What the pass covers, for the same reason as the period: the owner may change the pricing
+		// scope while an offline payment is still clearing.
+		$folder_id = hp_agl_int( get_post_meta( $product_id, 'hp_agl_folder', true ) );
+
+		if ( $folder_id ) {
+			$item->update_meta_data( '_hp_agl_folder', $folder_id );
 		}
 	}
 
@@ -5203,19 +5758,21 @@ final class Agl_Gallery extends Component {
 	 *
 	 * @param int $user_id User ID.
 	 * @param int $vendor_id Vendor ID.
+	 * @param int $folder_id Folder ID, or 0 for the vendor-wide grant.
 	 * @return array|null `order` and `expires` keys, or null without one.
 	 */
-	public function get_access_grant( $user_id, $vendor_id ) {
+	public function get_access_grant( $user_id, $vendor_id, $folder_id = 0 ) {
 		$user_id   = absint( $user_id );
 		$vendor_id = absint( $vendor_id );
-		$grant     = $this->read_access_grant( $user_id, $vendor_id );
+		$folder_id = absint( $folder_id );
+		$grant     = $this->read_access_grant( $user_id, $vendor_id, $folder_id );
 
 		if ( ! $grant ) {
 			return null;
 		}
 
 		if ( $grant['expires'] && $grant['expires'] < time() ) {
-			delete_user_meta( $user_id, 'hp_agl_access_' . $vendor_id );
+			delete_user_meta( $user_id, $this->get_access_meta_key( $vendor_id, $folder_id ) );
 
 			/**
 			 * Fires when a purchased gallery access lapses because its access
@@ -5225,8 +5782,9 @@ final class Agl_Gallery extends Component {
 			 * @param {int} $user_id Buyer user ID.
 			 * @param {int} $vendor_id Vendor ID.
 			 * @param {int} $order_id WooCommerce order ID that granted the access.
+			 * @param {int} $folder_id Folder ID, or 0 where the access covered the whole gallery.
 			 */
-			do_action( 'hp_agl/access_expired', $user_id, $vendor_id, $grant['order'] );
+			do_action( 'hp_agl/access_expired', $user_id, $vendor_id, $grant['order'], $folder_id );
 
 			return null;
 		}
@@ -5388,10 +5946,16 @@ final class Agl_Gallery extends Component {
 	 * purchase clears it automatically, because grant_paid_access() overwrites the whole array.
 	 *
 	 * Lifetime grants store an expiry of zero and are skipped. Grants live one per buyer per vendor
-	 * as `hp_agl_access_{vendor_id}` user meta, so the vendor is named in the key rather than the
-	 * value and there is nothing to narrow on in SQL but the key prefix. `meta_key` is indexed, so
-	 * that prefix match uses the index, and the expiry is compared in PHP because it sits inside a
-	 * serialised array where SQL cannot reach it.
+	 * as `hp_agl_access_{vendor_id}` user meta, or one per buyer per folder as
+	 * `hp_agl_faccess_{folder_id}`, so the thing bought is named in the key rather than the value and
+	 * there is nothing to narrow on in SQL but the key prefix. `meta_key` is indexed, so that prefix
+	 * match uses the index, and the expiry is compared in PHP because it sits inside a serialised
+	 * array where SQL cannot reach it.
+	 *
+	 * Both prefixes are swept, and a site is very likely to hold both at once: per-folder passes do
+	 * not replace vendor-wide ones, they sit beside whatever was sold before the scope changed.
+	 * `hp_agl_access_%` does NOT match `hp_agl_faccess_...`, so leaving the second pattern out would
+	 * have silently stopped warning every folder buyer with nothing to show it had happened.
 	 *
 	 * @return void
 	 */
@@ -5431,10 +5995,11 @@ final class Agl_Gallery extends Component {
 		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- no core API can select by meta-key prefix across all users; runs once a day on cron, so there is nothing to cache.
 			$wpdb->prepare(
 				"SELECT user_id, meta_key, meta_value FROM {$wpdb->usermeta}
-				 WHERE meta_key LIKE %s
+				 WHERE meta_key LIKE %s OR meta_key LIKE %s
 				 ORDER BY umeta_id ASC
 				 LIMIT %d",
 				$wpdb->esc_like( 'hp_agl_access_' ) . '%',
+				$wpdb->esc_like( 'hp_agl_faccess_' ) . '%',
 				$limit
 			)
 		);
@@ -5468,7 +6033,18 @@ final class Agl_Gallery extends Component {
 			}
 
 			$user_id   = absint( $row->user_id );
-			$vendor_id = absint( substr( $row->meta_key, strlen( 'hp_agl_access_' ) ) );
+			$folder_id = 0;
+			$vendor_id = 0;
+
+			if ( 0 === strpos( $row->meta_key, 'hp_agl_faccess_' ) ) {
+				$folder_id = absint( substr( $row->meta_key, strlen( 'hp_agl_faccess_' ) ) );
+
+				// The vendor is not in a folder grant's key, and listeners are told which vendor the
+				// access was with, so it is read back off the folder's post parent.
+				$vendor_id = $folder_id ? absint( wp_get_post_parent_id( $folder_id ) ) : 0;
+			} else {
+				$vendor_id = absint( substr( $row->meta_key, strlen( 'hp_agl_access_' ) ) );
+			}
 
 			if ( ! $user_id || ! $vendor_id ) {
 				continue;
@@ -5488,8 +6064,9 @@ final class Agl_Gallery extends Component {
 			 * @param {int} $vendor_id Vendor ID.
 			 * @param {int} $expires Expiry timestamp.
 			 * @param {int} $days_left Whole days remaining, at least one.
+			 * @param {int} $folder_id Folder ID, or 0 where the access covers the whole gallery.
 			 */
-			do_action( 'hp_agl/access_expiring', $user_id, $vendor_id, $expires, max( 1, (int) ceil( ( $expires - $now ) / DAY_IN_SECONDS ) ) );
+			do_action( 'hp_agl/access_expiring', $user_id, $vendor_id, $expires, max( 1, (int) ceil( ( $expires - $now ) / DAY_IN_SECONDS ) ), $folder_id );
 		}
 	}
 
@@ -5498,10 +6075,11 @@ final class Agl_Gallery extends Component {
 	 *
 	 * @param int $user_id User ID.
 	 * @param int $vendor_id Vendor ID.
+	 * @param int $folder_id Folder ID, or 0 to ask about the whole gallery.
 	 * @return bool
 	 */
-	public function has_paid_access( $user_id, $vendor_id ) {
-		return $this->is_paid_access_enabled() && null !== $this->get_access_grant( $user_id, $vendor_id );
+	public function has_paid_access( $user_id, $vendor_id, $folder_id = 0 ) {
+		return $this->is_paid_access_enabled() && null !== $this->get_access_grant( $user_id, $vendor_id, $folder_id );
 	}
 
 	/**
@@ -5514,10 +6092,11 @@ final class Agl_Gallery extends Component {
 	 *
 	 * @param int $user_id User ID.
 	 * @param int $vendor_id Vendor ID.
+	 * @param int $folder_id Folder ID, or 0 for the vendor-wide grant.
 	 * @return array|null
 	 */
-	protected function read_access_grant( $user_id, $vendor_id ) {
-		$value = get_user_meta( absint( $user_id ), 'hp_agl_access_' . absint( $vendor_id ), true );
+	protected function read_access_grant( $user_id, $vendor_id, $folder_id = 0 ) {
+		$value = get_user_meta( absint( $user_id ), $this->get_access_meta_key( $vendor_id, $folder_id ), true );
 
 		if ( ! $value ) {
 			return null;
@@ -5583,11 +6162,13 @@ final class Agl_Gallery extends Component {
 	 * @param int $order_id Order that paid for it.
 	 * @param int $product_id Product that was bought, so two lengths in one order both count.
 	 * @param int $period Days bought, 0 for lifetime.
+	 * @param int $folder_id Folder ID, or 0 where the purchase covers the whole gallery.
 	 * @return array|null The stored grant, or null when this line had already been counted.
 	 */
-	protected function add_access_time( $user_id, $vendor_id, $order_id, $product_id, $period ) {
-		$grant  = $this->read_access_grant( $user_id, $vendor_id );
-		$period = max( 0, absint( $period ) );
+	protected function add_access_time( $user_id, $vendor_id, $order_id, $product_id, $period, $folder_id = 0 ) {
+		$meta_key = $this->get_access_meta_key( $vendor_id, $folder_id );
+		$grant    = $this->read_access_grant( $user_id, $vendor_id, $folder_id );
+		$period   = max( 0, absint( $period ) );
 
 		/*
 		 * Keyed by the line, not by the order. One order can hold two different lengths for the
@@ -5643,7 +6224,7 @@ final class Agl_Gallery extends Component {
 		$grant['order']              = $order_id;
 		$grant['expires']            = $this->calculate_grant_expiry( $grant );
 
-		update_user_meta( $user_id, 'hp_agl_access_' . $vendor_id, $grant );
+		update_user_meta( $user_id, $meta_key, $grant );
 
 		return $grant;
 	}
@@ -5654,10 +6235,12 @@ final class Agl_Gallery extends Component {
 	 * @param int $user_id User ID.
 	 * @param int $vendor_id Vendor ID.
 	 * @param int $order_id Order being refunded or cancelled.
+	 * @param int $folder_id Folder ID, or 0 where the purchase covered the whole gallery.
 	 * @return bool Whether anything was taken away.
 	 */
-	protected function remove_access_time( $user_id, $vendor_id, $order_id ) {
-		$grant = $this->read_access_grant( $user_id, $vendor_id );
+	protected function remove_access_time( $user_id, $vendor_id, $order_id, $folder_id = 0 ) {
+		$meta_key = $this->get_access_meta_key( $vendor_id, $folder_id );
+		$grant    = $this->read_access_grant( $user_id, $vendor_id, $folder_id );
 
 		if ( ! $grant ) {
 			return false;
@@ -5672,7 +6255,7 @@ final class Agl_Gallery extends Component {
 				return false;
 			}
 
-			delete_user_meta( $user_id, 'hp_agl_access_' . $vendor_id );
+			delete_user_meta( $user_id, $meta_key );
 
 			return true;
 		}
@@ -5697,7 +6280,7 @@ final class Agl_Gallery extends Component {
 		}
 
 		if ( ! $grant['parts'] ) {
-			delete_user_meta( $user_id, 'hp_agl_access_' . $vendor_id );
+			delete_user_meta( $user_id, $meta_key );
 
 			return true;
 		}
@@ -5706,7 +6289,7 @@ final class Agl_Gallery extends Component {
 
 		// Refunding the long purchase can leave less time than has already passed.
 		if ( $grant['expires'] && $grant['expires'] <= time() ) {
-			delete_user_meta( $user_id, 'hp_agl_access_' . $vendor_id );
+			delete_user_meta( $user_id, $meta_key );
 
 			return true;
 		}
@@ -5714,7 +6297,7 @@ final class Agl_Gallery extends Component {
 		// Keys may be "order:product" or a bare order ID, so take the order half either way.
 		$grant['order'] = hp_agl_int( strtok( (string) hp\get_last_array_value( array_keys( $grant['parts'] ) ), ':' ) );
 
-		update_user_meta( $user_id, 'hp_agl_access_' . $vendor_id, $grant );
+		update_user_meta( $user_id, $meta_key, $grant );
 
 		return true;
 	}
@@ -5763,7 +6346,18 @@ final class Agl_Gallery extends Component {
 
 			$period = '' === $period ? absint( get_option( 'hp_gallery_access_period' ) ) : hp_agl_int( $period );
 
-			$grant = $this->add_access_time( $user_id, $vendor_id, absint( $order_id ), $product_id, $period );
+			// Which folder the pass covers, read the same way and for the same reason. Zero, the
+			// value every order placed before per-folder pricing existed produces, means the
+			// vendor's whole gallery.
+			$folder_id = $item->get_meta( '_hp_agl_folder' );
+
+			if ( '' === $folder_id || is_null( $folder_id ) ) {
+				$folder_id = get_post_meta( $product_id, 'hp_agl_folder', true );
+			}
+
+			$folder_id = hp_agl_int( $folder_id );
+
+			$grant = $this->add_access_time( $user_id, $vendor_id, absint( $order_id ), $product_id, $period, $folder_id );
 
 			if ( ! $grant ) {
 				continue;
@@ -5780,8 +6374,9 @@ final class Agl_Gallery extends Component {
 			 * @param {int} $vendor_id Vendor ID.
 			 * @param {int} $order_id WooCommerce order ID.
 			 * @param {int} $expires Expiry timestamp, 0 for lifetime access.
+			 * @param {int} $folder_id Folder ID, or 0 where the purchase covers the whole gallery.
 			 */
-			do_action( 'hp_agl/access_purchased', $user_id, $vendor_id, absint( $order_id ), $expires );
+			do_action( 'hp_agl/access_purchased', $user_id, $vendor_id, absint( $order_id ), $expires, $folder_id );
 		}
 	}
 
@@ -5813,18 +6408,29 @@ final class Agl_Gallery extends Component {
 				continue;
 			}
 
-			$vendor_id = absint( get_post_meta( $item->get_product_id(), 'hp_agl_vendor', true ) );
+			$product_id = $item->get_product_id();
+			$vendor_id  = absint( get_post_meta( $product_id, 'hp_agl_vendor', true ) );
 
 			if ( ! $vendor_id ) {
 				continue;
 			}
+
+			// The same grant the purchase wrote, found the same way: the order line first, the
+			// product second, and zero meaning the vendor's whole gallery.
+			$folder_id = $item->get_meta( '_hp_agl_folder' );
+
+			if ( '' === $folder_id || is_null( $folder_id ) ) {
+				$folder_id = get_post_meta( $product_id, 'hp_agl_folder', true );
+			}
+
+			$folder_id = hp_agl_int( $folder_id );
 
 			/*
 			 * Read straight from storage rather than through get_access_grant(), which clears an
 			 * expired grant before answering: a refund must still tidy away what it left behind.
 			 * Only this order's own contribution goes; access paid for by another order stays.
 			 */
-			if ( $this->remove_access_time( $user_id, $vendor_id, absint( $order_id ) ) ) {
+			if ( $this->remove_access_time( $user_id, $vendor_id, absint( $order_id ), $folder_id ) ) {
 
 				/**
 				 * Fires when a purchased gallery access is revoked because the
@@ -5834,8 +6440,9 @@ final class Agl_Gallery extends Component {
 				 * @param {int} $user_id Buyer user ID.
 				 * @param {int} $vendor_id Vendor ID.
 				 * @param {int} $order_id WooCommerce order ID.
+				 * @param {int} $folder_id Folder ID, or 0 where the purchase covered the whole gallery.
 				 */
-				do_action( 'hp_agl/access_revoked', $user_id, $vendor_id, absint( $order_id ) );
+				do_action( 'hp_agl/access_revoked', $user_id, $vendor_id, absint( $order_id ), $folder_id );
 			}
 		}
 	}
@@ -5848,15 +6455,18 @@ final class Agl_Gallery extends Component {
 	 * access, their purchase is the unlock path; otherwise the site's upgrade
 	 * page link is.
 	 *
-	 * @param \HivePress\Models\Vendor $vendor Vendor object.
+	 * @param \HivePress\Models\Vendor              $vendor Vendor object.
+	 * @param \HivePress\Models\Gallery_Folder|null $folder Folder being unlocked, under the folder scope.
 	 * @return string
 	 */
-	public function render_unlock_actions( $vendor ) {
+	public function render_unlock_actions( $vendor, $folder = null ) {
 		$output = '';
 
-		// Purchase buttons, one per length of access the vendor has priced.
+		// Purchase buttons, one per length of access the vendor has priced. Under the folder scope
+		// the prices are the folder's own, so a vendor selling one folder and not another shows
+		// buttons on the first and the upgrade link on the second.
 		if ( $this->is_paid_access_enabled() ) {
-			$tiers = $this->get_priced_access_tiers( $vendor->get_id() );
+			$tiers = $this->get_priced_access_tiers( $this->get_pricing_subject_id( $vendor, $folder ) );
 
 			/*
 			 * A signed-out visitor is sent to sign in rather than to the checkout whichever length
@@ -5904,6 +6514,188 @@ final class Agl_Gallery extends Component {
 		if ( $output ) {
 			$output = '<p class="hp-agl-gallery__folder-unlock">' . $output . '</p>';
 		}
+
+		return $output;
+	}
+
+	/**
+	 * Renders the paid access pricing panel a vendor fills in.
+	 *
+	 * Lives here rather than in a block because two screens show it and which one depends on a
+	 * setting: the account gallery page under "the vendor's whole gallery", and each folder's own
+	 * edit page under "each folder separately". Two copies of a form that posts money would drift.
+	 *
+	 * @param \HivePress\Models\Vendor              $vendor Vendor object.
+	 * @param \HivePress\Models\Gallery_Folder|null $folder Folder being priced, under the folder scope.
+	 * @return string Empty when this site does not sell access.
+	 */
+	public function render_price_panel( $vendor, $folder = null ) {
+		if ( ! $this->is_paid_access_enabled() || ! $this->are_members_folders_enabled() || ! $vendor ) {
+			return '';
+		}
+
+		$per_folder = $this->is_folder_access_scope();
+
+		// Each screen shows the panel only under the scope it belongs to, so a vendor is never
+		// offered two sets of prices at once and cannot wonder which one a buyer pays.
+		if ( ( $folder instanceof \HivePress\Models\Gallery_Folder ) !== $per_folder ) {
+			return '';
+		}
+
+		$subject_id = $this->get_pricing_subject_id( $vendor, $folder );
+
+		if ( ! $subject_id ) {
+			return '';
+		}
+
+		$durations  = $this->get_access_durations();
+		$commission = $this->get_commission();
+		$max        = self::MAX_TIERS;
+
+		// Every slot already being sold, in the order they will be shown.
+		$rows = [];
+
+		for ( $tier = 1; $tier <= $max; $tier++ ) {
+			$price = $this->get_access_price( $subject_id, $tier );
+
+			if ( $price ) {
+				$rows[] = [
+					'days'  => $this->get_tier_days( $subject_id, $tier ),
+					'price' => $price,
+				];
+			}
+		}
+
+		$output = '<div class="hp-agl-account__paid">';
+
+		$output .= '<h3 class="hp-section__title">' . esc_html__( 'Paid Access (optional)', 'additional-gallery-for-hivepress' ) . '</h3>';
+
+		if ( $per_folder ) {
+			$output .= '<p class="hp-meta">' . esc_html__( 'If you want to, you can charge visitors to unlock this one folder. Choose how long the access lasts and what it costs. Buyers pay through the normal checkout, and what they buy here unlocks this folder only.', 'additional-gallery-for-hivepress' ) . '</p>';
+		} else {
+			$output .= '<p class="hp-meta">' . esc_html__( 'If you want to, you can charge visitors to unlock your members-only folders. Choose how long the access lasts and what it costs. Buyers pay through the normal checkout, and what they buy unlocks all of your members-only folders.', 'additional-gallery-for-hivepress' ) . '</p>';
+		}
+
+		$output .= '<p class="hp-meta">' . esc_html(
+			sprintf(
+				/* translators: %s: number of lengths. */
+				_n( 'You can offer %s length at a time.', 'You can offer up to %s lengths at a time, and buyers pick between them.', $max, 'additional-gallery-for-hivepress' ),
+				number_format_i18n( $max )
+			)
+		) . '</p>';
+
+		/*
+		 * The site's cut is stated here rather than left for the vendor to find in their earnings. It
+		 * is added to what the buyer pays, so the vendor still receives the figure they type in, and
+		 * saying so plainly stops it reading as a deduction.
+		 */
+		if ( $commission ) {
+			if ( $commission['rate'] && $commission['fee'] ) {
+				$note = sprintf(
+					/* translators: 1: percentage, 2: amount. */
+					__( 'Buyers also pay this site a fee of %1$s%% plus %2$s on top of your price. You receive the price you set.', 'additional-gallery-for-hivepress' ),
+					number_format_i18n( $commission['rate'], 2 ),
+					wp_strip_all_tags( wc_price( $commission['fee'] ) )
+				);
+			} elseif ( $commission['rate'] ) {
+				$note = sprintf(
+					/* translators: %s: percentage. */
+					__( 'Buyers also pay this site a fee of %s%% on top of your price. You receive the price you set.', 'additional-gallery-for-hivepress' ),
+					number_format_i18n( $commission['rate'], 2 )
+				);
+			} else {
+				$note = sprintf(
+					/* translators: %s: amount. */
+					__( 'Buyers also pay this site a fee of %s on top of your price. You receive the price you set.', 'additional-gallery-for-hivepress' ),
+					wp_strip_all_tags( wc_price( $commission['fee'] ) )
+				);
+			}
+
+			$output .= '<p class="hp-meta">' . esc_html( $note ) . '</p>';
+		}
+
+		$symbol = function_exists( 'get_woocommerce_currency_symbol' ) ? html_entity_decode( get_woocommerce_currency_symbol(), ENT_QUOTES, 'UTF-8' ) : '';
+
+		$output .= '<form class="hp-form hp-agl-account__price-form" data-agl-price-form data-agl-max="' . esc_attr( (string) $max ) . '"';
+
+		// Which folder the prices belong to travels on the form, because the endpoint has no other
+		// way of telling one folder's prices from another's.
+		if ( $per_folder ) {
+			$output .= ' data-agl-price-folder="' . esc_attr( (string) $folder->get_id() ) . '"';
+		}
+
+		$output .= '>';
+		$output .= '<div class="hp-agl-account__tiers" data-agl-tiers>';
+
+		// One row per length being sold, and an empty one to start from when none is.
+		$initial = $rows ? $rows : [
+			[
+				'days'  => null,
+				'price' => '',
+			],
+		];
+
+		foreach ( $initial as $row ) {
+			$output .= $this->render_price_row( $durations, $symbol, $row['days'], $row['price'] );
+		}
+
+		$output .= '</div>';
+
+		$output .= '<p class="hp-agl-account__tier-add"><a href="#" class="hp-agl-account__add-tier" data-agl-add-tier>' . esc_html__( '+ Add another length', 'additional-gallery-for-hivepress' ) . '</a></p>';
+		$output .= '<p class="hp-meta">' . esc_html__( 'To stop selling a length, remove its row and save.', 'additional-gallery-for-hivepress' ) . '</p>';
+		$output .= '<div class="hp-agl-account__price-row hp-agl-account__price-row--submit">';
+		$output .= '<button type="submit" class="hp-form__button button button--primary alt"><span>' . esc_html__( 'Save Access Pricing', 'additional-gallery-for-hivepress' ) . '</span></button>';
+		$output .= '</div>';
+		$output .= '<div class="hp-form__messages" data-agl-price-message></div>';
+		$output .= '</form>';
+
+		// The template the Add button clones. Kept out of the form so it is never submitted.
+		$output .= '<template data-agl-tier-template>' . $this->render_price_row( $durations, $symbol, null, '' ) . '</template>';
+		$output .= '</div>';
+
+		return $output;
+	}
+
+	/**
+	 * Renders one length-and-price row.
+	 *
+	 * @param array        $durations Lengths a vendor may choose from.
+	 * @param string       $symbol Currency symbol.
+	 * @param int|null     $days Chosen length, null for a blank row.
+	 * @param float|string $price Price, empty for a blank row.
+	 * @return string
+	 */
+	protected function render_price_row( $durations, $symbol, $days, $price ) {
+		$output = '<div class="hp-agl-account__tier" data-agl-tier>';
+
+		$output .= '<div class="hp-form__field hp-form__field--select">';
+		$output .= '<label class="hp-field__label">' . esc_html__( 'Access lasts', 'additional-gallery-for-hivepress' ) . '</label>';
+		$output .= '<select name="days[]" class="hp-field hp-field--select">';
+
+		foreach ( $durations as $value => $label ) {
+			$output .= '<option value="' . esc_attr( $value ) . '"' . selected( (string) $value, is_null( $days ) ? '' : (string) absint( $days ), false ) . '>' . esc_html( $label ) . '</option>';
+		}
+
+		/*
+		 * A length the owner has filtered away since this vendor chose it is added back for this
+		 * vendor only, and only while they are still selling it. Dropping it from the list would
+		 * silently change what they are selling the moment they saved anything at all.
+		 */
+		if ( ! is_null( $days ) && ! isset( $durations[ absint( $days ) ] ) ) {
+			$output .= '<option value="' . esc_attr( absint( $days ) ) . '" selected>' . esc_html( $this->get_duration_label( $days ) ) . '</option>';
+		}
+
+		$output .= '</select>';
+		$output .= '</div>';
+
+		$output .= '<div class="hp-form__field hp-form__field--number">';
+		/* translators: %s: currency symbol. */
+		$output .= '<label class="hp-field__label">' . esc_html( sprintf( __( 'Price (%s)', 'additional-gallery-for-hivepress' ), $symbol ) ) . '</label>';
+		$output .= '<input type="number" name="price[]" class="hp-field hp-field--number" min="0" step="0.01" value="' . esc_attr( '' === $price ? '' : (string) $price ) . '" placeholder="0.00">';
+		$output .= '</div>';
+
+		$output .= '<button type="button" class="hp-agl-account__tier-remove" data-agl-remove-tier aria-label="' . esc_attr__( 'Remove this length', 'additional-gallery-for-hivepress' ) . '"><i class="hp-icon fas fa-times"></i></button>';
+		$output .= '</div>';
 
 		return $output;
 	}

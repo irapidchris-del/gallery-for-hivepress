@@ -79,23 +79,42 @@ class Agl_Gallery_Link extends Block {
 			$label = __( 'View Gallery', 'additional-gallery-for-hivepress' );
 		}
 
-		// The wrapper is a HivePress widget, so the sidebar spaces it like every other one.
-		$output .= '<div class="hp-agl-link widget hp-widget">';
+		/*
+		 * No wrapper of its own. This block renders inside core's primary actions container now, and
+		 * that container IS the widget (`hp-widget widget` on
+		 * hivepress/includes/templates/class-vendor-view-page.php:158-160 and
+		 * class-listing-view-page.php:199-201). The div this used to carry brought those same two
+		 * classes with it, and a widget nested inside a widget is what produced the loose,
+		 * disconnected gap around the button that Kseniia reported. It also broke the spacing rule
+		 * that ties the actions together, which core writes as
+		 * `--view-page &__actions--primary &__action:not(:last-child)`
+		 * (hivepress/assets/css/frontend.less:856-860, :1124-1128) and which only reaches a DIRECT
+		 * `__action` child.
+		 *
+		 * Hence the model prefix below: the same button sits in two differently named containers, so
+		 * it has to answer to `hp-vendor__action` on a profile and `hp-listing__action` on a listing
+		 * to inherit either one's spacing and the theme's own rules for them.
+		 */
+		$prefix = $listing ? 'hp-listing' : 'hp-vendor';
 
 		/*
-		 * Two sets of classes, and both are needed.
+		 * Three sets of classes, and all three are needed.
+		 *
+		 * `{model}__action` is the position: sibling spacing inside the actions container, plus
+		 * whatever the active theme does to the actions on that page.
 		 *
 		 * `hp-button hp-button--wide` is HivePress's own structure: width:100%, inline-flex centring
 		 * and a 0.5rem margin on a leading icon (hivepress/assets/css/frontend.min.css). Dropping
-		 * them left the button shrink-wrapped to its text with the icon almost touching the label.
+		 * them left the button shrink-wrapped to its text with the icon almost touching the label,
+		 * and the container centres its children (`align-items: center`, frontend.less:50-54), so
+		 * without the explicit width this would not fill the sidebar at all.
 		 *
 		 * `button button--large button--primary alt` is the appearance, copied from the Send Message
 		 * button directly above this one
 		 * (hivepress-messages/templates/vendor/view/page/message-send-link.php). `button--large` is
 		 * the one that sets the height; without it this sat visibly shorter than that button.
 		 */
-		$output .= '<a href="' . esc_url( $gallery_url ) . '" class="hp-agl-link__button hp-button hp-button--wide button button--large button--primary alt"><i class="hp-icon fas fa-images"></i><span>' . esc_html( $label ) . '</span></a>';
-		$output .= '</div>';
+		$output .= '<a href="' . esc_url( $gallery_url ) . '" class="' . esc_attr( $prefix . '__action ' . $prefix . '__action--gallery' ) . ' hp-agl-link__button hp-button hp-button--wide button button--large button--primary alt"><i class="hp-icon fas fa-images"></i><span>' . esc_html( $label ) . '</span></a>';
 
 		return $output;
 	}

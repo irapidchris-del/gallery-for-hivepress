@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Additional Gallery for HivePress
  * Description: Gives vendors a front-end photo gallery with public, members-only and private folders, accessible from the account menu and linked from vendor profiles and listings.
- * Version: 1.8.16
+ * Version: 1.9.0
  * Author: ChrisB @ HivePress Community
  * Author URI: https://community.hivepress.io/u/chrisb/summary
  * Text Domain: additional-gallery-for-hivepress
@@ -22,7 +22,7 @@ defined( 'ABSPATH' ) || exit;
 
 // Plugin constants.
 if ( ! defined( 'HP_AGL_VERSION' ) ) {
-	define( 'HP_AGL_VERSION', '1.8.16' );
+	define( 'HP_AGL_VERSION', '1.9.0' );
 }
 
 if ( ! defined( 'HP_AGL_FILE' ) ) {
@@ -461,6 +461,45 @@ add_action(
 
 				if ( $gallery ) {
 					$gallery->migrate_protected_files();
+				}
+			}
+
+			// 1.8.x to 1.9.0: the folder edit screen no longer has an Author box, so the vendor is
+			// the only control over who owns a folder. Any folder whose author and vendor already
+			// disagree is aligned once here, rather than waiting for somebody to open and re-save it.
+			//
+			// The mismatch is invisible until it bites: the front-end "is this yours?" checks read
+			// the author, while the gallery listing, the counts and every public URL read the vendor,
+			// so a mismatched folder appeared in one person's gallery while only the other could open
+			// it from their account. Front-end folders have always agreed; only ones created or
+			// reassigned in wp-admin could ever drift.
+			if ( ! $version || version_compare( $version, '1.9.0', '<' ) ) {
+				$hp_agl_folder_ids = get_posts(
+					[
+						'post_type'   => 'hp_gallery_folder',
+						'post_status' => 'any',
+						'numberposts' => -1,
+						'fields'      => 'ids',
+					]
+				);
+
+				foreach ( $hp_agl_folder_ids as $hp_agl_folder_id ) {
+					$hp_agl_vendor_id = wp_get_post_parent_id( $hp_agl_folder_id );
+
+					if ( ! $hp_agl_vendor_id || 'hp_vendor' !== get_post_type( $hp_agl_vendor_id ) ) {
+						continue;
+					}
+
+					$hp_agl_user_id = hp_agl_int( get_post_field( 'post_author', $hp_agl_vendor_id ) );
+
+					if ( $hp_agl_user_id && hp_agl_int( get_post_field( 'post_author', $hp_agl_folder_id ) ) !== $hp_agl_user_id ) {
+						wp_update_post(
+							[
+								'ID'          => $hp_agl_folder_id,
+								'post_author' => $hp_agl_user_id,
+							]
+						);
+					}
 				}
 			}
 

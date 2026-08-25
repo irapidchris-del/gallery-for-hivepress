@@ -3,7 +3,7 @@
 Gives HivePress vendors a front-end photo gallery with public, members-only and private folders, protected files, per-photo pages with likes and comments, and optional monetisation through Memberships or per-vendor paid access.
 
 **Author:** [ChrisB @ HivePress Community](https://community.hivepress.io/u/chrisb/summary)
-**Version:** 1.8.16 · **Requires:** WordPress 5.8+, PHP 7.4+, HivePress 1.x
+**Version:** 1.9.0 · **Requires:** WordPress 5.8+, PHP 7.4+, HivePress 1.x
 
 > **Installation folder:** the release zip installs as `additional-gallery-for-hivepress` in `wp-content/plugins/`, which is the recommended folder name. Since 1.4.0 the plugin registers itself with HivePress explicitly, so it also works from a differently named folder (for example the `-main` suffix a GitHub "Download ZIP" adds), where earlier versions would have loaded nothing at all.
 
@@ -29,7 +29,7 @@ Gives HivePress vendors a front-end photo gallery with public, members-only and 
 - Members-only folders render locked for visitors without access: heavily blurred previews generated server side (or lock placeholders, or hidden - a site setting), a photo count to tease the content, and an "Unlock Access" button pointing at the site's upgrade page. Original image URLs never appear in the page for locked folders
 - A "View Gallery (12 photos)" button in the sidebar of vendor profiles and listing pages, which only appears once the vendor has at least one public photo
 
-**For site owners** (HivePress → Settings → Vendors → Gallery):
+**For site owners** (HivePress → Settings → Gallery):
 
 - Hide the gallery link on vendor profiles and/or listing pages
 - Limit folders per vendor and images per folder (image limit defaults to 30 and is enforced server-side by the core attachments endpoint)
@@ -39,13 +39,14 @@ Gives HivePress vendors a front-end photo gallery with public, members-only and 
 - **Protect Files** (on by default): files in private and members-only folders are moved to a protected directory and served through an access-checked link, so their URLs can't be opened directly; new uploads get unguessable file names; gallery images are excluded from public REST media queries; and attachment pages are access-checked. Public folder images stay directly served for speed and SEO
 - **Keeping galleries light**: maximum file size, allowed formats and maximum dimensions (resize on upload, applied before thumbnails are generated). Compression, WebP conversion and bulk re-processing are deliberately left to dedicated image plugins (Imagify, ShortPixel, FlyingPress), which do them better and across the whole media library
 - **Photo pages**: every photo gets its own URL with prev/next navigation, its title and description, likes, and a threaded comment section (replies one level deep, likeable comments) with an inline composer. Grid clicks always open the photo page; the Lightbox setting controls whether the photo there can be clicked to enlarge in the pop-up viewer
-- **Photo page sidebar**: a real `register_sidebar` widget area ("Photo Page (sidebar)", fillable from Appearance → Widgets) plus the vendor's profile card, positioned left or right of the photo by a setting
+- **Sidebars**: a real `register_sidebar` widget area for each of the three page types ("Gallery Page", "Folder Page" and "Photo Page", all fillable from Appearance → Widgets) plus the vendor's profile card. The photo page sidebar is positioned left or right; the gallery and folder page sidebars are off until switched on, then left or right
+- **Folder grid**: how many columns of folder covers a full-width screen shows, whether covers crop horizontal, vertical or square, and a row cap for a gallery embedded in a profile or listing (with a "View N more folders" link for the remainder). Narrow screens always drop to two columns, then one
 - **Per-photo editing** for vendors: title, description, move-to-folder (with confirmation) and delete, from the Manage Photo card in the sidebar of their own photo pages
-- **Paid access** (optional, WooCommerce): vendors price their own gallery unlock; purchases grant per-vendor access, refunds revoke it, and Marketplace commission applies when that extension is active. An Access Period setting makes purchases lapse after a set number of days (stored per grant, so changing it never rewrites access already bought); locked folders always show a single unlock button, the vendor's purchase when priced, else the site's upgrade link
+- **Paid access** (optional, WooCommerce): vendors price their own gallery unlock; purchases grant access, refunds revoke it, and Marketplace commission applies when that extension is active. A scope setting decides what one purchase buys: the vendor's whole gallery (prices on the account gallery page, grants stored as `hp_agl_access_{vendor_id}` user meta) or each folder separately (prices on each folder's own edit page, grants stored as `hp_agl_faccess_{folder_id}`). The two are stored apart, so switching scope loses neither prices nor access already sold. An Access Period setting makes purchases lapse after a set number of days (stored per grant, so changing it never rewrites access already bought); locked folders always show a single unlock button, the vendor's purchase when priced, else the site's upgrade link
 - **Storage quotas** (site-wide or per plan) with "X used of Y allowed" on the vendor dashboard
 - **Notification bridge**: `hp_agl/photo_liked`, `hp_agl/photo_commented`, `hp_agl/comment_replied`, `hp_agl/comment_liked`, `hp_agl/access_purchased`, `hp_agl/access_revoked`, `hp_agl/access_expired` fire with documented arguments, ready for Notifications for HivePress or any listener
 
-**In wp-admin:** each folder has an Images meta box (the native drag-and-drop manager, so you can see and manage exactly which images belong to each folder), a Settings meta box for visibility, and the folders list shows vendor, visibility, image count and size columns. Photo comments appear on the usual Comments screen.
+**In wp-admin:** folders live under Vendors → Gallery Folders. Each has an Images meta box (the native drag-and-drop manager, so you can see and manage exactly which images belong to each folder), a Gallery Settings meta box holding the vendor and the visibility, and the folders list shows vendor, visibility, image count and size columns. There is no Author box: the vendor is a folder's only owner and `post_author` is written to match it on save, the same rule core applies to a listing. Photo comments appear on the usual Comments screen.
 
 ## Architecture
 
@@ -53,7 +54,7 @@ The plugin registers itself through the `hivepress/v1/extensions` filter, so Hiv
 
 | Piece | Implementation |
 | --- | --- |
-| Folder | `hp_gallery_folder` post type. Owner = `post_author`, vendor = `post_parent`, visibility = `hp_visibility` meta (`public` / `members` / `private`), status always `publish`. |
+| Folder | `hp_gallery_folder` post type. Owner = `post_author` (kept equal to the vendor's user on save), vendor = `post_parent`, visibility = `hp_visibility` meta (`public` / `members` / `private`), status always `publish`. |
 | Images | Standard WordPress attachments attached via the core `attachment_upload` field (`parent_model = gallery_folder`, `parent_field = images`), so uploads, sorting, limits and deletion reuse core HivePress code and its ownership checks. |
 | Model | `HivePress\Models\Gallery_Folder` mirrors the core Listing model, including a lazy, cached `get_images__id()` (one-to-many relation fields are not populated on read by HivePress). Image IDs are cached per folder in the `models/attachment` group, which HivePress invalidates automatically when an attachment of the folder changes. |
 | Routes | Account pages under `user_account_page` (`/account/gallery`, `/account/gallery/{id}`), a public route `/gallery/{vendor_id}`, and REST endpoints under `hivepress/v1/gallery-folders` for create/update/delete. |

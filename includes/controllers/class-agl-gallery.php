@@ -1022,6 +1022,21 @@ final class Agl_Gallery extends Controller {
 		}
 
 		/*
+		 * Which folder's prices these are, under the "each folder separately" scope. The folder is
+		 * re-checked here rather than trusted from the form: the endpoint is public, and a folder ID
+		 * belonging to somebody else would otherwise let one vendor set another vendor's prices.
+		 */
+		$folder = null;
+
+		if ( hivepress()->agl_gallery->is_folder_access_scope() ) {
+			$folder = Models\Gallery_Folder::query()->get_by_id( $request->get_param( 'folder' ) );
+
+			if ( empty( $folder ) || get_current_user_id() !== $folder->get_user__id() || absint( $folder->get_vendor__id() ) !== absint( $vendor->get_id() ) ) {
+				return hp\rest_error( 403 );
+			}
+		}
+
+		/*
 		 * Validate the whole set before saving any of it. Saving row by row would leave a vendor who
 		 * mistyped one figure with some lengths saved and some not, and an error that does not say
 		 * which.
@@ -1094,7 +1109,8 @@ final class Agl_Gallery extends Controller {
 				$vendor,
 				$tier,
 				$row ? $row['days'] : 0,
-				$row ? $row['price'] : 0
+				$row ? $row['price'] : 0,
+				$folder
 			);
 
 			if ( ! $saved ) {
@@ -1105,7 +1121,7 @@ final class Agl_Gallery extends Controller {
 		return hp\rest_response(
 			200,
 			[
-				'id'    => $vendor->get_id(),
+				'id'    => $folder ? $folder->get_id() : $vendor->get_id(),
 				'tiers' => $rows,
 			]
 		);
@@ -1410,7 +1426,7 @@ final class Agl_Gallery extends Controller {
 		}
 
 		// Check the locked display.
-		if ( 'members' === hivepress()->agl_gallery->get_effective_visibility( $folder ) && 'hide' === hivepress()->agl_gallery->get_locked_display() && ! hivepress()->agl_gallery->user_can_view_member_folders( $vendor ) ) {
+		if ( 'members' === hivepress()->agl_gallery->get_effective_visibility( $folder ) && 'hide' === hivepress()->agl_gallery->get_locked_display() && ! hivepress()->agl_gallery->user_can_view_folder( $folder, $vendor ) ) {
 			return hivepress()->router->get_url( 'gallery_view_page', [ 'vendor_id' => $vendor->get_id() ] );
 		}
 
@@ -1445,8 +1461,15 @@ final class Agl_Gallery extends Controller {
 		// Get vendor.
 		$vendor = hivepress()->request->get_context( 'gallery_vendor' );
 
-		// Get listed folders (public and members-only; never private).
-		$folders = hivepress()->agl_gallery->get_listed_folders( $vendor->get_id() );
+		/*
+		 * Listed folders: public and members-only for everybody, plus the vendor's private folders
+		 * when the vendor themselves or a site owner is the one looking. A vendor could already open
+		 * a private folder's own page - the folder redirect has allowed that since 1.8.x - but their
+		 * own gallery index pretended those folders did not exist, so the only route to one was a URL
+		 * they had to have kept. Each is badged Private on the page and a note under the grid says
+		 * plainly that visitors see none of them.
+		 */
+		$folders = hivepress()->agl_gallery->get_listed_folders( $vendor->get_id(), hivepress()->agl_gallery->can_manage_gallery( $vendor ) );
 
 		return ( new Blocks\Template(
 			[

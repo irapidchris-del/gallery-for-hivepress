@@ -83,41 +83,6 @@ return [
 						'_order'      => 22,
 					],
 
-					'gallery_layout'            => [
-						'label'       => esc_html__( 'Gallery Layout', 'additional-gallery-for-hivepress' ),
-						'description' => esc_html__( 'Choose how the public gallery page displays folders.', 'additional-gallery-for-hivepress' ),
-						'type'        => 'select',
-						'default'     => 'folders',
-						'_order'      => 25,
-
-						'options'     => [
-							'folders' => esc_html__( 'Folder covers', 'additional-gallery-for-hivepress' ),
-							'single'  => esc_html__( 'Single page', 'additional-gallery-for-hivepress' ),
-						],
-					],
-
-					'gallery_enable_lightbox'   => [
-						'label'       => esc_html__( 'Lightbox', 'additional-gallery-for-hivepress' ),
-						'caption'     => esc_html__( 'Let visitors enlarge the photo on its page', 'additional-gallery-for-hivepress' ),
-						'description' => esc_html__( 'With this on, clicking the photo on its own page enlarges it in a pop-up viewer. Photos in the gallery always open their own page, where the comments live.', 'additional-gallery-for-hivepress' ),
-						'type'        => 'checkbox',
-						'default'     => true,
-						'_order'      => 26,
-					],
-
-					'gallery_photo_sidebar'     => [
-						'label'       => esc_html__( 'Photo Page Sidebar', 'additional-gallery-for-hivepress' ),
-						'description' => esc_html__( 'Choose which side of the photo page the sidebar sits on. It shows the vendor\'s profile card and, for the photo\'s owner, the editing options, and you can add your own widgets to it in the "Photo Page (sidebar)" area under Appearance, then Widgets.', 'additional-gallery-for-hivepress' ),
-						'type'        => 'select',
-						'default'     => 'right',
-						'_order'      => 27,
-
-						'options'     => [
-							'right' => esc_html__( 'Right', 'additional-gallery-for-hivepress' ),
-							'left'  => esc_html__( 'Left', 'additional-gallery-for-hivepress' ),
-						],
-					],
-
 					'gallery_max_folders'       => [
 						'label'       => esc_html__( 'Maximum Folders', 'additional-gallery-for-hivepress' ),
 						'description' => esc_html__( 'Set the maximum number of gallery folders per vendor. Leave empty for no limit. A membership plan can raise or lower this per plan.', 'additional-gallery-for-hivepress' ),
@@ -226,10 +191,142 @@ return [
 				],
 			],
 
+			/*
+			 * How the gallery LOOKS, kept apart from what it allows. Layout, the lightbox and the
+			 * photo page sidebar used to sit among the storage caps and upload formats in General,
+			 * which had grown past twenty settings; an owner looking for "how many folders across"
+			 * had to read the maximum file size to find it. Moving a field between sections changes
+			 * no option name, because HivePress prefixes from the field name and not from the tab or
+			 * the section (components/class-admin.php:297), so nothing an owner has configured
+			 * moves or resets.
+			 */
+			'gallery_display'      => [
+				'title'       => esc_html__( 'Gallery Pages', 'additional-gallery-for-hivepress' ),
+				'description' => esc_html__( 'How galleries look to visitors. These apply to the gallery page, to each folder page, and to the gallery sections you can add to vendor profiles and listing pages.', 'additional-gallery-for-hivepress' ),
+				'_order'      => 101,
+
+				'fields'      => [
+					'gallery_layout'          => [
+						'label'       => esc_html__( 'Gallery Layout', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Choose how the public gallery page displays folders. Folder covers gives each folder a cover picture in a grid, and every folder gets a page of its own. Single page puts every folder\'s photos on the gallery page one after another.', 'additional-gallery-for-hivepress' ),
+						'type'        => 'radio',
+						'default'     => 'folders',
+						'_order'      => 10,
+
+						'options'     => [
+							'folders' => esc_html__( 'Folder covers', 'additional-gallery-for-hivepress' ),
+							'single'  => esc_html__( 'Single page', 'additional-gallery-for-hivepress' ),
+						],
+					],
+
+					'gallery_columns'         => [
+						'label'       => esc_html__( 'Folder Columns', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'How many folder covers sit side by side on a full-width screen. Leave empty to fit as many as the screen allows, which is what a gallery did before this setting existed. Narrow screens always show fewer, so a phone is never asked to draw six columns.', 'additional-gallery-for-hivepress' ),
+						'type'        => 'number',
+						'min_value'   => 1,
+						'max_value'   => 6,
+						'_order'      => 20,
+					],
+
+					/*
+					 * `_parent` on the columns box, so this only appears once a column count exists.
+					 * Rows times columns is what gives a number of folders, and with the columns left
+					 * to the screen there is no such number: the setting could be filled in and would
+					 * then do nothing at all, which is precisely the shape of bug the settings notes
+					 * warn about ("a select's stored values must match what the code branches on").
+					 * Hiding it is honest; a filled-in box that is quietly ignored is not.
+					 */
+					'gallery_rows'            => [
+						'label'       => esc_html__( 'Maximum Rows', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Caps the folder grid where a gallery is shown inside another page, which is the Gallery section on vendor profiles and listing pages, and adds a link to the full gallery for whatever does not fit. Leave empty to show every folder. Needs a column count above, because rows only mean a number of folders once the columns are fixed. This deliberately does not apply to the gallery page itself: that page is the only route to a folder, so hiding folders there would leave them unreachable.', 'additional-gallery-for-hivepress' ),
+						'type'        => 'number',
+						'min_value'   => 1,
+						'_parent'     => 'gallery_columns',
+						'_order'      => 30,
+					],
+
+					'gallery_cover_ratio'     => [
+						'label'       => esc_html__( 'Cover Shape', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'The shape of each folder\'s cover picture. Horizontal suits landscapes, interiors and rooms; vertical suits portraits, fashion and hair. The picture is cropped to fit either way, so it is worth choosing the one your vendors mostly shoot.', 'additional-gallery-for-hivepress' ),
+						'type'        => 'radio',
+						'default'     => 'horizontal',
+						'_order'      => 40,
+
+						'options'     => [
+							'horizontal' => esc_html__( 'Horizontal', 'additional-gallery-for-hivepress' ),
+							'vertical'   => esc_html__( 'Vertical', 'additional-gallery-for-hivepress' ),
+							'square'     => esc_html__( 'Square', 'additional-gallery-for-hivepress' ),
+						],
+					],
+
+					'gallery_enable_lightbox' => [
+						'label'       => esc_html__( 'Lightbox', 'additional-gallery-for-hivepress' ),
+						'caption'     => esc_html__( 'Let visitors enlarge the photo on its page', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'With this on, clicking the photo on its own page enlarges it in a pop-up viewer. Photos in the gallery always open their own page, where the comments live.', 'additional-gallery-for-hivepress' ),
+						'type'        => 'checkbox',
+						'default'     => true,
+						'_order'      => 50,
+					],
+
+					'gallery_page_sidebar'    => [
+						'label'       => esc_html__( 'Gallery Page Sidebar', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Adds a sidebar to the gallery page, showing the vendor\'s profile card. You can add your own widgets to it in the "Gallery Page (sidebar)" area under Appearance, then Widgets.', 'additional-gallery-for-hivepress' ),
+						'type'        => 'radio',
+						'default'     => 'none',
+						'_order'      => 60,
+
+						'options'     => [
+							'none'  => esc_html__( 'No sidebar', 'additional-gallery-for-hivepress' ),
+							'left'  => esc_html__( 'Left', 'additional-gallery-for-hivepress' ),
+							'right' => esc_html__( 'Right', 'additional-gallery-for-hivepress' ),
+						],
+					],
+
+					'gallery_folder_sidebar'  => [
+						'label'       => esc_html__( 'Folder Page Sidebar', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Adds a sidebar to each folder page, showing the vendor\'s profile card. You can add your own widgets to it in the "Folder Page (sidebar)" area under Appearance, then Widgets.', 'additional-gallery-for-hivepress' ),
+						'type'        => 'radio',
+						'default'     => 'none',
+						'_order'      => 70,
+
+						'options'     => [
+							'none'  => esc_html__( 'No sidebar', 'additional-gallery-for-hivepress' ),
+							'left'  => esc_html__( 'Left', 'additional-gallery-for-hivepress' ),
+							'right' => esc_html__( 'Right', 'additional-gallery-for-hivepress' ),
+						],
+					],
+
+					/*
+					 * Radio buttons rather than a drop-down, here and above. HivePress puts an empty
+					 * "-" option at the top of every single-choice select it renders
+					 * (fields/class-select.php:170-177), and on a left-or-right question that dash
+					 * reads as a third position rather than as "unset" - which is what it was
+					 * reported as. A radio set has no such entry (fields/class-radio.php:62-69) and
+					 * the stored values are unchanged, so no site's saved choice moves.
+					 *
+					 * The photo page is the one sidebar with no "No sidebar" choice, because it holds
+					 * the Manage Photo card: switching it off would leave a vendor no way at all to
+					 * retitle, move or delete a photo.
+					 */
+					'gallery_photo_sidebar'   => [
+						'label'       => esc_html__( 'Photo Page Sidebar', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Choose which side of the photo page the sidebar sits on. It shows the vendor\'s profile card and, for the photo\'s owner, the editing options, so it cannot be switched off. You can add your own widgets to it in the "Photo Page (sidebar)" area under Appearance, then Widgets.', 'additional-gallery-for-hivepress' ),
+						'type'        => 'radio',
+						'default'     => 'right',
+						'_order'      => 80,
+
+						'options'     => [
+							'left'  => esc_html__( 'Left', 'additional-gallery-for-hivepress' ),
+							'right' => esc_html__( 'Right', 'additional-gallery-for-hivepress' ),
+						],
+					],
+				],
+			],
+
 			'gallery_monetisation' => [
 				'title'       => esc_html__( 'Gallery Monetisation', 'additional-gallery-for-hivepress' ),
 				'description' => __( 'Members-only folders are how galleries make money: visitors must unlock them before seeing inside. <strong>To charge through memberships</strong>, add the gallery privileges to a paid HivePress Memberships plan, or add them to a free plan to simply require an account. <strong>To let vendors charge instead</strong>, enable paid access below: a locked folder then offers that vendor\'s one-off purchase, and only vendors who have not set a price fall back to your upgrade page link.', 'additional-gallery-for-hivepress' ),
-				'_order'      => 101,
+				'_order'      => 102,
 
 				'fields'      => [
 					'gallery_enable_members'     => [
@@ -241,10 +338,16 @@ return [
 						'_order'      => 10,
 					],
 
+					/*
+					 * Radio, for the same reason as the sidebar settings: this has three named
+					 * choices and a default, so HivePress's automatic empty "-" entry was a fourth
+					 * option that meant nothing. Found by sweeping every closed-set select in the
+					 * plugin rather than only fixing the one that was reported.
+					 */
 					'gallery_locked_display'     => [
 						'label'       => esc_html__( 'Locked Folder Display', 'additional-gallery-for-hivepress' ),
 						'description' => esc_html__( 'Choose how members-only folders appear to visitors without access.', 'additional-gallery-for-hivepress' ),
-						'type'        => 'select',
+						'type'        => 'radio',
 						'default'     => 'blur',
 						'_order'      => 20,
 
@@ -258,9 +361,35 @@ return [
 					'gallery_enable_paid_access' => [
 						'label'       => esc_html__( 'Paid Access', 'additional-gallery-for-hivepress' ),
 						'caption'     => esc_html__( 'Let vendors sell access to their members-only folders', 'additional-gallery-for-hivepress' ),
-						'description' => esc_html__( 'Each vendor sets their own lengths and prices on their Gallery page, choosing from a day, a week, a month, three months or permanent access, and may offer up to three of them at once. Setting any is optional. Buying is a normal WooCommerce checkout and the unlock applies to that one vendor\'s locked folders. While a vendor sells access, their locked folders show the purchase button rather than the upgrade page link. Requires WooCommerce. With HivePress Marketplace active, these sales count towards vendor earnings and your usual commission applies.', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Vendors set their own lengths and prices, choosing from a day, a week, a month, three months or permanent access, and may offer up to three of them at once. Setting any is optional. Buying is a normal WooCommerce checkout. While a vendor sells access, their locked folders show the purchase button rather than the upgrade page link. Requires WooCommerce. With HivePress Marketplace active, these sales count towards vendor earnings and your usual commission applies.', 'additional-gallery-for-hivepress' ),
 						'type'        => 'checkbox',
 						'_order'      => 30,
+					],
+
+					/*
+					 * What one purchase actually buys. Vendor-wide is how paid access has always
+					 * worked and stays the default, so no site's existing prices or sold accesses
+					 * change on upgrade. Per folder is for sites whose vendors sell distinct sets of
+					 * work - one shoot, one course, one collection - where charging once for all of
+					 * them at once is the wrong offer.
+					 *
+					 * Switching between them does not move anybody's prices or take anybody's access
+					 * away: prices are stored against the vendor and against each folder separately,
+					 * and a grant is keyed to whichever it was bought for. Switching back finds both
+					 * exactly as they were.
+					 */
+					'gallery_access_scope'       => [
+						'label'       => esc_html__( 'What Access Buys', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Whole gallery: a vendor sets one set of prices on their Gallery page and a buyer unlocks all of that vendor\'s members-only folders at once. Each folder separately: a vendor sets prices on each folder\'s own page and a buyer unlocks only the folder they paid for. Prices set under one choice are kept if you switch to the other and back.', 'additional-gallery-for-hivepress' ),
+						'type'        => 'radio',
+						'default'     => 'vendor',
+						'_parent'     => 'gallery_enable_paid_access',
+						'_order'      => 40,
+
+						'options'     => [
+							'vendor' => esc_html__( 'The vendor\'s whole gallery', 'additional-gallery-for-hivepress' ),
+							'folder' => esc_html__( 'Each folder separately', 'additional-gallery-for-hivepress' ),
+						],
 					],
 
 					'gallery_commission_rate'    => [
@@ -295,7 +424,7 @@ return [
 			'gallery_removal'      => [
 				'title'       => esc_html__( 'Removing the Plugin', 'additional-gallery-for-hivepress' ),
 				'description' => esc_html__( 'Your galleries are kept if you ever delete this plugin. WordPress shows its own warning saying that deleting a plugin also deletes its data, but that warning is generic: it appears for every plugin and does not describe what this one does. Nothing below is removed unless you tick the box first.', 'additional-gallery-for-hivepress' ),
-				'_order'      => 102,
+				'_order'      => 103,
 
 				'fields'      => [
 					'gallery_delete_data' => [

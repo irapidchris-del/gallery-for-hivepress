@@ -88,65 +88,58 @@ class Agl_Gallery_Section extends Block {
 	 */
 	protected function render_covers( $vendor, $folders ) {
 		$gallery        = hivepress()->agl_gallery;
-		$member_view    = $gallery->user_can_view_member_folders( $vendor );
-		$locked_display = get_option( 'hp_gallery_locked_display', 'blur' );
+		$locked_display = $gallery->get_locked_display();
+
+		/*
+		 * The Maximum Rows setting applies here and only here. This section sits inside somebody
+		 * else's page, so a vendor with forty folders would otherwise push a listing's reviews far
+		 * below the fold; whatever does not fit is reached through the link added underneath, so
+		 * nothing becomes unreachable. The gallery page itself is deliberately never capped, because
+		 * there is no "rest of it" to link to from there.
+		 */
+		$columns = $gallery->get_grid_columns();
+		$rows    = $gallery->get_grid_rows();
+		$cap     = ( $columns && $rows ) ? $columns * $rows : 0;
 
 		$output   = '';
 		$rendered = 0;
+		$hidden   = 0;
 
 		foreach ( $folders as $folder ) {
-			$locked = 'members' === $gallery->get_effective_visibility( $folder ) && ! $member_view;
+			$locked = 'members' === $gallery->get_effective_visibility( $folder ) && ! $gallery->user_can_view_folder( $folder, $vendor );
 
 			if ( $locked && 'hide' === $locked_display ) {
 				continue;
 			}
 
+			if ( $cap && $rendered >= $cap ) {
+				++$hidden;
+
+				continue;
+			}
+
 			++$rendered;
 
-			$cover    = '';
-			$cover_id = $gallery->get_folder_cover_id( $folder );
-
-			if ( $locked ) {
-				$teaser_url = ( 'blur' === $locked_display && $cover_id ) ? $gallery->get_teaser_url( $cover_id ) : null;
-
-				if ( $teaser_url ) {
-					$cover = '<img src="' . esc_url( $teaser_url ) . '" alt="" loading="lazy">';
-				}
-			} elseif ( $cover_id ) {
-				$cover = wp_get_attachment_image(
-					$cover_id,
-					'medium_large',
-					false,
-					[
-						'loading' => 'lazy',
-						'alt'     => $folder->get_title(),
-					]
-				);
-			}
-
-			$output .= '<a href="' . esc_url( $gallery->get_folder_url( $folder ) ) . '" class="hp-agl-cover' . ( $locked ? ' hp-agl-cover--locked' : '' ) . '">';
-			$output .= '<span class="hp-agl-cover__image' . ( $cover ? '' : ' hp-agl-cover__image--placeholder' ) . '">' . $cover;
-
-			if ( $locked ) {
-				$output .= '<i class="hp-icon fas fa-lock"></i>';
-			}
-
-			$output .= '</span>';
-			$output .= '<span class="hp-agl-cover__title">' . esc_html( $folder->get_title() ) . '</span>';
-			$output .= '<span class="hp-agl-cover__count hp-meta">' . esc_html( $gallery->get_media_count_label( $gallery->get_media_counts( $folder ) ) ) . '</span>';
-
-			if ( $locked ) {
-				$output .= '<span class="hp-status hp-status--pending"><span>' . esc_html__( 'Members only', 'additional-gallery-for-hivepress' ) . '</span></span>';
-			}
-
-			$output .= '</a>';
+			$output .= $gallery->render_folder_cover( $folder, $locked );
 		}
 
 		if ( ! $rendered ) {
 			return '';
 		}
 
-		return '<div class="hp-agl-covers">' . $output . '</div>';
+		$output = '<div' . $gallery->get_covers_attributes() . '>' . $output . '</div>';
+
+		if ( $hidden ) {
+			$output .= '<p class="hp-agl-section__more"><a href="' . esc_url( hivepress()->router->get_url( 'gallery_view_page', [ 'vendor_id' => $vendor->get_id() ] ) ) . '" class="hp-link">' . esc_html(
+				sprintf(
+					/* translators: %s: number of further folders. */
+					_n( 'View %s more folder', 'View %s more folders', $hidden, 'additional-gallery-for-hivepress' ),
+					number_format_i18n( $hidden )
+				)
+			) . ' <i class="hp-icon fas fa-arrow-right"></i></a></p>';
+		}
+
+		return $output;
 	}
 
 	/**
