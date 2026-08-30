@@ -295,7 +295,9 @@ section at 5,000 characters, so only the most recent releases are repeated here.
   and the plugin warns you on the Gallery settings tab when that happens. The warning was only shown
   when the address in your browser named the Gallery tab, so opening Settings from the HivePress menu
   showed the tab with no warning on it, and nothing said anything was wrong. It is now shown whenever
-  the Gallery tab is on screen, however you reached it.
+  the Gallery tab is on screen, however you reached it. Please open Settings > Gallery once after
+  updating: if the warning is there, your private and members-only photos have been openly reachable
+  and the notice explains what to do about it.
 * Fixed: the OpenAI API key on the Integrations tab lost its show/hide button and stretched across
   the whole screen when you opened Settings from the HivePress menu rather than clicking through to
   the Integrations tab. The key stayed hidden either way, but there was no way to check what you had
@@ -318,6 +320,10 @@ section at 5,000 characters, so only the most recent releases are repeated here.
   sections, so a setting near the bottom no longer means scrolling blind.
 * Changed: the settings descriptions are shorter and wrap at a readable width instead of the full
   screen, and the hover tooltips are wider, so their text no longer breaks into ragged slivers.
+* Changed: the AI Moderation description no longer says that photos beyond the tenth are never
+  checked. Each save reviews up to ten photos that have not been reviewed before, so a folder's
+  backlog is worked through over later saves. Only the wording was wrong; the reviewing itself is
+  unchanged.
 
 = 1.9.2 =
 * Fixed: the Gallery Button Position setting added in 1.9.1 was a single box governing both vendor
