@@ -31,7 +31,12 @@ jobs:
           # Named explicitly so nothing that is not part of the plugin can slip into a release.
           # Add any new top-level file or directory here as well, or it ships missing and every
           # local test still passes.
-          for item in "$SLUG.php" uninstall.php readme.txt changelog.txt LICENSE includes assets templates languages; do
+          # "templates" was listed here until 2026-08-30, but this plugin has no
+          # templates directory, so the warning below fired on every single
+          # build. A warning that always fires is one nobody reads, which costs
+          # more than the line it saved. If a templates/ folder is ever added,
+          # add it back here at the same time.
+          for item in "$SLUG.php" uninstall.php readme.txt changelog.txt LICENSE includes assets languages; do
             if [ -e "$item" ]; then
               cp -r "$item" "build/$SLUG/"
             else
