@@ -5,7 +5,7 @@ Requires at least: 5.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: hivepress
-Stable tag: 1.9.2
+Stable tag: 1.10.2
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -230,15 +230,18 @@ Membership plans that include viewing still unlock folders either way.
 
 = AI moderation =
 
-The optional AI Moderation setting reviews a folder's photos with OpenAI
-when the vendor saves it, using the shared API key from Settings >
-Integrations. The first ten photos in the folder are checked together in one
-free request; any beyond the tenth are not checked. The site
-must be publicly reachable for OpenAI to fetch the photos; on local or
-private sites, and whenever the service is unavailable, saving simply
-proceeds unchecked rather than blocking the vendor. Protected files (in
-private and members-only folders) cannot be fetched externally, so moderation
-applies to public folders.
+The optional AI Moderation setting reviews a folder's photos with OpenAI's
+free Moderation endpoint when the vendor saves it, using the shared API key
+from Settings > Integrations. Each save reviews up to ten photos that have
+not been reviewed before; a folder holding more than ten catches up over
+later saves. To guarantee that every photo is reviewed the moment it can go
+public, set the AI Moderation Photo Limit: it caps every folder at your
+chosen number of photos, from 1 to 10, so a single save always covers the
+whole folder. The site must be publicly reachable for OpenAI to fetch the
+photos; on local or private sites, and whenever the service is unavailable,
+saving simply proceeds unchecked rather than blocking the vendor. Protected
+files (in private and members-only folders) cannot be fetched externally, so
+moderation applies to public folders.
 
 == Installation ==
 
@@ -285,6 +288,36 @@ Your OpenAI API key is left alone either way, because other extensions share it.
 
 Older entries are in changelog.txt, which ships with the plugin. WordPress truncates this
 section at 5,000 characters, so only the most recent releases are repeated here.
+
+= 1.10.2 =
+* Fixed: the warning that says private photos are still reachable by anyone with the address could
+  fail to appear. Protect Files cannot always move files out of the folder your web server publishes,
+  and the plugin warns you on the Gallery settings tab when that happens. The warning was only shown
+  when the address in your browser named the Gallery tab, so opening Settings from the HivePress menu
+  showed the tab with no warning on it, and nothing said anything was wrong. It is now shown whenever
+  the Gallery tab is on screen, however you reached it.
+* Fixed: the OpenAI API key on the Integrations tab lost its show/hide button and stretched across
+  the whole screen when you opened Settings from the HivePress menu rather than clicking through to
+  the Integrations tab. The key stayed hidden either way, but there was no way to check what you had
+  pasted. The button and the normal field width now appear wherever the key is shown.
+
+= 1.10.1 =
+* Changed: the settings screen now keeps its quick links in view as you scroll, and adds a Save
+  button and a back-to-top button that follow you down the page. The quick links, the Save button and
+  the back-to-top button now look and sit exactly the same in every one of these extensions, so
+  moving between two of their settings tabs no longer means hunting for the same control in a
+  different place.
+
+= 1.10.0 =
+* Added: an AI Moderation Photo Limit setting, shown once AI Moderation is ticked. AI review covers
+  at most ten photos per folder save, so a folder holding more could be published with photos nobody
+  looked at. Set the limit (1 to 10) and no folder can hold more photos than one review covers; it
+  overrides higher limits, including per-plan ones, and is enforced when uploading and when moving a
+  photo between folders. Folders already over the limit keep their photos but cannot take new ones.
+* Added: quick links at the top of the Gallery settings tab, one per section, with a divider between
+  sections, so a setting near the bottom no longer means scrolling blind.
+* Changed: the settings descriptions are shorter and wrap at a readable width instead of the full
+  screen, and the hover tooltips are wider, so their text no longer breaks into ragged slivers.
 
 = 1.9.2 =
 * Fixed: the Gallery Button Position setting added in 1.9.1 was a single box governing both vendor

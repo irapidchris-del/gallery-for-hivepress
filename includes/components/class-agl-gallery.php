@@ -85,6 +85,10 @@ final class Agl_Gallery extends Component {
 		add_action( 'admin_head', [ $this, 'print_secret_styles' ] );
 		add_action( 'admin_footer', [ $this, 'print_secret_toggles' ] );
 
+		// The shared settings-screen chrome: quick links to each section, the
+		// floating Save control and the back-to-top button.
+		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_backend_assets' ] );
+
 		// Integrate gallery access with HivePress Memberships plans. The feature
 		// toggle sits in the plan's Settings box beside the product link, while
 		// the viewing permission and the per-plan limits sit in its general
@@ -666,7 +670,43 @@ final class Agl_Gallery extends Component {
 		 * @param int $limit Maximum photos.
 		 * @param int $user_id Folder owner ID.
 		 */
-		return absint( apply_filters( 'hp_agl/image_limit', $limit, $user_id ) );
+		$limit = absint( apply_filters( 'hp_agl/image_limit', $limit, $user_id ) );
+
+		// The AI moderation cap wins over every other limit, including the
+		// filter and the per-plan ones: it exists to guarantee that one review
+		// pass covers the whole folder, and any limit raised past it would
+		// quietly break that guarantee. See get_moderation_image_cap().
+		$cap = $this->get_moderation_image_cap();
+
+		if ( $cap && ( ! $limit || $cap < $limit ) ) {
+			$limit = $cap;
+		}
+
+		return $limit;
+	}
+
+	/**
+	 * Gets the per-folder photo cap that keeps AI moderation complete.
+	 *
+	 * A review pass sends at most ten photos (see prepare_moderation_urls()),
+	 * so a folder holding more can be published with photos nobody looked at.
+	 * While AI Moderation is on and the owner has set this cap, no folder may
+	 * hold more photos than one pass covers. Routed through get_image_limit(),
+	 * so the upload endpoint, the front-end form, the admin meta box and photo
+	 * moves all enforce the same figure. Folders already over the cap keep
+	 * their photos (the limit only blocks additions), and their backlog is
+	 * still reviewed ten photos per save.
+	 *
+	 * @return int Cap between 1 and 10, or 0 when no cap applies.
+	 */
+	public function get_moderation_image_cap() {
+		if ( ! get_option( 'hp_gallery_ai_moderation' ) ) {
+			return 0;
+		}
+
+		$cap = hp_agl_int( get_option( 'hp_gallery_moderation_max_images' ) );
+
+		return $cap ? min( 10, $cap ) : 0;
 	}
 
 	/**
@@ -1882,18 +1922,54 @@ final class Agl_Gallery extends Component {
 	}
 
 	/**
-	 * Checks whether the current screen is the HivePress Integrations tab.
+	 * Checks whether the shared OpenAI API key field is on the screen being rendered.
+	 *
+	 * READ THIS BEFORE "FIXING" IT BACK TO $_GET['tab']. Until 1.10.2 this
+	 * asked for `'integrations' === $tab`, which is wrong for the same reason
+	 * it is wrong everywhere else in this family: HivePress falls back to the
+	 * FIRST tab whenever `tab` is absent from the address
+	 * (`hivepress/includes/components/class-admin.php:607-622`), so on the bare
+	 * `admin.php?page=hp_settings` the test compared '' against 'integrations'
+	 * and the masked key lost its width rule and its reveal button on any site
+	 * where Integrations sorts first, with nothing logged.
+	 *
+	 * The question this gate actually asks is not "which tab is this?" but "is
+	 * the field I decorate on screen?", so it asks for that exact registered
+	 * field rather than for a prefix. `hp_openai_api_key` is shared with any
+	 * other OpenAI-based extension and may have been registered by one of them
+	 * (see add_shared_settings()), which is precisely why the field itself is
+	 * the right thing to test: the styles and the toggle belong wherever that
+	 * input is drawn and nowhere else. Testing `hp_gallery_` instead would
+	 * answer for the Gallery tab, which does not carry the field at all.
+	 *
+	 * `Admin::register_settings()` builds one tab's fields and calls
+	 * `add_settings_field()` with the prefixed option name as the id
+	 * (`class-admin.php:287-325`), and it only runs at all on
+	 * `admin.php?page=hp_settings` or `options.php` (`:278`), so a true answer
+	 * also means this is the settings screen. Timing is the only thing to get
+	 * right: HivePress registers on `admin_init` priority 10, and the two
+	 * callers run on `admin_head` and `admin_footer`, both later. Full rule:
+	 * resources/hivepress-settings.md, "The tab IS knowable server-side: ask
+	 * the registered fields".
 	 *
 	 * @return bool
 	 */
-	protected function is_integrations_screen() {
+	protected function is_openai_key_screen() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return false;
+		}
 
-		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only screen check that changes nothing; the capability test below is the gate.
-		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
-		$tab  = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
-		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		if ( ! isset( $GLOBALS['wp_settings_fields']['hp_settings'] ) || ! is_array( $GLOBALS['wp_settings_fields']['hp_settings'] ) ) {
+			return false;
+		}
 
-		return 'hp_settings' === $page && 'integrations' === $tab && current_user_can( 'manage_options' );
+		foreach ( $GLOBALS['wp_settings_fields']['hp_settings'] as $hp_section ) {
+			if ( isset( $hp_section['hp_openai_api_key'] ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
@@ -1911,7 +1987,7 @@ final class Agl_Gallery extends Component {
 	 * @return void
 	 */
 	public function print_secret_styles() {
-		if ( ! $this->is_integrations_screen() ) {
+		if ( ! $this->is_openai_key_screen() ) {
 			return;
 		}
 		?>
@@ -1965,7 +2041,7 @@ final class Agl_Gallery extends Component {
 	 * @return void
 	 */
 	public function print_secret_toggles() {
-		if ( ! $this->is_integrations_screen() ) {
+		if ( ! $this->is_openai_key_screen() ) {
 			return;
 		}
 		?>
@@ -2034,6 +2110,105 @@ final class Agl_Gallery extends Component {
 		} )();
 		</script>
 		<?php
+	}
+
+	/**
+	 * Checks whether the settings tab being rendered is this plugin's own.
+	 *
+	 * READ THIS BEFORE "FIXING" IT TO USE $_GET['tab']. It cannot: HivePress
+	 * falls back to the FIRST tab whenever `tab` is absent from the address
+	 * (`hivepress/includes/components/class-admin.php:607-622`), so
+	 * `admin.php?page=hp_settings` renders a real tab that the address does not
+	 * name. What the address cannot say, the registered fields can.
+	 * `Admin::register_settings()` builds the sections and fields for exactly
+	 * one tab and calls `add_settings_field()` with the prefixed option name
+	 * (`class-admin.php:287-325`), so after `admin_init` the
+	 * `wp_settings_fields` global holds this plugin's `hp_gallery_*` keys on
+	 * its own tab and on no other - the no-tab fallback included.
+	 *
+	 * Timing is the only thing to get right: HivePress registers on
+	 * `admin_init` priority 10, and `admin_enqueue_scripts` fires later, from
+	 * `admin-header.php`. Call this any earlier and it answers false and the
+	 * tab silently loses its chrome, which is a worse failure than the one it
+	 * fixes. Full rule: resources/hivepress-settings.md, "The tab IS knowable
+	 * server-side: ask the registered fields".
+	 *
+	 * @return bool
+	 */
+	protected function is_settings_tab() {
+		if ( ! isset( $GLOBALS['wp_settings_fields']['hp_settings'] ) || ! is_array( $GLOBALS['wp_settings_fields']['hp_settings'] ) ) {
+			return false;
+		}
+
+		foreach ( $GLOBALS['wp_settings_fields']['hp_settings'] as $hp_section ) {
+			foreach ( array_keys( (array) $hp_section ) as $hp_field ) {
+				if ( 0 === strpos( (string) $hp_field, 'hp_gallery_' ) ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Enqueues the shared settings-screen chrome on this plugin's own tab.
+	 *
+	 * The quick-links anchor nav, the sideways floating Save control and the
+	 * back-to-top button, copied from the reference implementation in Account
+	 * Menu Enhancer for HivePress so every extension in this family puts the
+	 * same controls in the same places (resources/hivepress-settings.md, "The
+	 * settings anchor nav: one shared marker class").
+	 *
+	 * Two gates, and neither replaces the other: this one decides whether the
+	 * files load, and the script's own `[name^="hp_gallery_"]` test decides
+	 * whether it acts. Dropping the second would make the chrome depend on this
+	 * enqueue never regressing.
+	 *
+	 * @return void
+	 */
+	public function enqueue_backend_assets() {
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only check of which admin page is rendering; nothing is read from or written to a form.
+		$hp_page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+
+		if ( 'hp_settings' !== $hp_page || ! $this->is_settings_tab() ) {
+			return;
+		}
+
+		$url  = plugin_dir_url( HP_AGL_FILE );
+		$path = plugin_dir_path( HP_AGL_FILE );
+
+		// The file time rides along in the version so caches refresh whenever
+		// the file changes.
+		wp_enqueue_style(
+			'hp-agl-backend',
+			$url . 'assets/css/backend.css',
+			[],
+			HP_AGL_VERSION . '.' . (int) filemtime( $path . 'assets/css/backend.css' )
+		);
+
+		wp_enqueue_script(
+			'hp-agl-backend',
+			$url . 'assets/js/backend.js',
+			[ 'jquery' ],
+			HP_AGL_VERSION . '.' . (int) filemtime( $path . 'assets/js/backend.js' ),
+			true
+		);
+
+		wp_localize_script(
+			'hp-agl-backend',
+			'hpAglBackendData',
+			[
+				'labels' => [
+					// The colon is part of the wording: it reads as a lead-in to
+					// the links that follow it, not as a heading over them.
+					'jumpTo'    => esc_html__( 'Jump to a section:', 'additional-gallery-for-hivepress' ),
+					'save'      => esc_html__( 'Save Changes', 'additional-gallery-for-hivepress' ),
+					'backToTop' => esc_html__( 'Back to top', 'additional-gallery-for-hivepress' ),
+				],
+			]
+		);
 	}
 
 	/**
@@ -2477,6 +2652,35 @@ final class Agl_Gallery extends Component {
 				} else {
 					/* translators: %s: size limit, e.g. "500 MB". */
 					$file['error'] = sprintf( esc_html__( 'This upload would take your gallery over its %s storage limit. Remove some photos to make room.', 'additional-gallery-for-hivepress' ), $this->format_size( $limit ) );
+				}
+			}
+		}
+
+		/*
+		 * Refuse uploads past the AI moderation cap. The HivePress attachments endpoint already
+		 * refuses at the folder's max_files before the file reaches this hook
+		 * (controllers/class-attachment.php:169), so this normally never fires; it is the plugin's
+		 * own fail-safe on the promise the cap makes - a folder must never outgrow what one review
+		 * pass covers - and where it does fire it explains the why, not just the number.
+		 */
+		$cap = $this->get_moderation_image_cap();
+
+		if ( $cap && empty( $file['error'] ) ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- the upload is authorised by the HivePress attachments endpoint; this only reads which folder it targets.
+			$folder_id = isset( $_POST['parent'] ) ? absint( wp_unslash( $_POST['parent'] ) ) : 0;
+
+			if ( $folder_id && 'hp_gallery_folder' === get_post_type( $folder_id ) ) {
+				$folder = Models\Gallery_Folder::query()->get_by_id( $folder_id );
+
+				if ( $folder ) {
+					$folder_limit = $this->get_image_limit( hp_agl_int( $folder->get_user__id() ) );
+
+					// Only speak for the cap. Where a lower per-plan limit is the one that binds, the
+					// endpoint's own message already names the right figure.
+					if ( $cap === $folder_limit && count( (array) $folder->get_images__id() ) >= $folder_limit ) {
+						/* translators: %s: number of photos. */
+						$file['error'] = sprintf( esc_html__( 'While AI photo review is on, each folder can hold up to %s photos, so that every photo is reviewed.', 'additional-gallery-for-hivepress' ), number_format_i18n( $folder_limit ) );
+					}
 				}
 			}
 		}
@@ -3409,13 +3613,17 @@ final class Agl_Gallery extends Component {
 			return;
 		}
 
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- reading which admin screen is being shown, not acting on a request.
-		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
-
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- same.
-		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
-
-		if ( 'hp_settings' !== $page || 'gallery' !== $tab ) {
+		/*
+		 * Which tab this is comes from the fields HivePress registered, never
+		 * from $_GET['tab']. Until 1.10.2 this tested `'gallery' === $tab`, and
+		 * on the bare admin.php?page=hp_settings - which is where HivePress's
+		 * own Settings menu link goes - `tab` is absent, so the test compared
+		 * '' against 'gallery' and returned early while the Gallery tab was on
+		 * screen. The notice that then failed to appear is the warning that
+		 * private photos are reachable by anyone with the address, and nothing
+		 * anywhere said so. See is_settings_tab().
+		 */
+		if ( ! $this->is_settings_tab() ) {
 			return;
 		}
 

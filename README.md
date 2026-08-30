@@ -3,7 +3,7 @@
 Gives HivePress vendors a front-end photo gallery with public, members-only and private folders, protected files, per-photo pages with likes and comments, and optional monetisation through Memberships or per-vendor paid access.
 
 **Author:** [ChrisB @ HivePress Community](https://community.hivepress.io/u/chrisb/summary)
-**Version:** 1.9.2 · **Requires:** WordPress 5.8+, PHP 7.4+, HivePress 1.x
+**Version:** 1.10.1 · **Requires:** WordPress 5.8+, PHP 7.4+, HivePress 1.x
 
 > **Installation folder:** the release zip installs as `additional-gallery-for-hivepress` in `wp-content/plugins/`, which is the recommended folder name. Since 1.4.0 the plugin registers itself with HivePress explicitly, so it also works from a differently named folder (for example the `-main` suffix a GitHub "Download ZIP" adds), where earlier versions would have loaded nothing at all.
 

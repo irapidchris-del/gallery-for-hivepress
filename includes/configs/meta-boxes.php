@@ -22,6 +22,14 @@ if ( ! $hp_agl_max_images ) {
 	$hp_agl_max_images = 30;
 }
 
+// The AI moderation cap binds here too, so the admin box shows the same limit
+// the attachments endpoint enforces (see Agl_Gallery::get_moderation_image_cap()).
+$hp_agl_moderation_cap = hivepress()->agl_gallery ? hivepress()->agl_gallery->get_moderation_image_cap() : 0;
+
+if ( $hp_agl_moderation_cap && $hp_agl_moderation_cap < $hp_agl_max_images ) {
+	$hp_agl_max_images = $hp_agl_moderation_cap;
+}
+
 // Get the accepted formats (shared with the gallery folder model).
 $hp_agl_formats = hp_agl_get_upload_formats();
 

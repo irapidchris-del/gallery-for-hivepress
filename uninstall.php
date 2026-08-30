@@ -144,6 +144,9 @@ function hp_agl_uninstall_site( $delete_data ) {
 		'hp_gallery_button_position',
 		'hp_gallery_button_position_listings',
 
+		// Added in 1.10.0 with the AI moderation photo limit.
+		'hp_gallery_moderation_max_images',
+
 		// Retired in 1.3.0, deleted again in case an upgrade never ran.
 		'hp_gallery_manage_plans',
 		'hp_gallery_view_plans',
