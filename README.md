@@ -121,7 +121,7 @@ The optional AI Moderation setting checks a folder's photos against OpenAI's fre
 
 The API key lives in `hp_openai_api_key` under HivePress > Settings > Integrations, and the field is registered with `isset` guards so it appears exactly once however many OpenAI-based extensions are installed. This plugin interoperates with Automated Listing Moderation for HivePress through that shared key: the moderation plugin checks listing photos, this one checks vendor galleries, and both reading the same key is intended. `uninstall.php` deliberately leaves `hp_openai_api_key` in place for that reason.
 
-Three honest limits. OpenAI fetches each image by URL, so the site must be publicly reachable; on localhost or password-protected staging the check cannot run and fails open. Protected files (in private and members-only folders) have no externally fetchable URL, so moderation applies to public folders. And moderation runs when a folder is saved: images are visible in the gallery from the moment they finish uploading, so a vendor who uploads and never presses Save is not checked until their next save. Admin edits in wp-admin are not moderated.
+Three honest limits. OpenAI fetches each image by URL, so the site must be publicly reachable; on localhost or a password-protected site the check cannot run and fails open. Protected files (in private and members-only folders) have no externally fetchable URL, so moderation applies to public folders. And moderation runs when a folder is saved: images are visible in the gallery from the moment they finish uploading, so a vendor who uploads and never presses Save is not checked until their next save. Admin edits in wp-admin are not moderated.
 
 ## Updates and releases
 
