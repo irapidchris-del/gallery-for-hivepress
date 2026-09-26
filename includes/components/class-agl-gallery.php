@@ -59,6 +59,9 @@ final class Agl_Gallery extends Component {
 		// Add the account menu item.
 		add_filter( 'hivepress/v1/menus/user_account', [ $this, 'alter_account_menu' ] );
 
+		// Give the gallery pages the template body classes core cannot work out.
+		add_filter( 'body_class', [ $this, 'add_template_classes' ] );
+
 		// Register the gallery page widget areas. Registered from the plugin, not
 		// a theme config, so they exist on any theme and appear under
 		// Appearance > Widgets.
@@ -176,20 +179,14 @@ final class Agl_Gallery extends Component {
 		/*
 		 * Take an access product off sale the moment the site stops offering what it sells.
 		 *
-		 * Every one of these products is a real, published, catalogue-hidden WooCommerce product with
-		 * a working add-to-cart URL, and nothing about the gallery pages controls that URL. So when an
-		 * owner switches "What Access Buys" from the whole gallery to each folder, the whole-gallery
-		 * products carry on being purchasable at the price they last had, while no page on the site
-		 * offers them any more. Measured on staging 2026-08-25 after exactly that switch: three
-		 * products still answered `is_purchasable: true` at 5.00, 12.00 and 20.00, and buying one
-		 * would have granted access to the vendor's entire gallery, which is not what the site was
-		 * selling. It also looks precisely like stale pricing to whoever finds it, because the figures
-		 * are the ones from before the switch.
+		 * Every access product is a real, catalogue-hidden WooCommerce product with a working
+		 * add-to-cart URL. When "What Access Buys" switches from the whole gallery to each folder, the
+		 * whole-gallery products would otherwise stay purchasable at their old price and still grant
+		 * access to the entire gallery.
 		 *
-		 * `woocommerce_is_purchasable` is one hook rather than three because WC_Product::is_purchasable()
-		 * is what the classic cart, the Store API and the checkout all consult, so a single filter
-		 * covers every route in. Nothing is deleted and no price is touched: switch the setting back
-		 * and the same products are on sale again, unchanged.
+		 * `woocommerce_is_purchasable` is enough because the classic cart, the Store API and the
+		 * checkout all consult WC_Product::is_purchasable(). Nothing is deleted and no price is
+		 * touched: switch the setting back and the same products are on sale again.
 		 */
 		add_filter( 'woocommerce_is_purchasable', [ $this, 'filter_access_product_purchasable' ], 10, 2 );
 
@@ -997,6 +994,47 @@ final class Agl_Gallery extends Component {
 	}
 
 	/**
+	 * Adds the template body classes to the gallery pages.
+	 *
+	 * Core adds `hp-template` and one `hp-template--{template}` class per parent
+	 * template, but it finds the template by turning the ROUTE name into a class
+	 * name (hivepress/includes/components/class-template.php:217-228, core
+	 * 1.7.31): `gallery_edit_page` becomes \HivePress\Templates\Gallery_Edit_Page.
+	 * This plugin's templates carry its own prefix (Agl_Gallery_Edit_Page), so
+	 * core found nothing and the gallery pages had no template classes at all.
+	 * Every account-page style keyed on `hp-template--user-account-page` - the
+	 * sidebar menu, its icons, its active state - was lost on /account/gallery/
+	 * alone, while every other account page looked right.
+	 * The routes keep their names, because links, menus and other extensions
+	 * refer to them; this adds the classes core would have added.
+	 *
+	 * @param array $classes Body classes.
+	 * @return array
+	 */
+	public function add_template_classes( $classes ) {
+		$route = hivepress()->router->get_current_route_name();
+
+		if ( ! $route || 0 !== strpos( $route, 'gallery_' ) ) {
+			return $classes;
+		}
+
+		$template = '\HivePress\Templates\Agl_' . $route;
+
+		if ( ! class_exists( $template ) ) {
+			return $classes;
+		}
+
+		$classes[] = 'hp-template';
+
+		// Same slice as core: the first two parents are the base Template and Page classes.
+		foreach ( array_slice( hp\get_class_parents( $template ), 2 ) as $class ) {
+			$classes[] = 'hp-template--' . hp\sanitize_slug( hp\get_class_name( $class ) );
+		}
+
+		return array_values( array_unique( $classes ) );
+	}
+
+	/**
 	 * Adds the gallery item to the account menu.
 	 *
 	 * @param array $menu Menu arguments.
@@ -1196,6 +1234,96 @@ final class Agl_Gallery extends Component {
 	 */
 	public function get_photo_sidebar_position() {
 		return 'left' === get_option( 'hp_gallery_photo_sidebar' ) ? 'left' : 'right';
+	}
+
+	/**
+	 * Checks whether the Share button is switched on. On until the owner unticks it: a never-saved
+	 * option means on, an empty string (unticked and saved) means off.
+	 *
+	 * @return bool
+	 */
+	public function is_share_enabled() {
+		$value = get_option( 'hp_gallery_enable_share', null );
+
+		return null === $value || false === $value ? true : (bool) $value;
+	}
+
+	/**
+	 * Gets the owner's QR code logo, if one is chosen and the Share button is on.
+	 *
+	 * The child setting is read only behind its parent, because `_parent` hides the row without
+	 * clearing it (resources/hivepress-settings.md, "_parent hides the row").
+	 *
+	 * @return string Image address, or an empty string.
+	 */
+	public function get_share_logo_url() {
+		$logo_id = absint( get_option( 'hp_gallery_share_logo' ) );
+
+		if ( ! $logo_id || ! $this->is_share_enabled() || ! wp_attachment_is_image( $logo_id ) ) {
+			return '';
+		}
+
+		return (string) wp_get_attachment_image_url( $logo_id, 'medium' );
+	}
+
+	/**
+	 * Renders the Share button and its pop-up.
+	 *
+	 * SHARED MARKUP: Social Walls for HivePress renders the same structure from
+	 * Hpsw_Wall::render_share(), with its own class prefix. The behaviour lives in the shared,
+	 * byte-identical assets/js/share.js, which reads only the data attributes printed here, so keep
+	 * the attributes in step between the two plugins. `hp-share` and `hp-share-modal` are the shared
+	 * marker classes that script claims the page by; they are never styled. The look comes from this
+	 * plugin's own `hp-agl-share` classes (assets/css/frontend.css).
+	 *
+	 * Facebook and WhatsApp are plain links to their own share pages, opened only when a visitor
+	 * clicks, so the page itself sends nothing to either. Their icons are inline SVG from Font
+	 * Awesome Free 7.1.0 (brands, CC BY 4.0, credited in the readme), because HivePress ships only the
+	 * solid icon font, which has no brand glyphs (resources/hivepress-ui.md, "Icons").
+	 *
+	 * The script is enqueued here, as the button renders, so it loads only on a page that has one;
+	 * WordPress prints it in the footer. The QR library it fetches on first use is never enqueued.
+	 *
+	 * @param string $url   Address to share.
+	 * @param string $title Title to share with it.
+	 * @return string
+	 */
+	public function render_share( $url, $title ) {
+		if ( ! $this->is_share_enabled() || '' === $url ) {
+			return '';
+		}
+
+		wp_enqueue_script( 'hp-agl-share', HP_AGL_URL . '/assets/js/share.js', [], HP_AGL_VERSION . '.' . (int) filemtime( HP_AGL_DIR . '/assets/js/share.js' ), true );
+
+		$modal_id = 'hp_agl_share_modal';
+		$logo     = $this->get_share_logo_url();
+		$library  = add_query_arg( 'ver', '2.0.4', HP_AGL_URL . '/assets/vendor/qrcode-generator/qrcode.js' );
+
+		$facebook = 'https://www.facebook.com/sharer/sharer.php?u=' . rawurlencode( $url );
+		$whatsapp = 'https://wa.me/?text=' . rawurlencode( trim( $title . ' ' . $url ) );
+
+		$icons = [
+			'facebook' => '<svg class="hp-agl-share__icon hp-agl-share__icon--facebook" viewBox="0 0 320 512" aria-hidden="true" focusable="false"><path fill="currentColor" d="M80 299.3l0 212.7 116 0 0-212.7 86.5 0 18-97.8-104.5 0 0-34.6c0-51.7 20.3-71.5 72.7-71.5 16.3 0 29.4 .4 37 1.2l0-88.7C291.4 4 256.4 0 236.2 0 129.3 0 80 50.5 80 159.4l0 42.1-66 0 0 97.8 66 0z"/></svg>',
+			'whatsapp' => '<svg class="hp-agl-share__icon hp-agl-share__icon--whatsapp" viewBox="0 0 448 512" aria-hidden="true" focusable="false"><path fill="currentColor" d="M380.9 97.1c-41.9-42-97.7-65.1-157-65.1-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480 117.7 449.1c32.4 17.7 68.9 27 106.1 27l.1 0c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3 18.6-68.1-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1s56.2 81.2 56.1 130.5c0 101.8-84.9 184.6-186.6 184.6zM325.1 300.5c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8s-14.3 18-17.6 21.8c-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7 .9-6.9-.5-9.7s-12.5-30.1-17.1-41.2c-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2s-9.7 1.4-14.8 6.9c-5.1 5.6-19.4 19-19.4 46.3s19.9 53.7 22.6 57.4c2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4s4.6-24.1 3.2-26.4c-1.3-2.5-5-3.9-10.5-6.6z"/></svg>',
+		];
+
+		$output  = '<button type="button" class="hp-share hp-agl-share__button hp-button hp-button--wide button button--large button--secondary" data-hp-share="#' . esc_attr( $modal_id ) . '" data-url="' . esc_url( $url ) . '" data-title="' . esc_attr( $title ) . '">';
+		$output .= '<i class="hp-icon fas fa-share-alt"></i><span>' . esc_html__( 'Share', 'additional-gallery-for-hivepress' ) . '</span>';
+		$output .= '</button>';
+
+		$output .= '<div id="' . esc_attr( $modal_id ) . '" class="hp-modal hp-share-modal hp-agl-share" data-component="modal">';
+		$output .= '<h3 class="hp-modal__title">' . esc_html__( 'Share', 'additional-gallery-for-hivepress' ) . '</h3>';
+		$output .= '<div class="hp-agl-share__options">';
+		$output .= '<a href="' . esc_url( $facebook ) . '" class="hp-agl-share__option" target="_blank" rel="noopener noreferrer">' . $icons['facebook'] . '<span>' . esc_html__( 'Share on Facebook', 'additional-gallery-for-hivepress' ) . '</span></a>';
+		$output .= '<a href="' . esc_url( $whatsapp ) . '" class="hp-agl-share__option" target="_blank" rel="noopener noreferrer">' . $icons['whatsapp'] . '<span>' . esc_html__( 'Share on WhatsApp', 'additional-gallery-for-hivepress' ) . '</span></a>';
+		$output .= '<button type="button" class="hp-agl-share__option" data-hp-share-copy="' . esc_url( $url ) . '"><i class="hp-icon fas fa-link hp-agl-share__icon"></i><span>' . esc_html__( 'Copy link', 'additional-gallery-for-hivepress' ) . '</span></button>';
+		$output .= '<p class="hp-agl-share__copied hp-meta" data-hp-share-copied role="status" hidden>' . esc_html__( 'Link copied', 'additional-gallery-for-hivepress' ) . '</p>';
+		$output .= '</div>';
+		$output .= '<div class="hp-agl-share__qr" data-hp-share-qr data-text="' . esc_url( $url ) . '" data-src="' . esc_url( $library ) . '" data-label="' . esc_attr__( 'QR code for this page', 'additional-gallery-for-hivepress' ) . '"' . ( $logo ? ' data-logo="' . esc_url( $logo ) . '"' : '' ) . '></div>';
+		$output .= '<p class="hp-agl-share__hint hp-meta">' . esc_html__( 'Scan with a phone camera to open this page.', 'additional-gallery-for-hivepress' ) . '</p>';
+		$output .= '</div>';
+
+		return $output;
 	}
 
 	/**
@@ -4924,20 +5052,13 @@ final class Agl_Gallery extends Component {
 	/**
 	 * Sends somebody who has just added gallery access straight to the checkout.
 	 *
-	 * The unlock button links to `?add-to-cart=N` on the checkout URL, which reads as though it
-	 * settles where the buyer ends up. It does not. WooCommerce adds the product and then decides the
-	 * destination for itself, and on a default site that is not the checkout - the buyer is bounced
-	 * back to wherever WooCommerce prefers, with the pass sitting in a basket they were never shown.
-	 * They see a page they did not ask for, no confirmation, and no charge, so the reasonable
-	 * conclusion is that the button is broken.
+	 * The unlock button links to `?add-to-cart=N` on the checkout URL, but WooCommerce picks the
+	 * destination itself, and on a default site that is not the checkout: the buyer is bounced
+	 * elsewhere with the pass in a basket they never saw, and the button looks broken. (A
+	 * "direct checkout" plugin that forces the redirect globally hides this.)
 	 *
-	 * This went unnoticed for a long time because the site it was built against runs a third-party
-	 * "direct checkout" plugin that forces the redirect globally. That plugin was doing the work, and
-	 * every site without one got the bounce. Turning it off on staging is what exposed it.
-	 *
-	 * Only our own products are redirected, identified by the marker written when the product is
-	 * created. A basket that also holds somebody else's goods is left to whatever that seller's own
-	 * flow wants; this decides nothing on their behalf.
+	 * Only our own products are redirected, identified by the marker written at creation. A
+	 * mixed basket is left to the other seller's own flow.
 	 *
 	 * @param string               $url Redirect URL chosen so far.
 	 * @param \WC_Product|int|null $product The product being added. WooCommerce passes an OBJECT.
@@ -5908,16 +6029,11 @@ final class Agl_Gallery extends Component {
 		update_post_meta( $product_id, 'hp_agl_vendor', $vendor_id );
 
 		/*
-		 * Also the standard `hp_vendor` product meta, which is how the wider HivePress payment
-		 * ecosystem finds a product's vendor. A gallery access product has no listing behind it -
-		 * it is a bare WooCommerce product with our own `hp_agl_vendor` marker - so any gateway
-		 * that resolves the vendor by walking product -> listing -> vendor comes up empty and, if
-		 * it is a per-vendor gateway, hides itself at checkout. HivePress Marketplace's Stripe
-		 * Connect direct-charges gateway does exactly that and checks `hp_vendor` product meta as
-		 * its fallback, so without this a buyer using direct charges is left with no way to pay for
-		 * gallery access (verified on staging: only the booking "pay on arrival" method showed).
-		 * Stamping the same vendor id under the conventional key lets that resolution succeed, and
-		 * is inert for anyone not using such a gateway.
+		 * Also the standard `hp_vendor` product meta, which is how HivePress payment gateways find a
+		 * product's vendor. An access product has no listing behind it, so a per-vendor gateway that
+		 * walks product -> listing -> vendor finds nothing and hides itself at checkout. HivePress
+		 * Marketplace's Stripe Connect direct-charges gateway falls back to `hp_vendor`, so without
+		 * this a buyer has no way to pay. Inert for anyone not using such a gateway.
 		 */
 		update_post_meta( $product_id, 'hp_vendor', $vendor_id );
 
@@ -6133,7 +6249,7 @@ final class Agl_Gallery extends Component {
 		 * Queued, never done here. SiteGround's purge calls out to Site Tools
 		 * (Supercacher::flush_dynamic_cache, verified in its source), so doing this inline would put
 		 * a third-party round trip on the request of whoever pressed Like. That is the shape that
-		 * took a customer's site down with 504s on 2026-08-19, and a like is exactly the kind of
+		 * has taken busy sites down with 504s, and a like is exactly the kind of
 		 * thing a busy page does many times at once.
 		 *
 		 * The scheduler drops a job whose hook and arguments are already queued, so a burst of likes

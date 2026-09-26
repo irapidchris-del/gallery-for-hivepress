@@ -16,22 +16,14 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Shows a vendor's gallery folders inside another page.
  *
- * The sidebar button sends somebody away to the gallery page. This puts the gallery itself on the
- * page they are already reading, which suits a site whose vendors are photographers or stylists -
- * the work is the thing being sold, so it belongs beside the listing rather than one click away.
+ * The sidebar button sends visitors away to the gallery page; this puts the gallery on the page
+ * they are already reading, for sites where the vendor's work is the thing being sold. Both
+ * placements are off by default and independent of the sidebar buttons.
  *
- * Both placements are off unless the site owner asks for them, and they are independent of the
- * sidebar buttons: a site can show the section instead of the button, as well as it, or neither.
- *
- * The covers are rendered here rather than by handing the job to the gallery page's own block. That
- * block is written for a page of its own: it prints a "back to this vendor's profile" link, which
- * is nonsense on the profile itself, and an empty-state message, which would leave a Gallery heading
- * standing over the words "no photos yet". A section that has nothing to show should not appear at
- * all. The markup below is the same `hp-agl-covers` structure, so one stylesheet still dresses both.
- *
- * Whatever the site's gallery layout setting says, a section always shows covers. The single-gallery
- * layout is a whole page of photographs, and dropping that into the middle of a listing would bury
- * the listing.
+ * Covers are rendered here rather than by the gallery page's own block, which prints a "back to
+ * profile" link and an empty-state message that make no sense inside a profile; a section with
+ * nothing to show does not appear. The markup is the same `hp-agl-covers` structure, so one
+ * stylesheet dresses both. A section always shows covers, whatever the layout setting says.
  */
 class Agl_Gallery_Section extends Block {
 

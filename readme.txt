@@ -5,7 +5,7 @@ Requires at least: 5.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: hivepress
-Stable tag: 1.10.4
+Stable tag: 1.10.8
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -37,6 +37,7 @@ Site owners can control everything from HivePress > Settings > Gallery:
 * Set a storage quota per vendor (site-wide or per membership plan); vendors then see "X used of X allowed" on their Gallery page
 * Let signed-in visitors like and comment on individual photos, or switch either feature off
 * Choose which side of the photo pages the sidebar sits on, and fill its "Photo Page (sidebar)" widget area from Appearance > Widgets
+* Give photo, folder and gallery pages a Share button: Facebook, WhatsApp, Copy link and a QR code, which can carry your own logo in the middle. On phones and tablets it opens the device's own share menu
 * Add a sidebar to the gallery page and to folder pages too, on either side, each with a widget area of its own
 * Lay the folder covers out as a grid: choose how many columns, cap the rows where a gallery is embedded in a profile or listing, and pick horizontal, vertical or square covers
 * Choose what one paid unlock buys: the vendor's whole gallery, or each folder separately, so vendors can price individual folders
@@ -264,6 +265,10 @@ Account menu > Gallery (only shown to users with a published vendor profile).
 
 Yes. HivePress's attachment component removes all attached images when the folder is deleted.
 
+= Can I put my logo on the QR code? =
+
+Yes. Under HivePress > Settings > Gallery > Sharing, choose an image for "QR Code Logo". A small square logo on a plain background works best. Nothing is added to the QR code until you choose one, and the QR code is drawn in the visitor's browser, so nothing is sent anywhere to make it.
+
 = What happens if I deactivate or delete the plugin? =
 
 Nothing is lost either way, unless you ask for it. Deactivating changes nothing:
@@ -284,7 +289,25 @@ as ordinary uploads, and any file that was in the protected directory is moved
 back to its normal location first so it is still viewable without the plugin.
 Your OpenAI API key is left alone either way, because other extensions share it.
 
+== Credits ==
+
+* QR codes are drawn by QR Code Generator for JavaScript 2.0.4 by Kazuhiko Arase (npm package "qrcode-generator"), MIT licence, bundled in assets/vendor/qrcode-generator with its licence header. "QR Code" is a registered trademark of DENSO WAVE INCORPORATED.
+* The Facebook and WhatsApp icons in the Share pop-up are from Font Awesome Free 7.1.0 by Fonticons, Inc., licensed under CC BY 4.0 (https://fontawesome.com/license/free).
+
 == Changelog ==
+
+= 1.10.8 =
+* Added: the Share button also appears on the gallery page and on folder pages, in their sidebar under the Vendor's profile card, sharing that page's address. It uses the same settings as the photo page button. Switch those sidebars on under Settings > Gallery if they are off.
+
+= 1.10.7 =
+* Added: a Share button in the photo page sidebar, with Share on Facebook, Share on WhatsApp, Copy link and a QR code of the photo's page. On phones and tablets it opens the device's own share menu. Turn it off, or add a logo to the QR code, under Settings > Gallery > Sharing.
+* Changed: on a photo's page the like and comment counts now sit on the right, directly under the photo and lined up with its right-hand edge, with the description below them.
+
+= 1.10.6 =
+* Fixed: the View button beside the public gallery link in the account no longer turns blue on hover.
+
+= 1.10.5 =
+* Fixed: the Gallery page in the account area lost the account page styling that every other account page has, most visibly the sidebar menu, because HivePress could not tell which kind of page it was. The gallery pages now carry the same page classes as the rest of the account area.
 
 = 1.10.4 =
 * Fixed: updating two of these extensions one after the other could fail on the second with "up to date" until Check for updates was pressed again. WordPress rebuilds its update list after each update by asking wordpress.org first, and gives up on the whole list when that call is slow; the plugin now keeps its own update in the list regardless.

@@ -59,9 +59,16 @@ class Agl_Gallery_Photo_View extends Block {
 		$caption = get_post_field( 'post_excerpt', $photo_id );
 		$caption = is_string( $caption ) ? trim( $caption ) : '';
 
+		// The photo and its counts share a frame as wide as the photo, so the counts end at the photo's
+		// right edge even when the photo is narrower than the column (a small upload), rather than at
+		// the column's edge. A video keeps the column width: before its metadata loads its natural
+		// width is 300px, which would jump the counts.
+		$is_video = 0 === strpos( (string) $photo->get_mime_type(), 'video/' );
+
+		$output .= '<div class="hp-agl-photo__frame' . ( $is_video ? '' : ' hp-agl-photo__frame--image' ) . '">';
 		$output .= '<figure class="hp-agl-photo__media">';
 
-		if ( 0 === strpos( (string) $photo->get_mime_type(), 'video/' ) ) {
+		if ( $is_video ) {
 			$output .= '<video controls preload="metadata" playsinline><source src="' . esc_url( $photo->get_url() . '#t=0.001' ) . '" type="' . esc_attr( $photo->get_mime_type() ) . '"></video>';
 		} else {
 			$image = wp_get_attachment_image(
@@ -87,14 +94,10 @@ class Agl_Gallery_Photo_View extends Block {
 
 		$output .= '</figure>';
 
-		// Description and the action row. No heading here: the theme already
-		// prints the photo's title as the page heading, from the route title.
-		$output .= '<div class="hp-agl-photo__details">';
-
-		if ( $caption ) {
-			$output .= '<p class="hp-agl-photo__description">' . esc_html( $caption ) . '</p>';
-		}
-
+		// The like and comment counts, a small row on the right directly under the photo, like a
+		// social feed. SIBLING PATTERN: Social Walls for HivePress lays out its post page the same way
+		// (0.5rem under the media, 1rem to what follows, 1rem between the pairs, 0.4em from icon to
+		// number); keep the two in step.
 		$counts     = $gallery->get_engagement_counts( [ $photo_id ] );
 		$liked_ids  = $gallery->are_likes_enabled() ? $gallery->get_liked_photo_ids( [ $photo_id ] ) : [];
 		$action_bar = $gallery->render_photo_actions( $folder, $photo_id, isset( $counts[ $photo_id ] ) ? $counts[ $photo_id ] : [], in_array( $photo_id, $liked_ids, true ) );
@@ -104,6 +107,14 @@ class Agl_Gallery_Photo_View extends Block {
 		}
 
 		$output .= '</div>';
+
+		// The description. No heading here: the theme already prints the photo's title as the page
+		// heading, from the route title.
+		if ( $caption ) {
+			$output .= '<div class="hp-agl-photo__details">';
+			$output .= '<p class="hp-agl-photo__description">' . esc_html( $caption ) . '</p>';
+			$output .= '</div>';
+		}
 
 		// Previous / next within the folder.
 		$siblings = $gallery->get_photo_siblings( $folder, $photo_id );

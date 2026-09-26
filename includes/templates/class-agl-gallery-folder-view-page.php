@@ -73,6 +73,13 @@ class Agl_Gallery_Folder_View_Page extends Page_Sidebar_Left {
 								'_order'   => 10,
 							],
 
+							// Under the Vendor card, as on the photo page (since 1.10.8): the same Share
+							// button and pop-up, sharing this page's own address.
+							'gallery_share'         => [
+								'type'   => 'agl_gallery_photo_share',
+								'_order' => 20,
+							],
+
 							'page_sidebar_widgets'  => [
 								'type'   => 'widgets',
 								'area'   => 'hp_agl_folder_sidebar',

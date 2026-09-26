@@ -65,6 +65,13 @@ class Agl_Gallery_Photo_View_Page extends Page_Sidebar_Left {
 								'_order'   => 20,
 							],
 
+							// Under the Vendor card, above the widget area. Social Walls places its
+							// Share button the same way on a wall post's page.
+							'gallery_photo_share'  => [
+								'type'   => 'agl_gallery_photo_share',
+								'_order' => 30,
+							],
+
 							'page_sidebar_widgets' => [
 								'type'   => 'widgets',
 								'area'   => 'hp_agl_photo_sidebar',

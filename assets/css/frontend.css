@@ -37,6 +37,16 @@ a.hp-agl-link__button.button--primary:focus {
 	font-size: 0.875em;
 }
 
+/* The View link is a plain grey theme button (`button alt`), so it has the same trap as the
+   sidebar link above: HiveTheme's bare a:hover{color:#1db1fc} at (0,1,1) beats the theme's
+   .button{color:rgba(15,23,39,.65)} at (0,1,0), and the label turned blue on hover (measured
+   26 Sept 2026). The value restated here is the theme's own resting .button colour, identical in
+   all six official themes (vendor/hivepress/hivetheme/assets/css/frontend.min.css). */
+.hp-agl-account__share-row a.button:hover,
+.hp-agl-account__share-row a.button:focus {
+	color: rgba(15, 23, 39, 0.65);
+}
+
 /* --- Account: folder list --- */
 
 .hp-agl-account__hint {
@@ -610,18 +620,62 @@ body.hp-template--agl-gallery-folder-view-page .hp-page__header:not(:last-child)
 	max-width: 46rem;
 }
 
+/* The counts sit on the right, 0.5rem under the photo (whose own bottom margin is 1rem), with 1rem to
+   the description or the Previous and Next row. Same spacing as the counts row under a Social Walls
+   post's photos: 1rem between the pairs, 0.4em from each icon to its number. */
 .hp-agl-photo__actions {
 	display: flex;
 	align-items: center;
+	justify-content: flex-end;
 	flex-wrap: wrap;
-	gap: 1rem 1.5rem;
-	margin: 1rem 0 2rem;
+	gap: 1rem;
+	margin: -0.5rem 0 1rem;
 }
 
+.hp-agl-photo__actions .hp-agl-actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 1rem;
+}
+
+.hp-agl-photo__actions .hp-agl-action {
+	gap: 0.4em;
+}
+
+/*
+ * The counts belong to the photo's right edge, not the column's (site owner's report, 28 Sept 2026,
+ * "on the left"). Measured on six themes at 1300, 768 and 390px, portrait and landscape, signed in
+ * and out, they were already flush right whenever the photo filled the column, so the frame below
+ * covers the case that was not: a photo narrower than the column (a small upload) left its counts
+ * out at the column's edge, well away from it. The frame shrinks to the photo (`fit-content`, capped
+ * at the column) and the pair takes the spare width as an auto margin, which beats any
+ * justify-content a theme or site stylesheet sets on these rows.
+ */
+.hp-agl-photo__frame--image {
+	width: fit-content;
+	max-width: 100%;
+}
+
+.hp-agl-photo__actions > .hp-agl-actions {
+	margin-left: auto;
+}
+
+.hp-agl-photo__details {
+	margin-bottom: 1rem;
+}
+
+.hp-agl-photo__description {
+	margin: 0;
+}
+
+/* The top margin keeps the 2rem the Previous and Next row always had above it, now that the counts
+   row above ends with 1rem. */
 .hp-agl-photo__nav {
 	display: flex;
 	justify-content: space-between;
 	gap: 1rem;
+	margin-top: 1rem;
 	margin-bottom: 3rem;
 }
 
@@ -980,3 +1034,121 @@ a.hp-agl-unlock__upgrade.button--primary:focus {
 	transition: background-color 1.2s ease 1.8s;
 }
 
+
+/* --- Share (1.10.7) --- */
+
+/* The Share button sits under the Vendor card in the photo page sidebar, spaced like the cards. */
+.hp-agl-photo__sidebar > .hp-agl-share__block {
+	margin-bottom: 1.875rem;
+}
+
+/* ---------------------------------------------------------------------
+ * The Share pop-up. The markup and data attributes are shared with Social Walls for HivePress
+ * (see Agl_Gallery::render_share()); these rules are this plugin's own and use its own class names.
+ * Options run the full width of the pop-up, then the QR code on a white ground in every colour
+ * scheme, since a phone camera cannot read light modules on a dark page.
+ * ------------------------------------------------------------------- */
+.hp-agl-share .hp-agl-share__options {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	margin-bottom: 1.5rem;
+}
+
+.hp-agl-share .hp-agl-share__option {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	box-sizing: border-box;
+	width: 100%;
+	margin: 0;
+	padding: 0.75rem 1rem;
+	border: 1px solid rgba(0, 0, 0, 0.12);
+	border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+	border-radius: 0.25rem;
+	background: none;
+	box-shadow: none;
+	color: inherit;
+	font: inherit;
+	line-height: 1.4;
+	text-align: left;
+	text-decoration: none;
+	text-transform: none;
+	letter-spacing: normal;
+	cursor: pointer;
+}
+
+/* Restated at (0,2,1) so HiveTheme's a:hover{color:#1db1fc} and the themes' button:hover rules cannot
+   recolour a row. */
+.hp-agl-share a.hp-agl-share__option:hover,
+.hp-agl-share a.hp-agl-share__option:focus,
+.hp-agl-share button.hp-agl-share__option:hover,
+.hp-agl-share button.hp-agl-share__option:focus {
+	border-color: rgba(0, 0, 0, 0.3);
+	border-color: color-mix(in srgb, currentColor 40%, transparent);
+	background: none;
+	box-shadow: none;
+	color: inherit;
+}
+
+.hp-agl-share .hp-agl-share__icon {
+	flex: 0 0 auto;
+	width: 1.25rem;
+	height: 1.25rem;
+	margin: 0;
+	font-size: 1.125rem;
+	line-height: 1.25rem;
+	text-align: center;
+}
+
+.hp-agl-share .hp-agl-share__icon--facebook {
+	color: #1877f2;
+}
+
+.hp-agl-share .hp-agl-share__icon--whatsapp {
+	color: #25d366;
+}
+
+.hp-agl-share .hp-agl-share__copied {
+	margin: 0;
+	font-weight: 600;
+	text-align: center;
+}
+
+.hp-agl-share .hp-agl-share__copied[hidden],
+.hp-agl-share .hp-agl-share__qr[hidden] {
+	display: none;
+}
+
+.hp-agl-share .hp-agl-share__qr {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	width: max-content;
+	min-width: 13.5rem;
+	max-width: 100%;
+	min-height: 13.5rem;
+	margin: 0 auto;
+	padding: 0.5rem;
+	border-radius: 0.25rem;
+	background: #fff;
+}
+
+.hp-agl-share .hp-agl-share__qr canvas {
+	display: block;
+	width: 12.5rem;
+	max-width: 100%;
+	height: auto;
+}
+
+.hp-agl-share .hp-agl-share__hint {
+	margin: 0.75rem 0 0;
+	text-align: center;
+}
+
+/* Space above the Share button too, for a theme whose Vendor card has no bottom margin at phone width
+   (TaskHive measured 0px, 26 Sept 2026). Vertical margins collapse, so elsewhere nothing changes. */
+.hp-agl-share__block {
+	margin-top: 1.875rem;
+}

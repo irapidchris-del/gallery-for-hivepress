@@ -324,7 +324,7 @@ return [
 
 					'gallery_page_sidebar'    => [
 						'label'       => esc_html__( 'Gallery Page Sidebar', 'additional-gallery-for-hivepress' ),
-						'description' => esc_html__( 'Adds a sidebar to the gallery page, showing the vendor\'s profile card. You can add your own widgets to it in the "Gallery Page (sidebar)" area under Appearance, then Widgets.', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Adds a sidebar to the gallery page, showing the vendor\'s profile card and the Share button. You can add your own widgets to it in the "Gallery Page (sidebar)" area under Appearance, then Widgets.', 'additional-gallery-for-hivepress' ),
 						'type'        => 'radio',
 						'default'     => 'none',
 						'_order'      => 60,
@@ -338,7 +338,7 @@ return [
 
 					'gallery_folder_sidebar'  => [
 						'label'       => esc_html__( 'Folder Page Sidebar', 'additional-gallery-for-hivepress' ),
-						'description' => esc_html__( 'Adds a sidebar to each folder page, showing the vendor\'s profile card. You can add your own widgets to it in the "Folder Page (sidebar)" area under Appearance, then Widgets.', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Adds a sidebar to each folder page, showing the vendor\'s profile card and the Share button. You can add your own widgets to it in the "Folder Page (sidebar)" area under Appearance, then Widgets.', 'additional-gallery-for-hivepress' ),
 						'type'        => 'radio',
 						'default'     => 'none',
 						'_order'      => 70,
@@ -377,10 +377,37 @@ return [
 				],
 			],
 
+			'gallery_sharing'      => [
+				'title'       => esc_html__( 'Sharing', 'additional-gallery-for-hivepress' ),
+				'description' => esc_html__( 'A Share button in the sidebar of gallery, folder and photo pages lets visitors share the page on Facebook or WhatsApp, copy its link, or scan a QR code with a phone. On a phone or tablet the button opens the device\'s own share menu instead. Nothing is sent to Facebook or WhatsApp unless a visitor chooses to share, and the QR code is drawn in the visitor\'s browser.', 'additional-gallery-for-hivepress' ),
+				'_order'      => 102,
+
+				'fields'      => [
+					'gallery_enable_share' => [
+						'label'       => esc_html__( 'Share Button', 'additional-gallery-for-hivepress' ),
+						'caption'     => esc_html__( 'Show a Share button on gallery, folder and photo pages', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'The button sits in the sidebar, under the vendor\'s profile card. Photo pages always have a sidebar; gallery and folder pages show the button only when their sidebar is switched on (Gallery Page Sidebar and Folder Page Sidebar above). Untick to remove the button everywhere.', 'additional-gallery-for-hivepress' ),
+						'type'        => 'checkbox',
+						'default'     => true,
+						'_order'      => 10,
+					],
+
+					'gallery_share_logo'   => [
+						'label'       => esc_html__( 'QR Code Logo', 'additional-gallery-for-hivepress' ),
+						'caption'     => esc_html__( 'Select Image', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Optional. A small image, such as your logo, drawn in the middle of the QR code. A square image on a plain background works best. Leave it empty for a plain QR code.', 'additional-gallery-for-hivepress' ),
+						'type'        => 'attachment_select',
+						'formats'     => [ 'jpg', 'jpeg', 'png', 'webp' ],
+						'_parent'     => 'gallery_enable_share',
+						'_order'      => 11,
+					],
+				],
+			],
+
 			'gallery_monetisation' => [
 				'title'       => esc_html__( 'Gallery Monetisation', 'additional-gallery-for-hivepress' ),
 				'description' => __( 'Members-only folders are how galleries make money: visitors must unlock them before seeing inside. <strong>To charge through memberships</strong>, add the gallery privileges to a paid HivePress Memberships plan, or to a free plan to simply require an account. <strong>To let vendors charge instead</strong>, enable paid access below: locked folders then offer that vendor\'s one-off purchase, falling back to your upgrade page link where no price is set.', 'additional-gallery-for-hivepress' ),
-				'_order'      => 102,
+				'_order'      => 103,
 
 				'fields'      => [
 					'gallery_enable_members'     => [
@@ -478,7 +505,7 @@ return [
 			'gallery_removal'      => [
 				'title'       => esc_html__( 'Removing the Plugin', 'additional-gallery-for-hivepress' ),
 				'description' => esc_html__( 'Your galleries are kept if you ever delete this plugin. WordPress\'s own warning that deleting a plugin also deletes its data is generic and does not describe this one: nothing is removed unless you tick the box first.', 'additional-gallery-for-hivepress' ),
-				'_order'      => 103,
+				'_order'      => 104,
 
 				'fields'      => [
 					'gallery_delete_data' => [

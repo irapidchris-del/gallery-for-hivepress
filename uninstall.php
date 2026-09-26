@@ -147,6 +147,11 @@ function hp_agl_uninstall_site( $delete_data ) {
 		// Added in 1.10.0 with the AI moderation photo limit.
 		'hp_gallery_moderation_max_images',
 
+		// Added in 1.10.7 with the Share button. The logo setting holds only an attachment ID; the
+		// image itself stays in the Media Library, like every other photo.
+		'hp_gallery_enable_share',
+		'hp_gallery_share_logo',
+
 		// Retired in 1.3.0, deleted again in case an upgrade never ran.
 		'hp_gallery_manage_plans',
 		'hp_gallery_view_plans',

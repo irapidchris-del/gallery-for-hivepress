@@ -16,7 +16,7 @@ Gives HivePress vendors a front-end photo gallery with public, members-only and 
 - Add a title and description to each image from the Manage Photo card on its page; descriptions show under the photo, on its page and become the image alt text
 - Drag folders to reorder them, powered by the core HivePress sortable component
 - The public gallery shows folder covers by default; each folder opens on its own shareable page at `/gallery/{vendor_id}/{folder_id}/`, and a Gallery Layout setting restores the single-page view
-- An "Updated x ago" line based on the newest upload, so an active gallery reads as an active stylist
+- An "Updated x ago" line based on the newest upload, so an active gallery reads as an active Vendor
 - Copy their shareable public gallery link with one click
 - Delete a folder (with a confirmation prompt; its images are removed automatically)
 
