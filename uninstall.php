@@ -68,6 +68,7 @@ function hp_agl_uninstall_site( $delete_data ) {
 	if ( function_exists( 'as_unschedule_all_actions' ) ) {
 		as_unschedule_all_actions( 'hp_agl_github_release_refresh', [], 'hivepress' );
 		as_unschedule_all_actions( 'hp_agl_github_release_refresh' );
+		as_unschedule_all_actions( 'hp_agl_purge_vendor_pages', [], 'hivepress' );
 	}
 
 	wp_clear_scheduled_hook( 'hp_agl_github_release_refresh' );
@@ -151,6 +152,9 @@ function hp_agl_uninstall_site( $delete_data ) {
 		// image itself stays in the Media Library, like every other photo.
 		'hp_gallery_enable_share',
 		'hp_gallery_share_logo',
+
+		// Added in 1.11.0 with the Vendor display choices.
+		'hp_gallery_owner_display',
 
 		// Retired in 1.3.0, deleted again in case an upgrade never ran.
 		'hp_gallery_manage_plans',
@@ -279,6 +283,12 @@ function hp_agl_uninstall_site( $delete_data ) {
 	delete_metadata( 'post', 0, 'hp_gallery_days_3', '', true );
 	delete_metadata( 'post', 0, 'hp_agl_cover', '', true );
 	delete_metadata( 'post', 0, 'hp_gallery_product_3', '', true );
+
+	// Display choices: two on each Vendor, one on each folder (already gone with the folders, and
+	// cleared again here in case a folder was removed some other way).
+	delete_metadata( 'post', 0, 'hp_agl_hide_profile', '', true );
+	delete_metadata( 'post', 0, 'hp_agl_hide_listings', '', true );
+	delete_metadata( 'post', 0, 'hp_agl_hide_pages', '', true );
 
 	// Markers on the access products themselves. The products are WooCommerce's, and someone's
 	// order history refers to them, so they are left in place with our markings taken off.

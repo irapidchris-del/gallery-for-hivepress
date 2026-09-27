@@ -45,6 +45,34 @@ class Agl_Gallery_Folder_Update extends Model_Form {
 	 * @param array $args Form arguments.
 	 */
 	public function __construct( $args = [] ) {
+		/*
+		 * The Vendor's per-folder display tick, offered only where the site lets Vendors choose.
+		 * `_separate` keeps it out of the model: it is stored as a "hide" flag, so a folder nobody
+		 * has saved since this arrived has no row and stays shown, as before.
+		 */
+		$gallery = function_exists( 'hivepress' ) ? hivepress()->agl_gallery : null;
+
+		if ( $gallery && $gallery->get_owner_display_surfaces() ) {
+			$folder = hp\get_array_value( $args, 'model' );
+
+			$args = hp\merge_arrays(
+				[
+					'fields' => [
+						'agl_show_on_pages' => [
+							'label'       => esc_html__( 'Where It Appears', 'additional-gallery-for-hivepress' ),
+							'caption'     => esc_html( $gallery->get_display_wording( 'folder' ) ),
+							'description' => esc_html__( 'Unticked, the folder stays in your gallery but is left out of the gallery shown on your other pages. A private folder is never shown to visitors, and a members-only folder stays locked for them, whatever this says.', 'additional-gallery-for-hivepress' ),
+							'type'        => 'checkbox',
+							'default'     => $folder instanceof \HivePress\Models\Gallery_Folder && $folder->get_id() ? $gallery->folder_shows_on_pages( $folder ) : true,
+							'_separate'   => true,
+							'_order'      => 45,
+						],
+					],
+				],
+				$args
+			);
+		}
+
 		$args = hp\merge_arrays(
 			[
 				'method'  => 'POST',

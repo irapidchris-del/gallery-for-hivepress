@@ -73,8 +73,8 @@ class Agl_Gallery_Link extends Block {
 
 		// Count the media items a visitor would see (includes locked
 		// previews). Both counts are zero when the vendor has no gallery
-		// access.
-		$counts = hivepress()->agl_gallery->get_visible_media_counts( $vendor );
+		// access, or has chosen to keep their gallery off this page type.
+		$counts = hivepress()->agl_gallery->get_visible_media_counts( $vendor, $listing ? 'listing' : 'vendor' );
 
 		if ( ! $counts['images'] && ! $counts['videos'] ) {
 			return $output;

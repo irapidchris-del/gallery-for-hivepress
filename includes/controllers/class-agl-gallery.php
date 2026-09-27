@@ -136,6 +136,14 @@ final class Agl_Gallery extends Controller {
 						'rest'   => true,
 					],
 
+					// REST: save where the Vendor's gallery appears.
+					'gallery_display_action'        => [
+						'path'   => '/gallery-display',
+						'method' => 'POST',
+						'action' => [ $this, 'set_gallery_display' ],
+						'rest'   => true,
+					],
+
 					// Account page: folder overview.
 					'gallery_edit_page'             => [
 						'title'    => esc_html__( 'Gallery', 'additional-gallery-for-hivepress' ),
@@ -315,11 +323,25 @@ final class Agl_Gallery extends Controller {
 			return hp\rest_error( 400, $form->get_errors() );
 		}
 
+		// The display tick is not a model field, so it is taken out before the model is filled.
+		$values        = $form->get_values();
+		$show_on_pages = null;
+
+		if ( array_key_exists( 'agl_show_on_pages', $values ) ) {
+			$show_on_pages = (bool) $values['agl_show_on_pages'];
+
+			unset( $values['agl_show_on_pages'] );
+		}
+
 		// Update folder.
-		$folder->fill( $form->get_values() );
+		$folder->fill( $values );
 
 		if ( ! $folder->save() ) {
 			return hp\rest_error( 400, $folder->_get_errors() );
+		}
+
+		if ( ! is_null( $show_on_pages ) && hivepress()->agl_gallery->set_folder_display( $folder->get_id(), $show_on_pages ) ) {
+			hivepress()->agl_gallery->queue_vendor_pages_purge( hp_agl_int( $folder->get_vendor__id() ) );
 		}
 
 		// Review the photos with AI, if enabled. QUEUED, never run here: it is
@@ -1123,6 +1145,62 @@ final class Agl_Gallery extends Controller {
 			[
 				'id'    => $folder ? $folder->get_id() : $vendor->get_id(),
 				'tiers' => $rows,
+			]
+		);
+	}
+
+	/**
+	 * Saves where the current Vendor's gallery appears.
+	 *
+	 * Only the page types the site offers a choice for are read, so a box that was never shown can
+	 * never switch anything off.
+	 *
+	 * @param \WP_REST_Request $request API request.
+	 * @return \WP_REST_Response
+	 */
+	public function set_gallery_display( $request ) {
+
+		// Check authentication.
+		if ( ! is_user_logged_in() ) {
+			return hp\rest_error( 401 );
+		}
+
+		$gallery  = hivepress()->agl_gallery;
+		$surfaces = $gallery->get_owner_display_surfaces();
+
+		if ( ! $surfaces ) {
+			return hp\rest_error( 403 );
+		}
+
+		// Get the vendor.
+		$vendor = $gallery->get_current_vendor();
+
+		if ( empty( $vendor ) || ! $gallery->vendor_can_use_gallery( $vendor ) ) {
+			return hp\rest_error( 403 );
+		}
+
+		$saved   = [];
+		$changed = false;
+
+		foreach ( $surfaces as $surface ) {
+			$show = rest_sanitize_boolean( $request->get_param( 'listing' === $surface ? 'listings' : 'profile' ) );
+
+			if ( $gallery->set_vendor_display( $vendor->get_id(), $surface, $show ) ) {
+				$changed = true;
+			}
+
+			$saved[ $surface ] = $show;
+		}
+
+		if ( $changed ) {
+			$gallery->queue_vendor_pages_purge( $vendor->get_id() );
+		}
+
+		return hp\rest_response(
+			200,
+			[
+				'id'      => $vendor->get_id(),
+				'display' => $saved,
 			]
 		);
 	}

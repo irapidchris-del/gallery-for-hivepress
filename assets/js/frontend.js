@@ -4,7 +4,7 @@
  * Vanilla JS, no dependencies. Folder drag-sorting is handled by the core
  * HivePress sortable component; this file adds the delete confirmations,
  * copy-link buttons, photo and comment likes, the comment thread, the
- * photo manage form and the paid-access price form.
+ * photo manage form, the display choices form and the paid-access price form.
  */
 (function () {
 	'use strict';
@@ -702,6 +702,45 @@
 			})
 			.catch(function () {
 				showMessage(message, data.priceFailed || 'The price could not be saved.', true);
+			})
+			.then(function () {
+				if (button) {
+					button.disabled = false;
+				}
+			});
+	});
+
+	/**
+	 * The "Where Your Gallery Appears" form on the account gallery page.
+	 *
+	 * Only ticked boxes are sent, as a normal form would send them; the endpoint reads a missing box
+	 * as unticked for each page type it offered.
+	 */
+	document.addEventListener('submit', function (event) {
+		var form = event.target;
+
+		if (!form.hasAttribute || !form.hasAttribute('data-agl-display-form')) {
+			return;
+		}
+
+		event.preventDefault();
+
+		var message = form.querySelector('[data-agl-display-message]');
+		var button = form.querySelector('button[type="submit"]');
+		var body = new window.FormData(form);
+
+		if (button) {
+			button.disabled = true;
+		}
+
+		showMessage(message, '');
+
+		apiFetch('/gallery-display', { method: 'POST', body: body })
+			.then(function (response) {
+				showMessage(message, response.ok ? data.saved || 'Saved.' : data.saveFailed || 'Your changes could not be saved.', !response.ok);
+			})
+			.catch(function () {
+				showMessage(message, data.saveFailed || 'Your changes could not be saved.', true);
 			})
 			.then(function () {
 				if (button) {

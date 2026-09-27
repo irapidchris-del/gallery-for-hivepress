@@ -1152,3 +1152,34 @@ a.hp-agl-unlock__upgrade.button--primary:focus {
 .hp-agl-share__block {
 	margin-top: 1.875rem;
 }
+
+/* --- Account: where the gallery appears --- */
+
+/* Same separation as the paid access panel below it, so the account page reads as a run of
+   sections of one kind. */
+.hp-agl-account__display {
+	margin-top: 2.5rem;
+	padding-top: 1.5rem;
+	border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.hp-agl-account__display .hp-form__fields {
+	margin-bottom: 1rem;
+}
+
+.hp-agl-account__display .hp-form__field--checkbox:not(:last-child) {
+	margin-bottom: 0.5rem;
+}
+
+.hp-agl-folder__offpage {
+	white-space: nowrap;
+}
+
+.hp-agl-folder__offpage .hp-icon {
+	margin-right: 0.25rem;
+}
+
+/* Dark mode: a faint black rule vanishes on a dark page, so this divider takes a light one. */
+html.darkify_dark_mode_enabled .hp-agl-account__display {
+	border-top-color: rgba(255, 255, 255, 0.12);
+}

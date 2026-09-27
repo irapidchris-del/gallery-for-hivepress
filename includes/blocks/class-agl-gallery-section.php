@@ -52,6 +52,13 @@ class Agl_Gallery_Section extends Block {
 			return '';
 		}
 
+		// The Vendor's own choice for this page type, where the site lets them make one.
+		$surface = $this->get_context( 'listing' ) instanceof Models\Listing ? 'listing' : 'vendor';
+
+		if ( ! hivepress()->agl_gallery->vendor_shows_gallery_on( $vendor, $surface ) ) {
+			return '';
+		}
+
 		// A vendor who has nothing to show gets no empty section and no heading.
 		$folders = $this->get_folders( $vendor );
 
@@ -201,6 +208,11 @@ class Agl_Gallery_Section extends Block {
 			}
 
 			if ( ! count( (array) $folder->get_images__id() ) ) {
+				continue;
+			}
+
+			// A folder its Vendor has chosen to keep to the gallery page alone.
+			if ( ! hivepress()->agl_gallery->folder_shows_on_pages( $folder ) ) {
 				continue;
 			}
 

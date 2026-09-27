@@ -74,6 +74,18 @@ return [
 						'_order'      => 27,
 					],
 
+					/*
+					 * Off by default, and every check reads "shown unless the vendor said otherwise",
+					 * so a site that updates without touching this renders exactly as before.
+					 */
+					'gallery_owner_display'            => [
+						'label'       => esc_html__( 'Vendor Display Choices', 'additional-gallery-for-hivepress' ),
+						'caption'     => esc_html__( 'Let Vendors choose where their gallery appears', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Gives each Vendor a "Where Your Gallery Appears" panel on their Gallery page in their account, to show or hide their gallery on their profile and on their Listings, plus a tick on each folder to leave that folder out. Affects only the View Gallery button and the Gallery sections above, never the gallery page itself. Private folders are never shown and members-only folders stay locked, whatever a Vendor chooses.', 'additional-gallery-for-hivepress' ),
+						'type'        => 'checkbox',
+						'_order'      => 28,
+					],
+
 					'gallery_show_button_count'        => [
 						'label'       => esc_html__( 'Gallery Button', 'additional-gallery-for-hivepress' ),
 						'caption'     => esc_html__( 'Show the photo count on the View Gallery button', 'additional-gallery-for-hivepress' ),

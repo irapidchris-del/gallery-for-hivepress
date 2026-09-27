@@ -227,6 +227,7 @@ final class Agl_Gallery extends Component {
 		add_action( 'transition_comment_status', [ $this, 'queue_engagement_purge_on_status' ], 10, 3 );
 
 		add_action( 'hp_agl_purge_photo_cache', [ $this, 'purge_photo_cache' ] );
+		add_action( 'hp_agl_purge_vendor_pages', [ $this, 'purge_vendor_pages' ] );
 
 		// Warn buyers before timed access lapses. `hp_agl/access_expired` only fires on the first
 		// read after the expiry, so somebody who stops visiting is never told at all, and by the
@@ -960,10 +961,14 @@ final class Agl_Gallery extends Component {
 	 * including locked previews unless they are hidden by the settings.
 	 * Both counts are zero when the vendor has no gallery access.
 	 *
+	 * With a surface given, the Vendor's own display choices apply as well, so the button on a
+	 * profile or Listing never counts a folder that the matching section leaves out.
+	 *
 	 * @param \HivePress\Models\Vendor|null $vendor Vendor object.
+	 * @param string                        $surface Page type the count is shown on, `vendor` or `listing`, or empty for none.
 	 * @return array
 	 */
-	public function get_visible_media_counts( $vendor ) {
+	public function get_visible_media_counts( $vendor, $surface = '' ) {
 		$counts = [
 			'images' => 0,
 			'videos' => 0,
@@ -973,10 +978,18 @@ final class Agl_Gallery extends Component {
 			return $counts;
 		}
 
+		if ( $surface && ! $this->vendor_shows_gallery_on( $vendor, $surface ) ) {
+			return $counts;
+		}
+
 		$display = $this->get_locked_display();
 
 		foreach ( $this->get_listed_folders( $vendor->get_id() ) as $folder ) {
 			if ( ! $folder instanceof \HivePress\Models\Gallery_Folder ) {
+				continue;
+			}
+
+			if ( $surface && ! $this->folder_shows_on_pages( $folder ) ) {
 				continue;
 			}
 
@@ -991,6 +1004,269 @@ final class Agl_Gallery extends Component {
 		}
 
 		return $counts;
+	}
+
+	/**
+	 * Checks whether Vendors may choose where their gallery appears.
+	 *
+	 * @return bool
+	 */
+	public function is_owner_display_enabled() {
+		return (bool) get_option( 'hp_gallery_owner_display' );
+	}
+
+	/**
+	 * Gets the page types a Vendor may switch their gallery off on.
+	 *
+	 * Only page types where this site shows a gallery at all, through the button or the section,
+	 * are offered: a choice for a page that never shows one would be a control that does nothing.
+	 *
+	 * @return array Any of `vendor` and `listing`, empty when owner choices are off.
+	 */
+	public function get_owner_display_surfaces() {
+		if ( ! $this->is_owner_display_enabled() ) {
+			return [];
+		}
+
+		$surfaces = [];
+
+		if ( ! get_option( 'hp_gallery_hide_vendor_link' ) || get_option( 'hp_gallery_show_on_vendors' ) ) {
+			$surfaces[] = 'vendor';
+		}
+
+		if ( ! get_option( 'hp_gallery_hide_listing_link' ) || get_option( 'hp_gallery_show_on_listings' ) ) {
+			$surfaces[] = 'listing';
+		}
+
+		return $surfaces;
+	}
+
+	/**
+	 * Gets the Vendor meta key recording that one page type is switched off.
+	 *
+	 * Stored as a "hide" flag rather than a "show" flag, so a Vendor who never saves the panel has
+	 * no row and keeps today's behaviour.
+	 *
+	 * @param string $surface Either `vendor` or `listing`.
+	 * @return string
+	 */
+	public function get_display_meta_key( $surface ) {
+		return 'listing' === $surface ? 'hp_agl_hide_listings' : 'hp_agl_hide_profile';
+	}
+
+	/**
+	 * Checks whether a Vendor shows their gallery on one page type.
+	 *
+	 * @param \HivePress\Models\Vendor|null $vendor Vendor object.
+	 * @param string                        $surface Either `vendor` or `listing`.
+	 * @return bool Always true while owner choices are off.
+	 */
+	public function vendor_shows_gallery_on( $vendor, $surface ) {
+		if ( ! $this->is_owner_display_enabled() || ! $vendor instanceof Models\Vendor ) {
+			return true;
+		}
+
+		return ! get_post_meta( $vendor->get_id(), $this->get_display_meta_key( $surface ), true );
+	}
+
+	/**
+	 * Records whether a Vendor shows their gallery on one page type.
+	 *
+	 * @param int    $vendor_id Vendor ID.
+	 * @param string $surface Either `vendor` or `listing`.
+	 * @param bool   $show Whether to show it.
+	 * @return bool Whether anything changed.
+	 */
+	public function set_vendor_display( $vendor_id, $surface, $show ) {
+		$key    = $this->get_display_meta_key( $surface );
+		$hidden = (bool) get_post_meta( $vendor_id, $key, true );
+
+		// Already in the wanted state: shown and not hidden, or hidden and not shown.
+		if ( $show !== $hidden ) {
+			return false;
+		}
+
+		if ( $show ) {
+			delete_post_meta( $vendor_id, $key );
+		} else {
+			update_post_meta( $vendor_id, $key, '1' );
+		}
+
+		return true;
+	}
+
+	/**
+	 * Checks whether a folder is one its Vendor shows on their profile and Listings.
+	 *
+	 * This only ever takes a folder away. Visibility is checked separately wherever folders are
+	 * shown, so ticking a private or members-only folder can never expose it.
+	 *
+	 * @param \HivePress\Models\Gallery_Folder $folder Folder object.
+	 * @return bool Always true while owner choices are off.
+	 */
+	public function folder_shows_on_pages( $folder ) {
+		if ( ! $this->is_owner_display_enabled() ) {
+			return true;
+		}
+
+		return ! get_post_meta( $folder->get_id(), 'hp_agl_hide_pages', true );
+	}
+
+	/**
+	 * Records whether a folder is shown on its Vendor's profile and Listings.
+	 *
+	 * @param int  $folder_id Folder ID.
+	 * @param bool $show Whether to show it.
+	 * @return bool Whether anything changed.
+	 */
+	public function set_folder_display( $folder_id, $show ) {
+		$hidden = (bool) get_post_meta( $folder_id, 'hp_agl_hide_pages', true );
+
+		// Already in the wanted state: shown and not hidden, or hidden and not shown.
+		if ( $show !== $hidden ) {
+			return false;
+		}
+
+		if ( $show ) {
+			delete_post_meta( $folder_id, 'hp_agl_hide_pages' );
+		} else {
+			update_post_meta( $folder_id, 'hp_agl_hide_pages', '1' );
+		}
+
+		return true;
+	}
+
+	/**
+	 * Gets the wording that names the pages a Vendor's choices apply to.
+	 *
+	 * Three whole sentences per use rather than a joined-up phrase, so each reads naturally once
+	 * translated.
+	 *
+	 * @param string $kind Either `folder` (the tick on a folder) or `hidden` (the note in the folder list).
+	 * @return string Empty when owner choices are off.
+	 */
+	public function get_display_wording( $kind ) {
+		$surfaces = $this->get_owner_display_surfaces();
+
+		if ( ! $surfaces ) {
+			return '';
+		}
+
+		$key = count( $surfaces ) > 1 ? 'both' : $surfaces[0];
+
+		$wording = [
+			'folder' => [
+				'both'    => __( 'Show this folder on my profile and Listings', 'additional-gallery-for-hivepress' ),
+				'vendor'  => __( 'Show this folder on my profile', 'additional-gallery-for-hivepress' ),
+				'listing' => __( 'Show this folder on my Listings', 'additional-gallery-for-hivepress' ),
+			],
+			'hidden' => [
+				'both'    => __( 'Not on your profile or Listings', 'additional-gallery-for-hivepress' ),
+				'vendor'  => __( 'Not on your profile', 'additional-gallery-for-hivepress' ),
+				'listing' => __( 'Not on your Listings', 'additional-gallery-for-hivepress' ),
+			],
+		];
+
+		return isset( $wording[ $kind ][ $key ] ) ? $wording[ $kind ][ $key ] : '';
+	}
+
+	/**
+	 * Renders the panel where a Vendor chooses where their gallery appears.
+	 *
+	 * @param \HivePress\Models\Vendor|null $vendor Vendor object.
+	 * @return string Empty when owner choices are off or no page type shows a gallery.
+	 */
+	public function render_display_panel( $vendor ) {
+		$surfaces = $this->get_owner_display_surfaces();
+
+		if ( ! $surfaces || ! $vendor instanceof Models\Vendor ) {
+			return '';
+		}
+
+		$captions = [
+			'vendor'  => esc_html__( 'Show my gallery on my profile', 'additional-gallery-for-hivepress' ),
+			'listing' => esc_html__( 'Show my gallery on my Listings', 'additional-gallery-for-hivepress' ),
+		];
+
+		$output  = '<div class="hp-agl-account__display">';
+		$output .= '<h3 class="hp-section__title">' . esc_html__( 'Where Your Gallery Appears', 'additional-gallery-for-hivepress' ) . '</h3>';
+		$output .= '<p class="hp-meta">' . esc_html__( 'Your gallery page and its link are not affected. To leave out one folder, open it from your folder list and untick its Where It Appears box.', 'additional-gallery-for-hivepress' ) . '</p>';
+		$output .= '<form class="hp-form hp-agl-account__display-form" data-agl-display-form>';
+		$output .= '<div class="hp-form__fields">';
+
+		foreach ( $surfaces as $surface ) {
+			$field = new \HivePress\Fields\Checkbox(
+				[
+					'name'    => 'listing' === $surface ? 'listings' : 'profile',
+					'caption' => $captions[ $surface ],
+					'default' => $this->vendor_shows_gallery_on( $vendor, $surface ),
+				]
+			);
+
+			$output .= '<div class="hp-form__field hp-form__field--checkbox">' . $field->render() . '</div>';
+		}
+
+		$output .= '</div>';
+		$output .= '<div class="hp-form__footer">';
+		$output .= '<button type="submit" class="hp-form__button button button--primary alt"><span>' . esc_html__( 'Save Display Choices', 'additional-gallery-for-hivepress' ) . '</span></button>';
+		$output .= '</div>';
+		$output .= '<div class="hp-form__messages" data-agl-display-message></div>';
+		$output .= '</form>';
+		$output .= '</div>';
+
+		return $output;
+	}
+
+	/**
+	 * Queues a cache purge of a Vendor's profile and Listings.
+	 *
+	 * Queued rather than run here, because some caching plugins purge through a remote call.
+	 *
+	 * @param int $vendor_id Vendor ID.
+	 * @return void
+	 */
+	public function queue_vendor_pages_purge( $vendor_id ) {
+		$scheduler = hivepress()->scheduler;
+
+		if ( $scheduler && absint( $vendor_id ) ) {
+			$scheduler->add_action( 'hp_agl_purge_vendor_pages', [ absint( $vendor_id ) ] );
+		}
+	}
+
+	/**
+	 * Purges the cached profile and Listings of one Vendor.
+	 *
+	 * Runs from the scheduler after a display choice changes, so a Vendor who hides their gallery
+	 * does not find it still on a cached copy of their profile.
+	 *
+	 * @param int $vendor_id Vendor ID.
+	 * @return void
+	 */
+	public function purge_vendor_pages( $vendor_id ) {
+		$vendor_id = absint( $vendor_id );
+
+		if ( ! $vendor_id || 'hp_vendor' !== get_post_type( $vendor_id ) ) {
+			return;
+		}
+
+		$urls = [ (string) get_permalink( $vendor_id ) ];
+
+		// Capped, because a purge job is not the place to walk an unbounded catalogue.
+		$listing_ids = get_posts(
+			[
+				'post_type'      => 'hp_listing',
+				'post_status'    => 'publish',
+				'post_parent'    => $vendor_id,
+				'posts_per_page' => 100,
+				'fields'         => 'ids',
+			]
+		);
+
+		foreach ( $listing_ids as $listing_id ) {
+			$urls[] = (string) get_permalink( $listing_id );
+		}
+
+		$this->purge_urls( array_values( array_filter( $urls ) ), 0 );
 	}
 
 	/**
@@ -6309,6 +6585,17 @@ final class Agl_Gallery extends Component {
 			]
 		);
 
+		$this->purge_urls( $urls, $photo_id );
+	}
+
+	/**
+	 * Purges cached copies of the given pages from the caching plugins this knows about.
+	 *
+	 * @param array $urls Page URLs.
+	 * @param int   $photo_id Attachment ID the purge is for, or 0 for a Vendor's profile and Listings.
+	 * @return void
+	 */
+	protected function purge_urls( $urls, $photo_id ) {
 		if ( ! $urls ) {
 			return;
 		}
@@ -6320,7 +6607,7 @@ final class Agl_Gallery extends Component {
 		 *
 		 * @hook hp_agl/purge_urls
 		 * @param {array} $urls Page URLs.
-		 * @param {int} $photo_id Attachment ID.
+		 * @param {int} $photo_id Attachment ID, or 0 when a Vendor's display choices changed.
 		 */
 		do_action( 'hp_agl/purge_urls', $urls, $photo_id );
 

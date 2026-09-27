@@ -5,7 +5,7 @@ Requires at least: 5.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: hivepress
-Stable tag: 1.10.8
+Stable tag: 1.11.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -22,12 +22,14 @@ Vendors can:
 * Describe each photo or video; descriptions appear on the photo's own page, under its tile, and double as image alt text
 * Set each folder to Public, Members only, or Private
 * Share their gallery link or a direct link to any folder, and see the gallery linked automatically from their vendor profile and listing pages
+* Choose whether their gallery appears on their profile and on their Listings, and leave single folders out, when the site switches on Vendor Display Choices
 
 Visitors see a gallery of folder covers with an "Updated 2 days ago" line, and click into each folder (every folder has its own shareable URL). A setting can switch this to the classic all-photos-expanded layout. Clicking any photo opens that photo's own page, with its description, likes, previous and next buttons and the comment thread; a Lightbox setting additionally lets visitors click the photo there to enlarge it. Members-only folders appear locked, with heavily blurred previews (or lock placeholders) that tease the content until the visitor unlocks access, and the original image URLs are never present in the page for locked folders.
 
 Site owners can control everything from HivePress > Settings > Gallery:
 
 * Hide the gallery link on vendor profiles and/or listing pages
+* Let each Vendor decide whether their gallery appears on their own profile and Listings, and which folders appear there
 * Limit the number of folders per vendor, and images per folder (default 30)
 * Gate the gallery to membership plans, set up natively on each plan in HivePress Memberships (an "Allow using the photo gallery" and an "Allow viewing members-only gallery folders" option per plan)
 * Choose how locked folders look: blurred previews, lock placeholders, or hidden entirely
@@ -265,6 +267,10 @@ Account menu > Gallery (only shown to users with a published vendor profile).
 
 Yes. HivePress's attachment component removes all attached images when the folder is deleted.
 
+= Can Vendors keep their gallery off their profile or Listings? =
+
+Yes, once you allow it. Tick "Let Vendors choose where their gallery appears" (Vendor Display Choices) under HivePress > Settings > Gallery. Each Vendor then finds a "Where Your Gallery Appears" panel on their Gallery page in their account, with a box for their profile and a box for their Listings, and every folder they edit gains a "Where It Appears" tick to leave that folder out. The View Gallery button, its photo count and the Gallery sections all follow these choices, and a button or section with nothing left to show is not shown at all. The gallery page itself is never affected. The choices can only hide things: private folders are never shown and members-only folders stay locked, whatever a Vendor ticks. With the setting off, which is the default, every gallery appears exactly as your other settings say.
+
 = Can I put my logo on the QR code? =
 
 Yes. Under HivePress > Settings > Gallery > Sharing, choose an image for "QR Code Logo". A small square logo on a plain background works best. Nothing is added to the QR code until you choose one, and the QR code is drawn in the visitor's browser, so nothing is sent anywhere to make it.
@@ -295,6 +301,9 @@ Your OpenAI API key is left alone either way, because other extensions share it.
 * The Facebook and WhatsApp icons in the Share pop-up are from Font Awesome Free 7.1.0 by Fonticons, Inc., licensed under CC BY 4.0 (https://fontawesome.com/license/free).
 
 == Changelog ==
+
+= 1.11.0 =
+* Added: Vendors can choose whether their gallery appears on their profile and on their Listings, and which folders appear there. Tick "Vendor Display Choices" under Settings > Gallery to switch it on; each Vendor then sets it from their Gallery page in their account and on each folder, and the View Gallery button, its photo count and the Gallery sections all follow. Off by default, so nothing changes until you tick it.
 
 = 1.10.8 =
 * Added: the Share button also appears on the gallery page and on folder pages, in their sidebar under the Vendor's profile card, sharing that page's address. It uses the same settings as the photo page button. Switch those sidebars on under Settings > Gallery if they are off.

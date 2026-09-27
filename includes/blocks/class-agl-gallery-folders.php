@@ -149,6 +149,16 @@ class Agl_Gallery_Folders extends Block {
 
 				$output .= '<span class="hp-agl-folder__count hp-meta">' . esc_html( $count_label ) . '</span>';
 
+				// Folders the vendor keeps off their profile and Listings say so here. Private ones
+				// never appear there anyway, so the note would only confuse.
+				if ( 'private' !== $visibility && ! hivepress()->agl_gallery->folder_shows_on_pages( $folder ) ) {
+					$hidden_note = hivepress()->agl_gallery->get_display_wording( 'hidden' );
+
+					if ( $hidden_note ) {
+						$output .= '<span class="hp-agl-folder__offpage hp-meta"><i class="hp-icon fas fa-eye-slash"></i> ' . esc_html( $hidden_note ) . '</span>';
+					}
+				}
+
 				// Copy the folder link for shareable folders.
 				if ( 'private' !== $visibility ) {
 					$output .= '<button type="button" class="hp-agl-folder__copy" data-agl-icon-only="1" data-agl-copy="' . esc_url( hivepress()->agl_gallery->get_folder_url( $folder ) ) . '" title="' . esc_attr__( 'Copy folder link', 'additional-gallery-for-hivepress' ) . '"><i class="hp-icon fas fa-link"></i></button>';
@@ -191,6 +201,9 @@ class Agl_Gallery_Folders extends Block {
 		 * is what decides which of the two it is - passing no folder here is what asks it for the
 		 * whole-gallery prices.
 		 */
+		// Where the gallery appears, when the site lets vendors choose.
+		$output .= hivepress()->agl_gallery->render_display_panel( $vendor );
+
 		$output .= hivepress()->agl_gallery->render_price_panel( $vendor );
 
 		$output .= '</div>';
