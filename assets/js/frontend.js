@@ -2,7 +2,8 @@
  * Additional Gallery for HivePress - front-end scripts.
  *
  * Vanilla JS, no dependencies. Folder drag-sorting is handled by the core
- * HivePress sortable component; this file adds the delete confirmations,
+ * HivePress sortable component; this file adds the delete confirmations and
+ * the Manage card's folder deletion,
  * copy-link buttons, photo and comment likes, the comment thread, the
  * photo manage form, the display choices form and the paid-access price form.
  */
@@ -545,6 +546,43 @@
 		button.disabled = true;
 
 		apiFetch('/attachments/' + id, { method: 'DELETE' })
+			.then(function (response) {
+				if (response.ok || response.status === 204) {
+					if (redirect) {
+						window.location.href = redirect;
+					}
+				} else {
+					button.disabled = false;
+				}
+			})
+			.catch(function () {
+				button.disabled = false;
+			});
+	});
+
+	/**
+	 * Deleting a folder from the Manage card on its public page. Same confirmation and endpoint as
+	 * the account page's Delete Folder form, then back to the gallery page.
+	 */
+	document.addEventListener('click', function (event) {
+		var button = event.target.closest ? event.target.closest('[data-agl-folder-delete]') : null;
+
+		if (!button) {
+			return;
+		}
+
+		event.preventDefault();
+
+		if (!window.confirm(data.deleteConfirm || 'Are you sure?')) {
+			return;
+		}
+
+		var id = button.getAttribute('data-agl-folder-delete');
+		var redirect = button.getAttribute('data-agl-redirect');
+
+		button.disabled = true;
+
+		apiFetch('/gallery-folders/' + id, { method: 'DELETE' })
 			.then(function (response) {
 				if (response.ok || response.status === 204) {
 					if (redirect) {

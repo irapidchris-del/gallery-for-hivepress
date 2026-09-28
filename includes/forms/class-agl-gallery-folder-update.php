@@ -51,17 +51,39 @@ class Agl_Gallery_Folder_Update extends Model_Form {
 		 * has saved since this arrived has no row and stays shown, as before.
 		 */
 		$gallery = function_exists( 'hivepress' ) ? hivepress()->agl_gallery : null;
+		$folder  = hp\get_array_value( $args, 'model' );
+		$members = $gallery && $gallery->are_members_folders_available();
+
+		/*
+		 * A folder that is already members-only keeps that choice while the setting is on, even with
+		 * no unlock route active, so saving its title does not fail or change who can see it.
+		 */
+		if ( $gallery && ! $members && $folder instanceof \HivePress\Models\Gallery_Folder && 'members' === $folder->get_visibility() && $gallery->are_members_folders_enabled() ) {
+			$members = true;
+
+			$args = hp\merge_arrays(
+				[
+					'fields' => [
+						'visibility' => [
+							'description' => esc_html__( 'Public folders are visible to everyone. Members-only folders are locked for visitors without member access. Private folders are visible only to you.', 'additional-gallery-for-hivepress' ),
+							'options'     => [ 'members' => esc_html__( 'Members only', 'additional-gallery-for-hivepress' ) ],
+						],
+					],
+				],
+				$args
+			);
+		}
 
 		if ( $gallery && $gallery->get_owner_display_surfaces() ) {
-			$folder = hp\get_array_value( $args, 'model' );
-
 			$args = hp\merge_arrays(
 				[
 					'fields' => [
 						'agl_show_on_pages' => [
 							'label'       => esc_html__( 'Where It Appears', 'additional-gallery-for-hivepress' ),
 							'caption'     => esc_html( $gallery->get_display_wording( 'folder' ) ),
-							'description' => esc_html__( 'Unticked, the folder stays in your gallery but is left out of the gallery shown on your other pages. A private folder is never shown to visitors, and a members-only folder stays locked for them, whatever this says.', 'additional-gallery-for-hivepress' ),
+							'description' => $members
+								? esc_html__( 'Unticked, the folder stays in your gallery but is left out of the gallery shown on your other pages. A private folder is never shown to visitors, and a members-only folder stays locked for them, whatever this says.', 'additional-gallery-for-hivepress' )
+								: esc_html__( 'Unticked, the folder stays in your gallery but is left out of the gallery shown on your other pages. A private folder is never shown to visitors, whatever this says.', 'additional-gallery-for-hivepress' ),
 							'type'        => 'checkbox',
 							'default'     => $folder instanceof \HivePress\Models\Gallery_Folder && $folder->get_id() ? $gallery->folder_shows_on_pages( $folder ) : true,
 							'_separate'   => true,

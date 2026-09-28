@@ -66,8 +66,9 @@ class Agl_Gallery_Folder_Edit extends Block {
 		}
 
 		// Update form.
-		$output .= ( new Forms\Agl_Gallery_Folder_Update( [ 'model' => $folder ] ) )->render();
-		$output .= '<p class="hp-meta hp-agl-folder-edit__hint-edit">' . esc_html__( 'To edit a photo\'s title and description, move it to another folder, or delete it, open the photo\'s own page from your gallery and use the Manage Photo options.', 'additional-gallery-for-hivepress' ) . '</p>';
+		// The ID is the target of Add Photos in the Manage card on the public folder page.
+		$output .= '<div id="hp-agl-folder-form">' . ( new Forms\Agl_Gallery_Folder_Update( [ 'model' => $folder ] ) )->render() . '</div>';
+		$output .= '<p class="hp-meta hp-agl-folder-edit__hint-edit">' . esc_html__( 'To edit a photo\'s title and description, move it to another folder, or delete it, open the photo\'s own page from your gallery and use the Manage options.', 'additional-gallery-for-hivepress' ) . '</p>';
 
 		/*
 		 * This folder's own prices, where the site sells access folder by folder. Only a members-only

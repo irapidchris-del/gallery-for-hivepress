@@ -29,6 +29,41 @@ class Agl_Gallery_Folder_View_Page extends Page_Sidebar_Left {
 	public function __construct( $args = [] ) {
 		$position = hivepress()->agl_gallery->get_folder_sidebar_position();
 
+		// The Manage card follows the gallery page's rule: see Agl_Gallery_View_Page.
+		$vendor  = hivepress()->request->get_context( 'gallery_vendor' );
+		$manager = $vendor instanceof \HivePress\Models\Vendor && hivepress()->agl_gallery->can_manage_gallery( $vendor );
+
+		$sidebar_blocks = [
+			'gallery_manage' => [
+				'type'   => 'agl_gallery_manage',
+				'_label' => esc_html__( 'Manage', 'additional-gallery-for-hivepress' ),
+				'_order' => 5,
+			],
+		];
+
+		if ( 'none' !== $position ) {
+			$sidebar_blocks += [
+				'gallery_folder_vendor' => [
+					'type'     => 'template',
+					'template' => 'vendor_view_block',
+					'_order'   => 10,
+				],
+
+				// Under the Vendor card, as on the photo page (since 1.10.8): the same Share
+				// button and pop-up, sharing this page's own address.
+				'gallery_share'         => [
+					'type'   => 'agl_gallery_photo_share',
+					'_order' => 20,
+				],
+
+				'page_sidebar_widgets'  => [
+					'type'   => 'widgets',
+					'area'   => 'hp_agl_folder_sidebar',
+					'_order' => 100,
+				],
+			];
+		}
+
 		$args = hp\merge_trees(
 			[
 				'blocks' => [
@@ -46,7 +81,7 @@ class Agl_Gallery_Folder_View_Page extends Page_Sidebar_Left {
 						'_order'     => 'left' === $position ? 20 : 10,
 
 						'attributes' => [
-							'class' => 'none' === $position ? [ 'hp-agl-page--full' ] : [],
+							'class' => 'none' === $position && ! $manager ? [ 'hp-agl-page--full' ] : [],
 						],
 
 						'blocks'     => [
@@ -66,26 +101,7 @@ class Agl_Gallery_Folder_View_Page extends Page_Sidebar_Left {
 							'data-component' => 'sticky',
 						],
 
-						'blocks'     => 'none' === $position ? [] : [
-							'gallery_folder_vendor' => [
-								'type'     => 'template',
-								'template' => 'vendor_view_block',
-								'_order'   => 10,
-							],
-
-							// Under the Vendor card, as on the photo page (since 1.10.8): the same Share
-							// button and pop-up, sharing this page's own address.
-							'gallery_share'         => [
-								'type'   => 'agl_gallery_photo_share',
-								'_order' => 20,
-							],
-
-							'page_sidebar_widgets'  => [
-								'type'   => 'widgets',
-								'area'   => 'hp_agl_folder_sidebar',
-								'_order' => 100,
-							],
-						],
+						'blocks'     => 'none' === $position && ! $manager ? [] : $sidebar_blocks,
 					],
 				],
 			],

@@ -17,7 +17,7 @@ defined( 'ABSPATH' ) || exit;
  *
  * Extends the left-sidebar page whether or not the site wants a sidebar, because a template's parent
  * is fixed when the class is declared and the setting is not known until a request. With the sidebar
- * switched off it is given no blocks at all and `optional` makes an empty container render nothing
+ * switched off it is given no blocks at all (bar the owner's Manage card) and `optional` makes an empty container render nothing
  * (hivepress/includes/blocks/class-container.php:106), while the content column takes an extra class
  * that widens it back to the full row - the grid classes core puts there cannot be removed by
  * merging, only added to.
@@ -31,6 +31,46 @@ class Agl_Gallery_View_Page extends Page_Sidebar_Left {
 	 */
 	public function __construct( $args = [] ) {
 		$position = hivepress()->agl_gallery->get_page_sidebar_position();
+
+		/*
+		 * With the sidebar switched off, the owner or an administrator still gets a right-hand
+		 * column holding only the Manage card, so the gallery's options are always one click away.
+		 * Visitors get the full-width page. The vendor is known here because the route's title
+		 * callback stores it before the page renders.
+		 */
+		$vendor  = hivepress()->request->get_context( 'gallery_vendor' );
+		$manager = $vendor instanceof \HivePress\Models\Vendor && hivepress()->agl_gallery->can_manage_gallery( $vendor );
+
+		$sidebar_blocks = [
+			'gallery_manage' => [
+				'type'   => 'agl_gallery_manage',
+				'_label' => esc_html__( 'Manage', 'additional-gallery-for-hivepress' ),
+				'_order' => 5,
+			],
+		];
+
+		if ( 'none' !== $position ) {
+			$sidebar_blocks += [
+				'gallery_vendor'       => [
+					'type'     => 'template',
+					'template' => 'vendor_view_block',
+					'_order'   => 10,
+				],
+
+				// Under the Vendor card, as on the photo page (since 1.10.8): the same Share
+				// button and pop-up, sharing this page's own address.
+				'gallery_share'        => [
+					'type'   => 'agl_gallery_photo_share',
+					'_order' => 20,
+				],
+
+				'page_sidebar_widgets' => [
+					'type'   => 'widgets',
+					'area'   => 'hp_agl_gallery_sidebar',
+					'_order' => 100,
+				],
+			];
+		}
 
 		$args = hp\merge_trees(
 			[
@@ -56,7 +96,7 @@ class Agl_Gallery_View_Page extends Page_Sidebar_Left {
 						'_order'     => 'left' === $position ? 20 : 10,
 
 						'attributes' => [
-							'class' => 'none' === $position ? [ 'hp-agl-page--full' ] : [],
+							'class' => 'none' === $position && ! $manager ? [ 'hp-agl-page--full' ] : [],
 						],
 
 						'blocks'     => [
@@ -76,26 +116,7 @@ class Agl_Gallery_View_Page extends Page_Sidebar_Left {
 							'data-component' => 'sticky',
 						],
 
-						'blocks'     => 'none' === $position ? [] : [
-							'gallery_vendor'       => [
-								'type'     => 'template',
-								'template' => 'vendor_view_block',
-								'_order'   => 10,
-							],
-
-							// Under the Vendor card, as on the photo page (since 1.10.8): the same Share
-							// button and pop-up, sharing this page's own address.
-							'gallery_share'        => [
-								'type'   => 'agl_gallery_photo_share',
-								'_order' => 20,
-							],
-
-							'page_sidebar_widgets' => [
-								'type'   => 'widgets',
-								'area'   => 'hp_agl_gallery_sidebar',
-								'_order' => 100,
-							],
-						],
+						'blocks'     => 'none' === $position && ! $manager ? [] : $sidebar_blocks,
 					],
 				],
 			],

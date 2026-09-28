@@ -62,7 +62,7 @@ class Agl_Gallery_Folders extends Block {
 			$output .= '<div class="hp-agl-account__share-row">';
 			$output .= '<input type="text" readonly value="' . esc_url( $public_url ) . '">';
 			$output .= '<button type="button" class="button hp-agl-copy" data-agl-copy="' . esc_url( $public_url ) . '">' . esc_html__( 'Copy', 'additional-gallery-for-hivepress' ) . '</button>';
-			$output .= '<a href="' . esc_url( $public_url ) . '" target="_blank" class="button alt">' . esc_html__( 'View', 'additional-gallery-for-hivepress' ) . '</a>';
+			$output .= '<a href="' . esc_url( $public_url ) . '" class="button alt">' . esc_html__( 'View', 'additional-gallery-for-hivepress' ) . '</a>';
 			$output .= '</div>';
 			$output .= '</div>';
 		} elseif ( $folders && $folders->count() ) {
@@ -71,9 +71,13 @@ class Agl_Gallery_Folders extends Block {
 			 * folders, or a public folder they have not put a photo in yet, simply found the whole
 			 * block missing with no way of knowing whether it was a fault or a rule.
 			 */
+			$share_note = hivepress()->agl_gallery->are_members_folders_available()
+				? esc_html__( 'Your gallery gets a link to share once a public or members-only folder has a photo in it. Private folders stay visible to you alone, so they never appear here.', 'additional-gallery-for-hivepress' )
+				: esc_html__( 'Your gallery gets a link to share once a public folder has a photo in it. Private folders stay visible to you alone, so they never appear here.', 'additional-gallery-for-hivepress' );
+
 			$output .= '<div class="hp-agl-account__share hp-agl-account__share--empty">';
 			$output .= '<strong>' . esc_html__( 'Your public gallery link', 'additional-gallery-for-hivepress' ) . '</strong>';
-			$output .= '<p class="hp-agl-account__share-note">' . esc_html__( 'Your gallery gets a link to share once a public or members-only folder has a photo in it. Private folders stay visible to you alone, so they never appear here.', 'additional-gallery-for-hivepress' ) . '</p>';
+			$output .= '<p class="hp-agl-account__share-note">' . $share_note . '</p>';
 			$output .= '</div>';
 		}
 
@@ -181,7 +185,8 @@ class Agl_Gallery_Folders extends Block {
 			/* translators: %s: folders number. */
 			$output .= '<p class="hp-agl-account__limit">' . esc_html( sprintf( _n( 'You have reached the limit of %s folder.', 'You have reached the limit of %s folders.', $max_folders, 'additional-gallery-for-hivepress' ), number_format_i18n( $max_folders ) ) ) . '</p>';
 		} else {
-			$output .= '<div class="hp-agl-account__create">';
+			// The ID is the target of Add New Folder in the Manage card on the public gallery page.
+			$output .= '<div id="hp-agl-new-folder" class="hp-agl-account__create">';
 
 			/*
 			 * `hp-section__title` is core's own heading class, and it is what gives a heading the

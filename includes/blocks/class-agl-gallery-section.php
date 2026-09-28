@@ -212,7 +212,7 @@ class Agl_Gallery_Section extends Block {
 			}
 
 			// A folder its Vendor has chosen to keep to the gallery page alone.
-			if ( ! hivepress()->agl_gallery->folder_shows_on_pages( $folder ) ) {
+			if ( ! hivepress()->agl_gallery->folder_shows_on_pages( $folder, $surface ) ) {
 				continue;
 			}
 

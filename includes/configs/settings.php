@@ -81,7 +81,7 @@ return [
 					'gallery_owner_display'            => [
 						'label'       => esc_html__( 'Vendor Display Choices', 'additional-gallery-for-hivepress' ),
 						'caption'     => esc_html__( 'Let Vendors choose where their gallery appears', 'additional-gallery-for-hivepress' ),
-						'description' => esc_html__( 'Gives each Vendor a "Where Your Gallery Appears" panel on their Gallery page in their account, to show or hide their gallery on their profile and on their Listings, plus a tick on each folder to leave that folder out. Affects only the View Gallery button and the Gallery sections above, never the gallery page itself. Private folders are never shown and members-only folders stay locked, whatever a Vendor chooses.', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Gives each Vendor a "Where Your Gallery Appears" panel on their Gallery page in their account, to show or hide their gallery on their profile and on their Listings, plus a tick on each folder to leave that folder out. Each choice is offered only while the matching Gallery section above is on, and then covers that page\'s View Gallery button too. Affects only the View Gallery button and the Gallery sections above, never the gallery page itself. Private folders are never shown and members-only folders stay locked, whatever a Vendor chooses.', 'additional-gallery-for-hivepress' ),
 						'type'        => 'checkbox',
 						'_order'      => 28,
 					],
@@ -425,7 +425,7 @@ return [
 					'gallery_enable_members'     => [
 						'label'       => esc_html__( 'Members-Only Folders', 'additional-gallery-for-hivepress' ),
 						'caption'     => esc_html__( 'Let vendors mark folders as members-only', 'additional-gallery-for-hivepress' ),
-						'description' => esc_html__( 'Members-only folders appear locked until a visitor gains access through a membership plan or a purchase. With this off, vendors choose only public or private, and existing members-only folders behave as private.', 'additional-gallery-for-hivepress' ),
+						'description' => esc_html__( 'Members-only folders appear locked until a visitor gains access through a membership plan or a purchase. Vendors are offered the choice only while HivePress Memberships is active or Paid Access is on, because otherwise nobody could unlock these folders. With this off, vendors choose only public or private, and existing members-only folders behave as private.', 'additional-gallery-for-hivepress' ),
 						'type'        => 'checkbox',
 						'default'     => true,
 						'_order'      => 10,

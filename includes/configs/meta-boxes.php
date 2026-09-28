@@ -86,9 +86,9 @@ return [
 				'default'  => 'public',
 				'_order'   => 20,
 
-				// Same choices vendors get, so an admin cannot set a state the
-				// site has switched off.
-				'options'  => hivepress()->agl_gallery->get_visibility_options(),
+				// Follows the setting alone, so an admin cannot set a state the site has switched
+				// off, yet can still save a members-only folder while no unlock route is active.
+				'options'  => hivepress()->agl_gallery->get_visibility_options( hivepress()->agl_gallery->are_members_folders_enabled() ),
 			],
 		],
 	],

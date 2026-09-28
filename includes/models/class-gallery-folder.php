@@ -92,6 +92,11 @@ class Gallery_Folder extends Post {
 			}
 		}
 
+		// Members-only is mentioned only where it is offered.
+		$visibility_help = isset( $visibility_options['members'] )
+			? esc_html__( 'Public folders are visible to everyone. Members-only folders are locked for visitors without member access. Private folders are visible only to you.', 'additional-gallery-for-hivepress' )
+			: esc_html__( 'Public folders are visible to everyone. Private folders are visible only to you.', 'additional-gallery-for-hivepress' );
+
 		// Get the accepted formats (honouring the admin format restrictions).
 		$formats = hp_agl_get_upload_formats();
 
@@ -116,7 +121,7 @@ class Gallery_Folder extends Post {
 
 					'visibility'   => [
 						'label'       => esc_html__( 'Visibility', 'additional-gallery-for-hivepress' ),
-						'description' => esc_html__( 'Public folders are visible to everyone. Members-only folders are locked for visitors without member access. Private folders are visible only to you.', 'additional-gallery-for-hivepress' ),
+						'description' => $visibility_help,
 						'type'        => 'select',
 						'required'    => true,
 						'default'     => 'public',

@@ -5,7 +5,7 @@ Requires at least: 5.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: hivepress
-Stable tag: 1.11.0
+Stable tag: 1.12.0
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -20,7 +20,8 @@ Vendors can:
 * Create gallery folders from a new "Gallery" page in their account menu, and drag folders into any order
 * Upload, reorder (drag and drop) and remove images - and videos, if the site allows them - in each folder
 * Describe each photo or video; descriptions appear on the photo's own page, under its tile, and double as image alt text
-* Set each folder to Public, Members only, or Private
+* Set each folder to Public, Members only, or Private (Members only is offered while HivePress Memberships is active or Paid Access is on)
+* Reach their gallery and folder options from a Manage card in the gallery page and folder page sidebars: Add New Folder, Add Photos, Edit Folder and Delete Folder
 * Share their gallery link or a direct link to any folder, and see the gallery linked automatically from their vendor profile and listing pages
 * Choose whether their gallery appears on their profile and on their Listings, and leave single folders out, when the site switches on Vendor Display Choices
 
@@ -135,9 +136,16 @@ Each photo page also has a sidebar (left or right, chosen in settings). It
 shows the vendor's profile card, so visitors can reach the vendor from any
 photo, and it is a normal WordPress widget area named "Photo Page (sidebar)"
 that you can fill from Appearance > Widgets. When the photo's owner views
-their own photo, a Manage Photo card appears there too, with the title and
+their own photo, a Manage card appears there too, with the title and
 description fields, a move-to-another-folder choice with confirmation, and
 deletion.
+
+The gallery page and folder pages show a Manage card of their own to the
+Vendor who owns them: Add New Folder and the Gallery settings on the gallery
+page; Add Photos, Edit Folder and Delete Folder on a folder page. Site
+administrators see links to the folders in wp-admin instead, and visitors see
+no card. The card appears even when those sidebars are switched off, in a
+sidebar of its own that only the owner and administrators see.
 
 = Paid access (optional) =
 
@@ -269,7 +277,7 @@ Yes. HivePress's attachment component removes all attached images when the folde
 
 = Can Vendors keep their gallery off their profile or Listings? =
 
-Yes, once you allow it. Tick "Let Vendors choose where their gallery appears" (Vendor Display Choices) under HivePress > Settings > Gallery. Each Vendor then finds a "Where Your Gallery Appears" panel on their Gallery page in their account, with a box for their profile and a box for their Listings, and every folder they edit gains a "Where It Appears" tick to leave that folder out. The View Gallery button, its photo count and the Gallery sections all follow these choices, and a button or section with nothing left to show is not shown at all. The gallery page itself is never affected. The choices can only hide things: private folders are never shown and members-only folders stay locked, whatever a Vendor ticks. With the setting off, which is the default, every gallery appears exactly as your other settings say.
+Yes, once you allow it. Tick "Let Vendors choose where their gallery appears" (Vendor Display Choices) under HivePress > Settings > Gallery. Each Vendor then finds a "Where Your Gallery Appears" panel on their Gallery page in their account, with a box for their profile (while "Gallery on Vendor Profiles" is on) and a box for their Listings (while "Gallery on Listings" is on), and every folder they edit gains a "Where It Appears" tick to leave that folder out. The View Gallery button, its photo count and the Gallery sections all follow these choices, and a button or section with nothing left to show is not shown at all. The gallery page itself is never affected. The choices can only hide things: private folders are never shown and members-only folders stay locked, whatever a Vendor ticks. With the setting off, which is the default, every gallery appears exactly as your other settings say.
 
 = Can I put my logo on the QR code? =
 
@@ -301,6 +309,14 @@ Your OpenAI API key is left alone either way, because other extensions share it.
 * The Facebook and WhatsApp icons in the Share pop-up are from Font Awesome Free 7.1.0 by Fonticons, Inc., licensed under CC BY 4.0 (https://fontawesome.com/license/free).
 
 == Changelog ==
+
+= 1.12.0 =
+* Added: a Manage card in the gallery page and folder page sidebars for the Vendor who owns them: Add New Folder and Gallery Settings on the gallery page, Add Photos, Edit Folder and Delete Folder (with the usual confirmation) on a folder page. Administrators get wp-admin links; visitors see nothing. With those sidebars off, the owner still gets a sidebar holding just this card.
+* Changed: the photo page's "Manage Photo" card is now titled "Manage", like the new cards.
+* Changed: members-only folders are offered to Vendors, and mentioned in the Visibility help, only while HivePress Memberships is active or Paid Access is on, since otherwise nobody could unlock them. Existing members-only folders are unchanged.
+* Changed: in "Where Your Gallery Appears", the profile and Listings choices each appear only while "Gallery on Vendor Profiles" or "Gallery on Listings" is on, and the panel is hidden when neither is. A choice that is not offered no longer hides the View Gallery button.
+* Changed: the View button beside the public gallery link on the account Gallery page opens in the same tab.
+* Fixed: the dividers in the photo page's Manage card are visible in dark mode.
 
 = 1.11.0 =
 * Added: Vendors can choose whether their gallery appears on their profile and on their Listings, and which folders appear there. Tick "Vendor Display Choices" under Settings > Gallery to switch it on; each Vendor then sets it from their Gallery page in their account and on each folder, and the View Gallery button, its photo count and the Gallery sections all follow. Off by default, so nothing changes until you tick it.

@@ -79,7 +79,7 @@ class Agl_Gallery_Photo_Manage extends Block {
 		);
 
 		$output .= '<div class="hp-widget widget widget--sidebar hp-agl-photo-manage">';
-		$output .= '<h3 class="widget__title hp-section__title">' . esc_html__( 'Manage Photo', 'additional-gallery-for-hivepress' ) . '</h3>';
+		$output .= '<h3 class="widget__title hp-section__title">' . esc_html__( 'Manage', 'additional-gallery-for-hivepress' ) . '</h3>';
 
 		// The details form.
 		$output .= '<form class="hp-form hp-agl-photo-manage__form" data-agl-photo-edit="' . esc_attr( (string) $photo_id ) . '" data-agl-folder="' . esc_attr( (string) $folder->get_id() ) . '" data-agl-move-template="' . esc_url( $move_template ) . '">';

@@ -813,6 +813,27 @@ final class Agl_Gallery extends Component {
 	}
 
 	/**
+	 * Checks whether Vendors are offered members-only folders.
+	 *
+	 * The setting is on by default, so without a way to unlock a folder (HivePress Memberships, or
+	 * Paid Access with WooCommerce) every site still offered a choice nobody could ever open. Only
+	 * the offer and its wording follow this; an existing members-only folder keeps its visibility.
+	 *
+	 * @return bool
+	 */
+	public function are_members_folders_available() {
+		$available = $this->are_members_folders_enabled() && ( $this->is_memberships_active() || $this->is_paid_access_enabled() );
+
+		/**
+		 * Filters whether Vendors are offered members-only folders. Return true when access is
+		 * granted through the `hp_agl/user_can_view_member_folders` filter instead.
+		 *
+		 * @param bool $available Whether members-only folders are offered.
+		 */
+		return (bool) apply_filters( 'hp_agl/members_folders_available', $available );
+	}
+
+	/**
 	 * Gets a folder's effective visibility.
 	 *
 	 * With members-only folders switched off site-wide, an existing
@@ -839,14 +860,15 @@ final class Agl_Gallery extends Component {
 	/**
 	 * Gets the visibility choices vendors may pick from.
 	 *
+	 * @param bool|null $members Whether to include members-only; null follows are_members_folders_available().
 	 * @return array
 	 */
-	public function get_visibility_options() {
+	public function get_visibility_options( $members = null ) {
 		$options = [
 			'public' => esc_html__( 'Public', 'additional-gallery-for-hivepress' ),
 		];
 
-		if ( $this->are_members_folders_enabled() ) {
+		if ( null === $members ? $this->are_members_folders_available() : $members ) {
 			$options['members'] = esc_html__( 'Members only', 'additional-gallery-for-hivepress' );
 		}
 
@@ -989,7 +1011,7 @@ final class Agl_Gallery extends Component {
 				continue;
 			}
 
-			if ( $surface && ! $this->folder_shows_on_pages( $folder ) ) {
+			if ( $surface && ! $this->folder_shows_on_pages( $folder, $surface ) ) {
 				continue;
 			}
 
@@ -1018,8 +1040,10 @@ final class Agl_Gallery extends Component {
 	/**
 	 * Gets the page types a Vendor may switch their gallery off on.
 	 *
-	 * Only page types where this site shows a gallery at all, through the button or the section,
-	 * are offered: a choice for a page that never shows one would be a control that does nothing.
+	 * A page type is offered only while its Gallery section setting is on. Offering it for the
+	 * View Gallery button alone showed "Show my gallery on my Listings" on sites that never show a
+	 * gallery on Listings. A choice that is not offered is not applied either (see
+	 * vendor_shows_gallery_on()), so a saved "hide" can never linger where the Vendor cannot undo it.
 	 *
 	 * @return array Any of `vendor` and `listing`, empty when owner choices are off.
 	 */
@@ -1030,11 +1054,11 @@ final class Agl_Gallery extends Component {
 
 		$surfaces = [];
 
-		if ( ! get_option( 'hp_gallery_hide_vendor_link' ) || get_option( 'hp_gallery_show_on_vendors' ) ) {
+		if ( get_option( 'hp_gallery_show_on_vendors' ) ) {
 			$surfaces[] = 'vendor';
 		}
 
-		if ( ! get_option( 'hp_gallery_hide_listing_link' ) || get_option( 'hp_gallery_show_on_listings' ) ) {
+		if ( get_option( 'hp_gallery_show_on_listings' ) ) {
 			$surfaces[] = 'listing';
 		}
 
@@ -1059,10 +1083,10 @@ final class Agl_Gallery extends Component {
 	 *
 	 * @param \HivePress\Models\Vendor|null $vendor Vendor object.
 	 * @param string                        $surface Either `vendor` or `listing`.
-	 * @return bool Always true while owner choices are off.
+	 * @return bool Always true where the choice is not offered.
 	 */
 	public function vendor_shows_gallery_on( $vendor, $surface ) {
-		if ( ! $this->is_owner_display_enabled() || ! $vendor instanceof Models\Vendor ) {
+		if ( ! $vendor instanceof Models\Vendor || ! in_array( $surface, $this->get_owner_display_surfaces(), true ) ) {
 			return true;
 		}
 
@@ -1102,10 +1126,13 @@ final class Agl_Gallery extends Component {
 	 * shown, so ticking a private or members-only folder can never expose it.
 	 *
 	 * @param \HivePress\Models\Gallery_Folder $folder Folder object.
-	 * @return bool Always true while owner choices are off.
+	 * @param string                           $surface Page type, `vendor` or `listing`, or empty for any offered one.
+	 * @return bool Always true where the choice is not offered.
 	 */
-	public function folder_shows_on_pages( $folder ) {
-		if ( ! $this->is_owner_display_enabled() ) {
+	public function folder_shows_on_pages( $folder, $surface = '' ) {
+		$surfaces = $this->get_owner_display_surfaces();
+
+		if ( ! $surfaces || ( $surface && ! in_array( $surface, $surfaces, true ) ) ) {
 			return true;
 		}
 
@@ -1188,7 +1215,7 @@ final class Agl_Gallery extends Component {
 			'listing' => esc_html__( 'Show my gallery on my Listings', 'additional-gallery-for-hivepress' ),
 		];
 
-		$output  = '<div class="hp-agl-account__display">';
+		$output  = '<div id="hp-agl-display" class="hp-agl-account__display">';
 		$output .= '<h3 class="hp-section__title">' . esc_html__( 'Where Your Gallery Appears', 'additional-gallery-for-hivepress' ) . '</h3>';
 		$output .= '<p class="hp-meta">' . esc_html__( 'Your gallery page and its link are not affected. To leave out one folder, open it from your folder list and untick its Where It Appears box.', 'additional-gallery-for-hivepress' ) . '</p>';
 		$output .= '<form class="hp-form hp-agl-account__display-form" data-agl-display-form>';
@@ -7284,7 +7311,7 @@ final class Agl_Gallery extends Component {
 			}
 		}
 
-		$output = '<div class="hp-agl-account__paid">';
+		$output = '<div id="hp-agl-paid-access" class="hp-agl-account__paid">';
 
 		$output .= '<h3 class="hp-section__title">' . esc_html__( 'Paid Access (optional)', 'additional-gallery-for-hivepress' ) . '</h3>';
 

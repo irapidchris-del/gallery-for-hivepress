@@ -830,7 +830,7 @@ a.hp-agl-unlock__upgrade.button--primary:focus {
 	margin-bottom: 1.875rem;
 }
 
-/* --- Manage Photo card --- */
+/* --- Manage card (photo page) --- */
 
 /* Full-width controls: the card's form is hand-built rather than a core
    form, so themes that size inputs per form class leave these at the browser
@@ -898,6 +898,62 @@ a.hp-agl-unlock__upgrade.button--primary:focus {
 
 .hp-agl-photo-manage__delete .hp-meta {
 	margin: 0.375rem 0 0;
+}
+
+/* --- Manage card on the gallery and folder pages --- */
+
+/* The same card as the photo page's, so only the parts it adds are styled here. */
+.hp-agl-gallery__sidebar > .hp-agl-manage {
+	margin-bottom: 1.875rem;
+}
+
+.hp-agl-manage__limit {
+	margin: 0;
+}
+
+.hp-agl-manage__links {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.hp-agl-manage__primary + .hp-agl-manage__links,
+.hp-agl-manage__limit + .hp-agl-manage__links {
+	margin-top: 1rem;
+}
+
+.hp-agl-manage__links li {
+	margin: 0;
+	padding: 0;
+}
+
+.hp-agl-manage__links li:not(:last-child) {
+	margin-bottom: 0.5rem;
+}
+
+.hp-agl-manage__links a {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.hp-agl-manage__links .hp-icon {
+	width: 1rem;
+	text-align: center;
+	opacity: 0.55;
+}
+
+.hp-agl-photo-manage__delete [data-agl-folder-delete] {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.375rem;
+}
+
+/* Link-button: restate the label colour above a theme's bare a:hover rule. */
+a.hp-agl-manage__primary.button--primary:hover,
+a.hp-agl-manage__primary.button--primary:focus {
+	color: #fff;
 }
 
 /* --- Paid access price form --- */
@@ -1180,6 +1236,8 @@ a.hp-agl-unlock__upgrade.button--primary:focus {
 }
 
 /* Dark mode: a faint black rule vanishes on a dark page, so this divider takes a light one. */
-html.darkify_dark_mode_enabled .hp-agl-account__display {
+html.darkify_dark_mode_enabled .hp-agl-account__display,
+html.darkify_dark_mode_enabled .hp-agl-photo-manage__cover,
+html.darkify_dark_mode_enabled .hp-agl-photo-manage__delete {
 	border-top-color: rgba(255, 255, 255, 0.12);
 }
