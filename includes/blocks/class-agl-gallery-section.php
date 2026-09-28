@@ -60,7 +60,7 @@ class Agl_Gallery_Section extends Block {
 		}
 
 		// A vendor who has nothing to show gets no empty section and no heading.
-		$folders = $this->get_folders( $vendor );
+		$folders = $this->get_folders( $vendor, $surface );
 
 		if ( ! $folders ) {
 			return '';
@@ -180,9 +180,10 @@ class Agl_Gallery_Section extends Block {
 	 * sees that arrangement here too.
 	 *
 	 * @param \HivePress\Models\Vendor $vendor Vendor object.
+	 * @param string                   $surface Page type the section is on, `vendor` or `listing`.
 	 * @return array
 	 */
-	protected function get_folders( $vendor ) {
+	protected function get_folders( $vendor, $surface ) {
 		$folders = Models\Gallery_Folder::query()->filter(
 			[
 				'status' => 'publish',

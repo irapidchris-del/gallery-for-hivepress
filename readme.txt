@@ -5,7 +5,7 @@ Requires at least: 5.8
 Tested up to: 7.1
 Requires PHP: 7.4
 Requires Plugins: hivepress
-Stable tag: 1.12.0
+Stable tag: 1.12.1
 License: GPLv3 or later
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -309,6 +309,9 @@ Your OpenAI API key is left alone either way, because other extensions share it.
 * The Facebook and WhatsApp icons in the Share pop-up are from Font Awesome Free 7.1.0 by Fonticons, Inc., licensed under CC BY 4.0 (https://fontawesome.com/license/free).
 
 == Changelog ==
+
+= 1.12.1 =
+* Fixed: the Gallery section on Vendor profiles and Listings logged a PHP warning ("Undefined variable $surface"), and a folder kept off those pages stayed hidden even where that choice is not offered.
 
 = 1.12.0 =
 * Added: a Manage card in the gallery page and folder page sidebars for the Vendor who owns them: Add New Folder and Gallery Settings on the gallery page, Add Photos, Edit Folder and Delete Folder (with the usual confirmation) on a folder page. Administrators get wp-admin links; visitors see nothing. With those sidebars off, the owner still gets a sidebar holding just this card.
